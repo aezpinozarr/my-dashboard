@@ -1,6 +1,6 @@
 import psycopg2
 
-conn_str = "dbname=mibasededatos user=miusuario password=micontrasena host=localhost port=5432"
+conn_str = "dbname=mibasededatos user=miusuario password=micontrasena host=192.168.1.121 port=5432"
 
 
 class PgHelper:
