@@ -1,0 +1,82 @@
+[
+  {
+    "folio": "ID-2025-0006",
+    "ente": "sec-educ",
+    "tipoEnte": "SEC",
+    "tipoEnteNombre": "Secretaría",
+    "sector": "Público",
+    "noOficio": "780",
+    "asunto": "PF 1.1",
+    "fecha": "23/09/2025",
+    "presidente": "p3",
+    "tipoLicitacion": "Simplificado",
+    "clasificacion": "adm",
+    "fuentes": [
+      "Recursos propios"
+    ],
+    "fechasSesiones": [],
+    "estatusGeneral": {
+      "revisionBase": false,
+      "publicacion": true,
+      "juntaAclaracion": false,
+      "actaPresentacion": false,
+      "falloTecnico": false,
+      "comunicacion": false
+    },
+    "createdAt": "2025-09-23T15:59:21.728Z",
+    "id": 1
+  },
+  {
+    "folio": "ID-2025-0007",
+    "ente": "sec-educ",
+    "tipoEnte": "SEC",
+    "tipoEnteNombre": "Secretaría",
+    "sector": "Público",
+    "noOficio": "3035",
+    "asunto": "2723",
+    "fecha": "20/09/2025",
+    "presidente": "p4",
+    "tipoLicitacion": "Pública",
+    "clasificacion": "",
+    "fuentes": [
+      "Recursos propios"
+    ],
+    "fechasSesiones": [],
+    "estatusGeneral": {
+      "revisionBase": false,
+      "publicacion": false,
+      "juntaAclaracion": false,
+      "actaPresentacion": false,
+      "falloTecnico": true,
+      "comunicacion": false
+    },
+    "createdAt": "2025-09-23T16:39:19.999Z",
+    "id": 2
+  },
+  {
+    "folio": "ID-2025-0008",
+    "ente": "poder-jud",
+    "tipoEnte": "POD",
+    "tipoEnteNombre": "Poder",
+    "sector": "Público",
+    "noOficio": "123",
+    "asunto": "321",
+    "fecha": "23/09/2025",
+    "presidente": "p6",
+    "tipoLicitacion": "Pública",
+    "clasificacion": "fin",
+    "fuentes": [
+      "Recursos propios"
+    ],
+    "estatusGeneral": {
+      "revisionBase": false,
+      "publicacion": true,
+      "juntaAclaracion": false,
+      "actaPresentacion": false,
+      "falloTecnico": false,
+      "comunicacion": false
+    },
+    "fechasSesiones": [],
+    "createdAt": "2025-09-23T16:58:51.128Z"
+  }
+]
