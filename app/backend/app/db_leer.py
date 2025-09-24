@@ -7,7 +7,8 @@ db = PgHelper()
 
 nuevo_id = db.ejecutar_funcion("cliente_nuevo", params=("Angel", 25))
 print("🆔 Cliente creado con ID:", nuevo_id)
-print("🆔 hola")
+print("🆔 hola1")
+print("🆔 hola12")
 
 
 #nuevo_id = db.ejecutar_funcion("sp_servidor_publico_gestionar", params=("NUEVO",'null','Abgeliito','jefe',1))
