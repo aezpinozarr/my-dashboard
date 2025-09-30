@@ -2,45 +2,41 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
-// ==========================
-//  Validación con Zod
-// ==========================
-const ClienteSchema = z.object({
+/* =========================
+   Validación con Zod
+   ========================= */
+const Schema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio"),
-  edad: z.coerce.number().min(0, "La edad debe ser un número positivo"),
+  edad: z
+    .number({ invalid_type_error: "La edad debe ser un número" })
+    .min(1, "Debe ser mayor que 0"),
 });
-
-type ClienteForm = z.infer<typeof ClienteSchema>;
 
 export default function NewClientePage() {
   const router = useRouter();
-  const [mensaje, setMensaje] = React.useState<string>("");
 
-  const form = useForm<ClienteForm>({
-    resolver: zodResolver(ClienteSchema),
+  const form = useForm<z.infer<typeof Schema>>({
+    resolver: zodResolver(Schema),
     defaultValues: {
       nombre: "",
-      edad: 0,
+      edad: undefined,
     },
   });
 
   const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 
-  // ==========================
-  //  Guardar cliente
-  // ==========================
-  const onSubmit = async (data: ClienteForm) => {
+  const onSubmit = async (data: z.infer<typeof Schema>) => {
     try {
       const resp = await fetch(`${API_BASE}/clientes`, {
         method: "POST",
@@ -49,57 +45,56 @@ export default function NewClientePage() {
       });
 
       if (!resp.ok) {
-        const txt = await resp.text();
-        throw new Error(txt || "Error al crear cliente");
+        const txt = await resp.text().catch(() => "");
+        throw new Error(txt || "Error al guardar en backend");
       }
 
-      const nuevo = await resp.json();
-      setMensaje(`✅ Cliente creado con ID: ${nuevo.id}`);
+      const saved = await resp.json();
+      alert(`✅ Cliente creado con éxito`);
+
       form.reset();
-    } catch (err: any) {
+      router.push("/clientes"); // redirige al listado
+    } catch (err) {
       console.error(err);
-      setMensaje("❌ Error al guardar cliente");
+      alert("❌ No se pudo guardar el cliente.");
     }
   };
 
   return (
     <main className="mx-auto w-full max-w-3xl p-4 sm:p-6">
+      {/* Encabezado */}
       <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          type="button"
-          onClick={() => router.back()}
-        >
+        <Button variant="ghost" size="icon" type="button" onClick={() => router.back()}>
           <ArrowLeft className="size-4" />
         </Button>
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-          Nuevo Cliente
+          Nuevo cliente
         </h1>
       </div>
-
       <p className="mt-2 text-sm text-muted-foreground">
-        Ingresa los datos del cliente y guárdalos en la base de datos.
+        Completa los datos del cliente y guarda para registrarlo en la base de datos.
       </p>
 
       <Separator className="my-4" />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Formulario</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="grid gap-6"
-            noValidate
-          >
+      {/* Formulario */}
+      <form
+        id="cliente-form"
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="grid gap-6"
+        noValidate
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle>Datos del cliente</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4">
             {/* Nombre */}
             <div className="grid gap-2">
               <Label>Nombre</Label>
               <Input
+                placeholder="Nombre del cliente"
                 {...form.register("nombre")}
-                placeholder="Escribe el nombre"
               />
               {form.formState.errors.nombre && (
                 <p className="text-sm text-red-500">
@@ -113,8 +108,8 @@ export default function NewClientePage() {
               <Label>Edad</Label>
               <Input
                 type="number"
+                placeholder="Edad"
                 {...form.register("edad", { valueAsNumber: true })}
-                placeholder="Ejemplo: 25"
               />
               {form.formState.errors.edad && (
                 <p className="text-sm text-red-500">
@@ -122,24 +117,30 @@ export default function NewClientePage() {
                 </p>
               )}
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Botón guardar */}
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                style={{ backgroundColor: "#154c79", color: "white" }}
-                className="cursor-pointer hover:opacity-90"
-              >
-                <Save className="mr-2 size-4" /> Guardar
-              </Button>
-            </div>
-          </form>
+        {/* Botones */}
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            onClick={() => router.push("/dashboard")}
+            style={{ backgroundColor: "black", color: "white" }}
+          >
+            <LogOut className="mr-2 size-4" />
+            Salir
+          </Button>
 
-          {mensaje && (
-            <p className="mt-4 text-sm font-medium text-blue-600">{mensaje}</p>
-          )}
-        </CardContent>
-      </Card>
+          <Button
+            type="submit"
+            style={{ backgroundColor: "#0bdb12", color: "black" }}
+          >
+            <Save className="mr-2 size-4" />
+            Guardar
+          </Button>
+        </div>
+      </form>
     </main>
+    
   );
 }

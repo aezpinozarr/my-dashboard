@@ -96,13 +96,18 @@ const data = {
       ],
     },
     {
-      title: "Administración",
+      title: "Clientes",
       url: "#",
       icon: BookOpen,
       items: [
         {
-          title: "Usuarios",
-          url: "#",
+          title: "Clientes registrados",
+          url: "/clientes",
+        },
+
+        {
+          title: "Registrar cliente",
+          url: "/clientes/new",
         },
       ],
     },
