@@ -60,16 +60,19 @@ export default function EnteNewPage() {
     },
   });
 
-  // Cargar tipos de ente desde el backend
-  React.useEffect(() => {
-    fetch(`${API_BASE}/catalogos/ente-tipo?p_id=-99`)
-      .then((res) => res.json())
-      .then((data) => setTiposEnte(Array.isArray(data) ? data : []))
-      .catch((err) => {
-        console.error("❌ Error cargando tipos de ente:", err);
-        setTiposEnte([]);
-      });
-  }, []);
+ // Cargar tipos de ente desde el backend
+React.useEffect(() => {
+  fetch(`${API_BASE}/catalogos/ente-tipo/?p_id=-99`)
+    .then((res) => res.json())
+    .then((data) => {
+      console.log("Tipos ente cargados:", data); // 👈 Verifica en consola
+      setTiposEnte(Array.isArray(data) ? data : []);
+    })
+    .catch((err) => {
+      console.error("❌ Error cargando tipos de ente:", err);
+      setTiposEnte([]);
+    });
+}, []);
 
   const onSubmit = async (data: FormValues) => {
     try {
