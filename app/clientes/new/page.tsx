@@ -18,25 +18,29 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
    ========================= */
 const Schema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio"),
-  edad: z
-    .number({ invalid_type_error: "La edad debe ser un número" })
-    .min(1, "Debe ser mayor que 0"),
+  edad: z.number().min(1, "Debe ser mayor que 0"),
 });
+
+type ClienteForm = {
+  nombre: string;
+  edad: number;
+};
 
 export default function NewClientePage() {
   const router = useRouter();
 
-  const form = useForm<z.infer<typeof Schema>>({
+  const form = useForm<ClienteForm>({
     resolver: zodResolver(Schema),
     defaultValues: {
       nombre: "",
-      edad: undefined,
+      edad: 0,
     },
   });
 
-  const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+  const API_BASE =
+    process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 
-  const onSubmit = async (data: z.infer<typeof Schema>) => {
+  const onSubmit = async (data: ClienteForm) => {
     try {
       const resp = await fetch(`${API_BASE}/clientes`, {
         method: "POST",
@@ -49,11 +53,11 @@ export default function NewClientePage() {
         throw new Error(txt || "Error al guardar en backend");
       }
 
-      const saved = await resp.json();
-      alert(`✅ Cliente creado con éxito`);
+      await resp.json();
+      alert("✅ Cliente creado con éxito");
 
       form.reset();
-      router.push("/clientes"); // redirige al listado
+      router.push("/clientes");
     } catch (err) {
       console.error(err);
       alert("❌ No se pudo guardar el cliente.");
@@ -64,7 +68,12 @@ export default function NewClientePage() {
     <main className="mx-auto w-full max-w-3xl p-4 sm:p-6">
       {/* Encabezado */}
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" type="button" onClick={() => router.back()}>
+        <Button
+          variant="ghost"
+          size="icon"
+          type="button"
+          onClick={() => router.back()}
+        >
           <ArrowLeft className="size-4" />
         </Button>
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
@@ -72,7 +81,8 @@ export default function NewClientePage() {
         </h1>
       </div>
       <p className="mt-2 text-sm text-muted-foreground">
-        Completa los datos del cliente y guarda para registrarlo en la base de datos.
+        Completa los datos del cliente y guarda para registrarlo en la base de
+        datos.
       </p>
 
       <Separator className="my-4" />
@@ -141,6 +151,5 @@ export default function NewClientePage() {
         </div>
       </form>
     </main>
-    
   );
 }
