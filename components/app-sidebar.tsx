@@ -82,54 +82,7 @@ const data = {
           url: "/catalogos/servidores-publicos",
         },
         {
-          title: "Capítulos",
-          url: "#",
-        },
-        {
           title: "Fuentes. Financiamiento",
-          url: "#",
-        },
-        {
-          title: "Partidas",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Clientes",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Clientes registrados",
-          url: "/clientes",
-        },
-
-        {
-          title: "Registrar cliente",
-          url: "/clientes/new",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
           url: "#",
         },
       ],

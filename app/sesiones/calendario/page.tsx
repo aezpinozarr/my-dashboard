@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import { ArrowLeft } from "lucide-react"; // 👈 flecha para volver al dashboard
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 console.log("🌍 API_BASE:", API_BASE);
@@ -130,7 +130,6 @@ export default function SesionesPage() {
   const handleViewChange = (v: "cards" | "table") => {
     setSwitching(true);
     setView(v);
-    // pequeña animación de transición
     setTimeout(() => setSwitching(false), 400);
   };
 
@@ -152,8 +151,24 @@ export default function SesionesPage() {
 
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold">Sesiones registradas</h1>
+      {/* ===== Encabezado con flecha, título, subtítulo y acciones ===== */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          {/* Flecha a dashboard */}
+          <Button asChild variant="outline" size="icon">
+            <Link href="/dashboard" aria-label="Regresar al dashboard">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+          </Button>
+
+          <div>
+            <h1 className="text-3xl font-bold">Sesiones registradas</h1>
+            <p className="text-gray-600 text-sm">
+              Aquí puedes consultar, crear, editar y eliminar sesiones del calendario.
+            </p>
+          </div>
+        </div>
+
         <div className="flex items-center gap-4">
           <Tabs value={view} onValueChange={(v) => handleViewChange(v as "cards" | "table")}>
             <TabsList>
@@ -161,12 +176,17 @@ export default function SesionesPage() {
               <TabsTrigger value="table">📋 Tabla</TabsTrigger>
             </TabsList>
           </Tabs>
-          <Button asChild className="bg-blue-600 text-white">
+          {/* Botón Nueva sesión con color solicitado */}
+          <Button
+            asChild
+            style={{ backgroundColor: "#235391", color: "white" }}
+          >
             <Link href="/sesiones/calendario/new">➕ Nueva sesión</Link>
           </Button>
         </div>
       </div>
 
+      {/* ===== Contenido: Cards / Tabla ===== */}
       {sesiones.length === 0 ? (
         <p>No hay sesiones registradas.</p>
       ) : switching ? (
@@ -445,23 +465,15 @@ function SesionRow({
           ? clasificacionMap[sesion.id_clasificacion_licitacion] || `ID ${sesion.id_clasificacion_licitacion}`
           : "No asignada"}
       </TableCell>
-
-      {/* Fuentes */}
       <TableCell>
         {fuentes.length > 0 ? fuentes.map((f) => f.fuente_descripcion).join(", ") : "—"}
       </TableCell>
-
-      {/* Fechas */}
       <TableCell>
         {fechas.length > 0 ? fechas.map((f) => `${f.fecha} ${f.hora}`).join(" | ") : "—"}
       </TableCell>
-
-      {/* Entregables */}
       <TableCell>
         {entregables.length > 0 ? entregables.map((e) => e.descripcion).join(", ") : "—"}
       </TableCell>
-
-      {/* Acciones */}
       <TableCell>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

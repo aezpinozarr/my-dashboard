@@ -19,6 +19,7 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { Check } from "lucide-react";
+import Link from "next/link";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -106,15 +107,14 @@ export default function NewSessionPage() {
   const [fuentes, setFuentes] = React.useState<Fuente[]>([]);
   const [selectedFuentes, setSelectedFuentes] = React.useState<number[]>([]);
 
-  // ===== Entregables =====
   const [entregables, setEntregables] = React.useState<Entregable[]>([]);
   const [selectedEntregables, setSelectedEntregables] = React.useState<number[]>([]);
 
-  // ===== Fechas de la sesión =====
   const [fechas, setFechas] = React.useState<{ fecha: string; hora: string }[]>([]);
   const [newFecha, setNewFecha] = React.useState("");
   const [newHora, setNewHora] = React.useState("");
 
+  // ===== Helpers =====
   const addFecha = () => {
     if (!newFecha || !/^\d{4}-\d{2}-\d{2}$/.test(newFecha)) {
       alert("La fecha debe tener formato YYYY-MM-DD");
@@ -132,6 +132,11 @@ export default function NewSessionPage() {
   const removeFecha = (i: number) => {
     setFechas((prev) => prev.filter((_, idx) => idx !== i));
   };
+
+  const toggleFuente = (id: number) =>
+    setSelectedFuentes((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]));
+  const toggleEntregable = (id: number) =>
+    setSelectedEntregables((prev) => (prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]));
 
   // ===== Cargar catálogos =====
   React.useEffect(() => {
@@ -164,9 +169,7 @@ export default function NewSessionPage() {
       .then((data) => setFuentes(Array.isArray(data) ? data : []))
       .catch(console.error);
 
-    fetch(
-      `${API_BASE}/sesiones/entregables-popular?p_id=-99&p_id_calendario_sesiones=-99`
-    )
+    fetch(`${API_BASE}/sesiones/entregables-popular?p_id=-99&p_id_calendario_sesiones=-99`)
       .then((res) => res.json())
       .then((data) => setEntregables(Array.isArray(data) ? data : []))
       .catch(console.error);
@@ -180,117 +183,86 @@ export default function NewSessionPage() {
       setServidorSearch("");
       return;
     }
-    fetch(
-      `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=${enteId}`
-    )
+    fetch(`${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=${enteId}`)
       .then((res) => res.json())
       .then((data) => setServidores(Array.isArray(data) ? data : []))
       .catch((err) => {
         console.error("❌ Error cargando servidores:", err);
         setServidores([]);
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.watch("id_ente")]);
 
-  // ===== Filtros =====
-  const entesFiltrados = entes.filter((e) =>
-    (e.descripcion || "").toLowerCase().includes(enteSearch.toLowerCase())
-  );
+  // ===== Submit =====
+  const onSubmit = async (data: z.infer<typeof Schema>) => {
+    try {
+      const payload = { ...data, id_usuario: 1, activo: true };
+      const resp = await fetch(`${API_BASE}/sesiones/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      const sesionId: number = await resp.json();
 
-  const servidoresFiltrados = servidores.filter((s) =>
-    (s.nombre || "").toLowerCase().includes(servidorSearch.toLowerCase())
-  );
+      // fuentes
+      await Promise.all(
+        selectedFuentes.map((fuenteId) =>
+          fetch(`${API_BASE}/sesiones-fuentes/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id_calendario_sesiones: sesionId, id_fuente_financiamiento: fuenteId }),
+          })
+        )
+      );
 
-// ===== Submit =====
-const onSubmit = async (data: z.infer<typeof Schema>) => {
-  try {
-    const payload = { ...data, id_usuario: 1, activo: true };
+      // fechas
+      await Promise.all(
+        fechas.map((f) =>
+          fetch(`${API_BASE}/sesiones-fechas/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id_calendario_sesiones: sesionId, fecha: f.fecha, hora: f.hora, activo: true }),
+          })
+        )
+      );
 
-    // 1) Crear sesión
-    const resp = await fetch(`${API_BASE}/sesiones/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!resp.ok) throw new Error(await resp.text());
-    const sesionId: number = await resp.json(); // 👈 este ID se usa en los demás POST
+      // entregables
+      await Promise.all(
+        selectedEntregables.map((entregableId) =>
+          fetch(`${API_BASE}/sesiones-entregables/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id_calendario_sesiones: sesionId, id_listado_entregables: entregableId }),
+          })
+        )
+      );
 
-    // 2) Guardar fuentes seleccionadas
-    await Promise.all(
-      selectedFuentes.map((fuenteId) =>
-        fetch(`${API_BASE}/sesiones-fuentes/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id_calendario_sesiones: sesionId,
-            id_fuente_financiamiento: fuenteId,
-          }),
-        })
-      )
-    );
-
-    // 3) Guardar fechas de la sesión ✅
-    await Promise.all(
-      fechas.map((f) =>
-        fetch(`${API_BASE}/sesiones-fechas/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id_calendario_sesiones: sesionId, // 👈 como número
-            fecha: f.fecha, // "YYYY-MM-DD"
-            hora: f.hora,   // "HH:mm" o "HH:mm:ss"
-            activo: true,
-          }),
-        })
-      )
-    );
-
-    // 4) Guardar entregables seleccionados ✅
-    await Promise.all(
-      selectedEntregables.map((entregableId) =>
-        fetch(`${API_BASE}/sesiones-entregables/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id_calendario_sesiones: sesionId,
-            id_listado_entregables: entregableId,
-          }),
-        })
-      )
-    );
-
-    alert("✅ Sesión guardada con éxito");
-    router.push("/sesiones/calendario");
-  } catch (err) {
-    console.error("❌ Error al guardar sesión:", err);
-    alert("❌ Error al guardar sesión");
-  }
-};
-
-  // ===== Toggles =====
-  const toggleFuente = (id: number) => {
-    setSelectedFuentes((prev) =>
-      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
-    );
-  };
-
-  const toggleEntregable = (id: number) => {
-    setSelectedEntregables((prev) =>
-      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]
-    );
+      alert("✅ Sesión guardada con éxito");
+      router.push("/sesiones/calendario");
+    } catch (err) {
+      console.error("❌ Error al guardar sesión:", err);
+      alert("❌ Error al guardar sesión");
+    }
   };
 
   // ===== Render =====
   return (
     <main className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Nueva Sesión</h1>
+      <div className="flex items-center justify-between mb-4">
+        {/* Botón de regresar */}
+        <Button asChild variant="outline">
+          <Link href="/sesiones/calendario">← Regresar</Link>
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold">Nueva Sesión</h1>
+          <p className="text-gray-600 text-sm">Aquí puedes crear una nueva sesión del calendario.</p>
+        </div>
+      </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6">
         {/* ===== Ente público ===== */}
         <Card>
-          <CardHeader>
-            <CardTitle>Ente público</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Ente público</CardTitle></CardHeader>
           <CardContent className="grid gap-4">
             <Label>Buscar ente</Label>
             <Command>
@@ -304,87 +276,52 @@ const onSubmit = async (data: z.infer<typeof Schema>) => {
                   <>
                     <CommandEmpty>No se encontraron resultados</CommandEmpty>
                     <CommandGroup>
-                      {entesFiltrados.map((e) => (
-                        <CommandItem
-                          key={e.id}
-                          value={e.descripcion}
-                          onSelect={() => {
-                            form.setValue("id_ente", e.id, {
-                              shouldValidate: true,
-                            });
-                            setSelectedEnte(e);
-                            setEnteSearch(e.descripcion);
-                          }}
-                        >
-                          {e.descripcion}
-                          {form.watch("id_ente") === e.id && (
-                            <Check className="ml-auto h-4 w-4 opacity-80" />
-                          )}
-                        </CommandItem>
-                      ))}
+                      {entes
+                        .filter((e) => (e.descripcion || "").toLowerCase().includes(enteSearch.toLowerCase()))
+                        .map((e) => (
+                          <CommandItem
+                            key={e.id}
+                            value={e.descripcion}
+                            onSelect={() => {
+                              form.setValue("id_ente", e.id, { shouldValidate: true });
+                              setSelectedEnte(e);
+                              setEnteSearch(e.descripcion);
+                            }}
+                          >
+                            {e.descripcion}
+                            {form.watch("id_ente") === e.id && <Check className="ml-auto h-4 w-4 opacity-80" />}
+                          </CommandItem>
+                        ))}
                     </CommandGroup>
                   </>
                 )}
               </CommandList>
             </Command>
-
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Input
-                readOnly
-                placeholder="Siglas"
-                value={selectedEnte?.siglas || ""}
-              />
-              <Input
-                readOnly
-                placeholder="Clasificación"
-                value={selectedEnte?.clasificacion || ""}
-              />
-              <Input
-                readOnly
-                placeholder="Tipo de ente"
-                value={selectedEnte?.ente_tipo_descripcion || ""}
-              />
+              <Input readOnly className="bg-gray-200" placeholder="Siglas" value={selectedEnte?.siglas || ""} />
+              <Input readOnly className="bg-gray-200" placeholder="Clasificación" value={selectedEnte?.clasificacion || ""} />
+              <Input readOnly className="bg-gray-200" placeholder="Tipo de ente" value={selectedEnte?.ente_tipo_descripcion || ""} />
             </div>
           </CardContent>
         </Card>
 
         {/* ===== Datos generales ===== */}
         <Card>
-          <CardHeader>
-            <CardTitle>Datos generales</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Datos generales</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <Label>No. Oficio</Label>
-              <Input
-                maxLength={50}
-                {...form.register("oficio_o_acta_numero")}
-              />
-            </div>
-            <div>
-              <Label>Asunto</Label>
-              <Input maxLength={50} {...form.register("asunto")} />
-            </div>
-            <div>
-              <Label>Fecha</Label>
-              <Input type="date" {...form.register("fecha")} />
-            </div>
+            <div><Label>No. Oficio</Label><Input maxLength={50} {...form.register("oficio_o_acta_numero")} /></div>
+            <div><Label>Asunto</Label><Input maxLength={50} {...form.register("asunto")} /></div>
+            <div><Label>Fecha</Label><Input type="date" {...form.register("fecha")} /></div>
           </CardContent>
         </Card>
 
         {/* ===== Servidor público ===== */}
         <Card>
-          <CardHeader>
-            <CardTitle>Servidor público</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Servidor público</CardTitle></CardHeader>
           <CardContent>
             <Command>
               <CommandInput
-                placeholder={
-                  form.watch("id_ente")
-                    ? "Escribe el nombre del servidor..."
-                    : "Primero selecciona un ente"
-                }
+                placeholder={form.watch("id_ente") ? "Escribe el nombre del servidor..." : "Primero selecciona un ente"}
                 value={servidorSearch}
                 onValueChange={setServidorSearch}
                 disabled={!form.watch("id_ente")}
@@ -394,23 +331,21 @@ const onSubmit = async (data: z.infer<typeof Schema>) => {
                   <>
                     <CommandEmpty>No se encontraron resultados</CommandEmpty>
                     <CommandGroup>
-                      {servidoresFiltrados.map((s) => (
-                        <CommandItem
-                          key={s.id}
-                          value={s.nombre}
-                          onSelect={() => {
-                            form.setValue("id_servidor_publico", s.id, {
-                              shouldValidate: true,
-                            });
-                            setServidorSearch(s.nombre);
-                          }}
-                        >
-                          {s.nombre} {s.cargo ? `– ${s.cargo}` : ""}
-                          {form.watch("id_servidor_publico") === s.id && (
-                            <Check className="ml-auto h-4 w-4 opacity-80" />
-                          )}
-                        </CommandItem>
-                      ))}
+                      {servidores
+                        .filter((s) => (s.nombre || "").toLowerCase().includes(servidorSearch.toLowerCase()))
+                        .map((s) => (
+                          <CommandItem
+                            key={s.id}
+                            value={s.nombre}
+                            onSelect={() => {
+                              form.setValue("id_servidor_publico", s.id, { shouldValidate: true });
+                              setServidorSearch(s.nombre);
+                            }}
+                          >
+                            {s.nombre} {s.cargo ? `– ${s.cargo}` : ""}
+                            {form.watch("id_servidor_publico") === s.id && <Check className="ml-auto h-4 w-4 opacity-80" />}
+                          </CommandItem>
+                        ))}
                     </CommandGroup>
                   </>
                 )}
@@ -421,9 +356,7 @@ const onSubmit = async (data: z.infer<typeof Schema>) => {
 
         {/* ===== Clasificación de licitación ===== */}
         <Card>
-          <CardHeader>
-            <CardTitle>Clasificación de licitación</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Clasificación de licitación</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label>Descripción</Label>
@@ -431,88 +364,50 @@ const onSubmit = async (data: z.infer<typeof Schema>) => {
                 {...form.register("id_clasificacion_licitacion")}
                 className="border rounded-md p-2 w-full"
                 onChange={(e) => {
-                  const selected = clasificaciones.find(
-                    (c) => c.id.toString() === e.target.value
-                  );
+                  const selected = clasificaciones.find((c) => c.id.toString() === e.target.value);
                   setSelectedClasificacion(selected || null);
-                  form.setValue(
-                    "id_clasificacion_licitacion",
-                    Number(e.target.value),
-                    { shouldValidate: true }
-                  );
+                  form.setValue("id_clasificacion_licitacion", Number(e.target.value), { shouldValidate: true });
                 }}
               >
                 <option value="">Selecciona…</option>
                 {clasificaciones.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.descripcion}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.descripcion}</option>
                 ))}
               </select>
             </div>
-
-            <div>
-              <Label>Tipo de licitación</Label>
-              <Input
-                readOnly
-                value={selectedClasificacion?.tipo_licitacion || ""}
-              />
-            </div>
+            <div><Label>Tipo de licitación</Label><Input readOnly className="bg-gray-200" value={selectedClasificacion?.tipo_licitacion || ""} /></div>
           </CardContent>
         </Card>
 
         {/* ===== Fuentes de financiamiento ===== */}
         <Card>
-          <CardHeader>
-            <CardTitle>Fuentes de financiamiento</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Fuentes de financiamiento</CardTitle></CardHeader>
           <CardContent className="grid gap-2">
             {fuentes.map((f) => (
               <label key={`fuente-${f.id}`} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={selectedFuentes.includes(f.id)}
-                  onChange={() => toggleFuente(f.id)}
-                />
+                <input type="checkbox" checked={selectedFuentes.includes(f.id)} onChange={() => toggleFuente(f.id)} />
                 {f.descripcion}
               </label>
             ))}
           </CardContent>
         </Card>
 
-        {/* ===== Comité y Modo ===== */}
+        {/* ===== Comité y modo ===== */}
         <Card>
-          <CardHeader>
-            <CardTitle>Comité y modo</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Comité y modo</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label>Comité</Label>
-              <select
-                {...form.register("comite")}
-                className="border rounded-md p-2 w-full"
-              >
+              <select {...form.register("comite")} className="border rounded-md p-2 w-full">
                 <option value="">Selecciona…</option>
-                {comites.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
+                {comites.map((c) => (<option key={c} value={c}>{c}</option>))}
               </select>
             </div>
-
             <div>
               <Label>Modo de sesión</Label>
-              <select
-                {...form.register("modo_sesion")}
-                className="border rounded-md p-2 w-full"
-              >
+              <select {...form.register("modo_sesion")} className="border rounded-md p-2 w-full">
                 <option value="">Selecciona…</option>
-                {modos.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
+                {modos.map((m) => (<option key={m} value={m}>{m}</option>))}
               </select>
             </div>
           </CardContent>
@@ -520,55 +415,19 @@ const onSubmit = async (data: z.infer<typeof Schema>) => {
 
         {/* ===== Fechas de la sesión ===== */}
         <Card>
-          <CardHeader>
-            <CardTitle>Fechas de la sesión</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Fechas de la sesión</CardTitle></CardHeader>
           <CardContent className="grid gap-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label>Fecha (YYYY-MM-DD)</Label>
-                <Input
-                  type="date"
-                  value={newFecha}
-                  onChange={(e) => setNewFecha(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Hora (HH:mm o HH:mm:ss)</Label>
-                <Input
-                  placeholder="HH:mm:ss"
-                  value={newHora}
-                  onChange={(e) => setNewHora(e.target.value)}
-                />
-              </div>
+              <div><Label>Fecha (YYYY-MM-DD)</Label><Input type="date" value={newFecha} onChange={(e) => setNewFecha(e.target.value)} /></div>
+              <div><Label>Hora (HH:mm o HH:mm:ss)</Label><Input placeholder="HH:mm:ss" value={newHora} onChange={(e) => setNewHora(e.target.value)} /></div>
             </div>
-
-            <Button
-              type="button"
-              onClick={addFecha}
-              className="w-fit bg-green-600 text-white"
-            >
-              Añadir fecha
-            </Button>
-
+            <Button type="button" onClick={addFecha} className="w-fit bg-green-600 text-white">Añadir fecha</Button>
             {fechas.length > 0 && (
               <ul className="mt-2 space-y-2">
                 {fechas.map((f, i) => (
-                  <li
-                    key={`${f.fecha}-${f.hora}-${i}`}
-                    className="flex items-center justify-between border p-2 rounded"
-                  >
-                    <span>
-                      {f.fecha} – {f.hora}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeFecha(i)}
-                    >
-                      Eliminar
-                    </Button>
+                  <li key={`${f.fecha}-${f.hora}-${i}`} className="flex items-center justify-between border p-2 rounded">
+                    <span>{f.fecha} – {f.hora}</span>
+                    <Button type="button" variant="destructive" size="sm" onClick={() => removeFecha(i)}>Eliminar</Button>
                   </li>
                 ))}
               </ul>
@@ -578,26 +437,24 @@ const onSubmit = async (data: z.infer<typeof Schema>) => {
 
         {/* ===== Entregables ===== */}
         <Card>
-          <CardHeader>
-            <CardTitle>Entregables</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Entregables</CardTitle></CardHeader>
           <CardContent className="grid gap-2">
             {entregables.map((e) => (
               <label key={`ent-${e.id}`} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={selectedEntregables.includes(e.id)}
-                  onChange={() => toggleEntregable(e.id)}
-                />
+                <input type="checkbox" checked={selectedEntregables.includes(e.id)} onChange={() => toggleEntregable(e.id)} />
                 {e.descripcion}
               </label>
             ))}
           </CardContent>
         </Card>
 
-        <Button type="submit" className="w-fit bg-blue-600 text-white">
-          Guardar
-        </Button>
+        {/* ===== Botones finales ===== */}
+        <div className="flex items-center gap-3 pt-2">
+          <Button type="submit" style={{ backgroundColor: "#235391", color: "white" }}>Guardar</Button>
+          <Button type="button" asChild style={{ backgroundColor: "#db200b", color: "white" }}>
+            <Link href="/dashboard">Salir</Link>
+          </Button>
+        </div>
       </form>
     </main>
   );
