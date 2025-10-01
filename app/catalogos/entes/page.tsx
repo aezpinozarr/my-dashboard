@@ -1,139 +1,167 @@
+// app/catalogos/entes/page.tsx
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-import { PlusCircle, ArrowLeft } from "lucide-react";
-
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "http://127.0.0.1:8000";
 
 type Ente = {
-  value: string;
-  label: string;
-  tipo: string;
-  tipoNombre: string;
-  sector: string;
-  createdAt?: string;
+  id: string;
+  descripcion: string;
+  siglas: string;
+  clasificacion: string;
+  id_ente_tipo: string;
+  ente_tipo_descripcion: string;
+  activo: boolean;
 };
 
-function readEntes(): Ente[] {
-  try {
-    const raw =
-      typeof window !== "undefined"
-        ? localStorage.getItem("catalogo-entes")
-        : null;
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
-}
-
 export default function EntesPage() {
-  const router = useRouter();
   const [entes, setEntes] = React.useState<Ente[]>([]);
-  const [q, setQ] = React.useState("");
+  const [loading, setLoading] = React.useState(true);
+
+  const fetchEntes = async () => {
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/entes`);
+      const data = await resp.json();
+      setEntes(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ Error cargando entes:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("¿Seguro que quieres eliminar este ente?")) return;
+
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/entes/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!resp.ok) throw new Error(await resp.text());
+
+      alert("✅ Ente eliminado con éxito");
+      fetchEntes(); // recargar lista
+    } catch (err) {
+      console.error("❌ Error eliminando ente:", err);
+      alert("❌ Error eliminando ente");
+    }
+  };
 
   React.useEffect(() => {
-    setEntes(readEntes());
-    const onStorage = (ev: StorageEvent) => {
-      if (ev.key === "catalogo-entes") setEntes(readEntes());
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    fetchEntes();
   }, []);
 
-  const filtered = React.useMemo(() => {
-    const term = q.trim().toLowerCase();
-    if (!term) return entes;
-    return entes.filter((e) =>
-      [e.label, e.tipo, e.tipoNombre, e.sector].some((v) =>
-        (v ?? "").toLowerCase().includes(term)
-      )
-    );
-  }, [q, entes]);
-
   return (
-    <main className="mx-auto w-full max-w-5xl p-4 sm:p-6">
-      {/* Botón de regresar */}
-      <div className="flex items-center gap-2 mb-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          type="button"
-          onClick={() => router.push("/dashboard")}
-          className="cursor-pointer hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/50"
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
-        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-          Entes públicos
-        </h1>
+    <main className="max-w-6xl mx-auto p-6 space-y-6">
+      {/* Encabezado */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="text-2xl hover:text-blue-600">
+            ←
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold">Entes registrados</h1>
+            <p className="text-gray-600 text-sm">
+              Aquí puedes consultar, crear, editar y eliminar entes.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-4">
+          <Button
+            asChild
+            style={{ backgroundColor: "#235391", color: "white" }}
+          >
+            <Link href="/catalogos/entes/new">➕ Nuevo ente</Link>
+          </Button>
+
+          <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
+            <Link href="/dashboard">↩️ Salir</Link>
+          </Button>
+        </div>
       </div>
 
-      <p className="mt-1 text-sm text-muted-foreground">
-        Consulta y administra los entes registrados. Total: {entes.length}
-      </p>
-
-      <Separator className="my-4" />
-
-      {/* Buscador + Nuevo */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
-        <div className="grid gap-2 w-full sm:max-w-sm">
-          <Label htmlFor="search">Buscar</Label>
-          <Input
-            id="search"
-            placeholder="Nombre, siglas, tipo o sector…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
-        <Button
-          onClick={() => router.push("/catalogos/entes/new")}
-          style={{ backgroundColor: "#154c79", color: "white" }}
-          className="cursor-pointer hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/50"
-        >
-          <PlusCircle className="mr-2 size-4" />
-          Nuevo ente
-        </Button>
-      </div>
-
-      {/* Grid */}
-      {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No hay entes para mostrar.</p>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((e) => (
-            <Card key={e.value} className="h-full">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">{e.label}</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-1.5 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Siglas: </span>
-                  <span className="font-medium">{e.tipo}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Tipo: </span>
-                  <span className="font-medium">{e.tipoNombre}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Sector: </span>
-                  <span className="font-medium">{e.sector}</span>
-                </div>
-                {e.createdAt && (
-                  <div className="mt-1.5 text-xs text-muted-foreground">
-                    Registrado: {new Date(e.createdAt).toLocaleString()}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      {/* Tabla */}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>ID</TableHead>
+            <TableHead>Descripción</TableHead>
+            <TableHead>Siglas</TableHead>
+            <TableHead>Clasificación</TableHead>
+            <TableHead>Tipo</TableHead>
+            <TableHead>Activo</TableHead>
+            <TableHead>Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {loading ? (
+            <TableRow>
+              <TableCell colSpan={7}>Cargando...</TableCell>
+            </TableRow>
+          ) : entes.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={7}>No hay entes registrados</TableCell>
+            </TableRow>
+          ) : (
+            entes.map((e) => (
+              <TableRow key={e.id}>
+                <TableCell>{e.id}</TableCell>
+                <TableCell>{e.descripcion}</TableCell>
+                <TableCell>{e.siglas}</TableCell>
+                <TableCell>{e.clasificacion}</TableCell>
+                <TableCell>{e.ente_tipo_descripcion}</TableCell>
+                <TableCell>{e.activo ? "✅" : "❌"}</TableCell>
+                <TableCell>
+                  {/* Menú de acciones */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link href={`/catalogos/entes/edit/${e.id}`}>
+                          ✏️ Editar
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDelete(e.id)}
+                        className="text-red-600"
+                      >
+                        🗑️ Eliminar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
     </main>
   );
 }

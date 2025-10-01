@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm, SubmitHandler } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter, useParams } from "next/navigation";
@@ -21,7 +21,9 @@ import {
 import { Check } from "lucide-react";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "http://127.0.0.1:8000";
 
 // ===== Tipos =====
 type Ente = { id: string; descripcion: string; siglas: string; clasificacion: string; ente_tipo_descripcion: string; };
@@ -43,14 +45,12 @@ const Schema = z.object({
   id_clasificacion_licitacion: z.coerce.number().min(1),
 });
 
-type FormValues = z.infer<typeof Schema>;
-
 export default function EditSessionPage() {
   const router = useRouter();
   const params = useParams();
   const sesionId = Number(params?.id);
 
-  const form = useForm<FormValues>({
+  const form = useForm<z.infer<typeof Schema>>({
     resolver: zodResolver(Schema),
   });
 
@@ -115,6 +115,7 @@ export default function EditSessionPage() {
         const entregSel = await fetch(`${API_BASE}/sesiones-entregables?id_calendario_sesiones=${sesionId}`).then((r) => r.json());
         setSelectedEntregables(entregSel.map((e: any) => e.id_listado_entregables));
 
+        // cargar servidores asociados al ente
         if (ses.id_ente) {
           const serv = await fetch(`${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=${ses.id_ente}`).then((r) => r.json());
           setServidores(serv);
@@ -144,7 +145,7 @@ export default function EditSessionPage() {
   }, [form.watch("id_ente")]);
 
   // ===== Submit =====
-  const onSubmit: SubmitHandler<FormValues> = async (data) => {
+  const onSubmit = async (data: z.infer<typeof Schema>) => {
     try {
       const payload = { ...data, id_usuario: 1, activo: true };
 

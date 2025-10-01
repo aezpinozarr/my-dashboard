@@ -1,3 +1,4 @@
+// app/catalogos/entes/new/page.tsx
 "use client";
 
 import * as React from "react";
@@ -5,151 +6,210 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Save, X } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "http://127.0.0.1:8000";
+
+// ======================
+// Validación con Zod
+// ======================
 const Schema = z.object({
-  label: z.string().min(1, "Escribe el nombre del ente"),
-  tipo: z.string().min(1, "Escribe las siglas (p. ej., SEC)").max(10),
-  tipoNombre: z.string().min(1, "Escribe el tipo (p. ej., Secretaría)"),
-  sector: z.string().min(1, "Escribe el sector (p. ej., Público)"),
+  descripcion: z.string().min(1, "Escribe la descripción").max(250),
+  siglas: z.string().min(1, "Escribe siglas").max(25),
+  clasificacion: z.string().min(1, "Selecciona una clasificación").max(50),
+  id_ente_tipo: z
+    .string()
+    .min(1, "Selecciona el tipo de ente")
+    .max(5, "Solo códigos de hasta 5 caracteres"),
+  activo: z.boolean().default(true),
 });
 
-type FormData = z.infer<typeof Schema>;
+type FormValues = z.infer<typeof Schema>;
 
-function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
+type EnteTipo = {
+  id: string;
+  descripcion: string;
+};
 
-export default function NewEntePage() {
+const CLASIFICACIONES = [
+  { value: "Centralizada", label: "Centralizada" },
+  { value: "Paraestatal", label: "Paraestatal" },
+  { value: "Desconcentrada", label: "Desconcentrada" },
+];
+
+export default function EnteNewPage() {
   const router = useRouter();
-  const form = useForm<FormData>({
+  const [tiposEnte, setTiposEnte] = React.useState<EnteTipo[]>([]);
+
+  const form = useForm<FormValues>({
     resolver: zodResolver(Schema),
-    defaultValues: { label: "", tipo: "", tipoNombre: "", sector: "" },
+    defaultValues: {
+      descripcion: "",
+      siglas: "",
+      clasificacion: "",
+      id_ente_tipo: "",
+      activo: true,
+    },
   });
 
-  const onSubmit = (data: FormData) => {
-    const key = "catalogo-entes";
-    const list = JSON.parse(localStorage.getItem(key) || "[]") as any[];
+  // Cargar tipos de ente desde el backend
+  React.useEffect(() => {
+    fetch(`${API_BASE}/catalogos/ente-tipo?p_id=-99`)
+      .then((res) => res.json())
+      .then((data) => setTiposEnte(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        console.error("❌ Error cargando tipos de ente:", err);
+        setTiposEnte([]);
+      });
+  }, []);
 
-    const value = slugify(data.label || data.tipo || crypto.randomUUID());
+  const onSubmit = async (data: FormValues) => {
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/entes/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
 
-    if (list.some((e) => e?.value === value)) {
-      alert("⚠️ Ya existe un ente con ese identificador (value). Cambia el nombre.");
-      return;
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(errText);
+      }
+
+      alert("✅ Ente creado con éxito");
+      router.push("/catalogos/entes");
+    } catch (e: any) {
+      console.error("❌ Error creando ente:", e);
+      alert(`❌ Error creando ente:\n${e?.message ?? e}`);
     }
-
-    const nuevo = {
-      value,
-      label: data.label.trim(),
-      tipo: data.tipo.trim(),
-      tipoNombre: data.tipoNombre.trim(),
-      sector: data.sector.trim(),
-      createdAt: new Date().toISOString(),
-    };
-
-    localStorage.setItem(
-      key,
-      JSON.stringify([...(Array.isArray(list) ? list : []), nuevo])
-    );
-
-    alert("✅ Ente guardado.");
-    router.push("/catalogos/entes");
   };
 
   return (
-    <main className="mx-auto w-full max-w-3xl p-4 sm:p-6">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          type="button"
-          onClick={() => router.back()}
-          className="cursor-pointer hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/50"
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
-        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-          Nuevo ente
-        </h1>
+    <main className="max-w-3xl mx-auto p-6 space-y-6">
+      {/* Encabezado + acciones */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Nuevo ente</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/dashboard">Salir al menú</Link>
+          </Button>
+          <Button variant="secondary" asChild>
+            <Link href="/catalogos/entes">Ver entes</Link>
+          </Button>
+        </div>
       </div>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Registra un ente público para usarlo en tus formularios.
-      </p>
 
-      <Separator className="my-4" />
-
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6" noValidate>
-        <Card>
-          <CardHeader>
-            <CardTitle>Datos del ente</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="label">Nombre del ente</Label>
-              <Input id="label" placeholder="E.j: Secretaría de Educación" {...form.register("label")} />
-              {form.formState.errors.label && (
-                <p className="text-sm text-red-500">{form.formState.errors.label.message}</p>
+      <Card>
+        <CardHeader>
+          <CardTitle>Datos del ente</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="grid gap-5"
+            noValidate
+          >
+            {/* Descripción */}
+            <div>
+              <Label>Descripción</Label>
+              <Input
+                {...form.register("descripcion")}
+                placeholder="Nombre del ente"
+              />
+              {form.formState.errors.descripcion && (
+                <p className="text-sm text-red-600 mt-1">
+                  {form.formState.errors.descripcion.message}
+                </p>
               )}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="grid gap-2">
-                <Label htmlFor="tipo">Siglas</Label>
-                <Input id="tipo" placeholder="SEC" {...form.register("tipo")} />
-                {form.formState.errors.tipo && (
-                  <p className="text-sm text-red-500">{form.formState.errors.tipo.message}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="tipoNombre">Tipo</Label>
-                <Input id="tipoNombre" placeholder="Secretaría" {...form.register("tipoNombre")} />
-                {form.formState.errors.tipoNombre && (
-                  <p className="text-sm text-red-500">{form.formState.errors.tipoNombre.message}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="sector">Sector</Label>
-                <Input id="sector" placeholder="Público" {...form.register("sector")} />
-                {form.formState.errors.sector && (
-                  <p className="text-sm text-red-500">{form.formState.errors.sector.message}</p>
-                )}
-              </div>
+            {/* Siglas */}
+            <div>
+              <Label>Siglas</Label>
+              <Input
+                {...form.register("siglas")}
+                placeholder="p. ej. SEGOB, SEE..."
+                maxLength={25}
+              />
+              {form.formState.errors.siglas && (
+                <p className="text-sm text-red-600 mt-1">
+                  {form.formState.errors.siglas.message}
+                </p>
+              )}
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Acciones */}
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            onClick={() => router.push("/catalogos/entes")}
-            style={{ backgroundColor: "#ee0000", color: "white" }}
-            className="cursor-pointer hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/50"
-          >
-            <X className="mr-2 size-4" />
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            style={{ backgroundColor: "#154c79", color: "white" }}
-            className="cursor-pointer hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/50"
-          >
-            <Save className="mr-2 size-4" />
-            Guardar
-          </Button>
-        </div>
-      </form>
+            {/* Clasificación */}
+            <div>
+              <Label>Clasificación</Label>
+              <select
+                {...form.register("clasificacion")}
+                className="border rounded-md p-2 w-full"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Selecciona…
+                </option>
+                {CLASIFICACIONES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Tipo de ente */}
+            <div>
+              <Label>Tipo de ente</Label>
+              <select
+                {...form.register("id_ente_tipo")}
+                className="border rounded-md p-2 w-full"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Selecciona…
+                </option>
+                {tiposEnte.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.descripcion} ({t.id})
+                  </option>
+                ))}
+              </select>
+              {form.formState.errors.id_ente_tipo && (
+                <p className="text-sm text-red-600 mt-1">
+                  {form.formState.errors.id_ente_tipo.message}
+                </p>
+              )}
+            </div>
+
+            {/* Activo */}
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                {...form.register("activo")}
+                defaultChecked
+              />
+              Activo
+            </label>
+
+            <div className="flex items-center gap-3 pt-2">
+              <Button type="submit" className="bg-blue-600 text-white">
+                Guardar
+              </Button>
+              <Button type="button" variant="outline" asChild>
+                <Link href="/catalogos/entes">Cancelar</Link>
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </main>
   );
 }
