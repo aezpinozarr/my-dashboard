@@ -1,4 +1,3 @@
-// app/sesiones/calendario/new/page.tsx
 "use client";
 
 import * as React from "react";
@@ -21,7 +20,10 @@ import {
 import { Check } from "lucide-react";
 import Link from "next/link";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "http://127.0.0.1:8000";
 
 // Tipos
 type Ente = {
@@ -135,8 +137,25 @@ export default function NewSessionPage() {
 
   const toggleFuente = (id: number) =>
     setSelectedFuentes((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]));
+
   const toggleEntregable = (id: number) =>
     setSelectedEntregables((prev) => (prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]));
+
+  const toggleSelectAllFuentes = () => {
+    if (selectedFuentes.length === fuentes.length) {
+      setSelectedFuentes([]);
+    } else {
+      setSelectedFuentes(fuentes.map((f) => f.id));
+    }
+  };
+
+  const toggleSelectAllEntregables = () => {
+    if (selectedEntregables.length === entregables.length) {
+      setSelectedEntregables([]);
+    } else {
+      setSelectedEntregables(entregables.map((e) => e.id));
+    }
+  };
 
   // ===== Cargar catálogos =====
   React.useEffect(() => {
@@ -247,19 +266,24 @@ export default function NewSessionPage() {
 
   // ===== Render =====
   return (
-    <main className="max-w-4xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-4">
-        {/* Botón de regresar */}
-        <Button asChild variant="outline">
-          <Link href="/sesiones/calendario">← Regresar</Link>
-        </Button>
+    <main className="max-w-4xl mx-auto p-6 space-y-6">
+      {/* Header con título a la izquierda y botones a la derecha */}
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Nueva Sesión</h1>
           <p className="text-gray-600 text-sm">Aquí puedes crear una nueva sesión del calendario.</p>
         </div>
+        <div className="flex gap-3">
+          <Button type="submit" form="session-form" style={{ backgroundColor: "#235391", color: "white" }}>
+            Guardar
+          </Button>
+          <Button type="button" asChild style={{ backgroundColor: "#db200b", color: "white" }}>
+            <Link href="/dashboard">Salir</Link>
+          </Button>
+        </div>
       </div>
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6">
+      <form id="session-form" onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6">
         {/* ===== Ente público ===== */}
         <Card>
           <CardHeader><CardTitle>Ente público</CardTitle></CardHeader>
@@ -379,19 +403,6 @@ export default function NewSessionPage() {
           </CardContent>
         </Card>
 
-        {/* ===== Fuentes de financiamiento ===== */}
-        <Card>
-          <CardHeader><CardTitle>Fuentes de financiamiento</CardTitle></CardHeader>
-          <CardContent className="grid gap-2">
-            {fuentes.map((f) => (
-              <label key={`fuente-${f.id}`} className="flex items-center gap-2">
-                <input type="checkbox" checked={selectedFuentes.includes(f.id)} onChange={() => toggleFuente(f.id)} />
-                {f.descripcion}
-              </label>
-            ))}
-          </CardContent>
-        </Card>
-
         {/* ===== Comité y modo ===== */}
         <Card>
           <CardHeader><CardTitle>Comité y modo</CardTitle></CardHeader>
@@ -410,6 +421,27 @@ export default function NewSessionPage() {
                 {modos.map((m) => (<option key={m} value={m}>{m}</option>))}
               </select>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* ===== Fuentes de financiamiento ===== */}
+        <Card>
+          <CardHeader><CardTitle>Fuentes de financiamiento</CardTitle></CardHeader>
+          <CardContent className="grid gap-2">
+            <label className="flex items-center gap-2 font-semibold">
+              <input
+                type="checkbox"
+                checked={selectedFuentes.length === fuentes.length && fuentes.length > 0}
+                onChange={toggleSelectAllFuentes}
+              />
+              Seleccionar todo
+            </label>
+            {fuentes.map((f) => (
+              <label key={`fuente-${f.id}`} className="flex items-center gap-2">
+                <input type="checkbox" checked={selectedFuentes.includes(f.id)} onChange={() => toggleFuente(f.id)} />
+                {f.descripcion}
+              </label>
+            ))}
           </CardContent>
         </Card>
 
@@ -439,6 +471,14 @@ export default function NewSessionPage() {
         <Card>
           <CardHeader><CardTitle>Entregables</CardTitle></CardHeader>
           <CardContent className="grid gap-2">
+            <label className="flex items-center gap-2 font-semibold">
+              <input
+                type="checkbox"
+                checked={selectedEntregables.length === entregables.length && entregables.length > 0}
+                onChange={toggleSelectAllEntregables}
+              />
+              Seleccionar todo
+            </label>
             {entregables.map((e) => (
               <label key={`ent-${e.id}`} className="flex items-center gap-2">
                 <input type="checkbox" checked={selectedEntregables.includes(e.id)} onChange={() => toggleEntregable(e.id)} />
@@ -447,14 +487,6 @@ export default function NewSessionPage() {
             ))}
           </CardContent>
         </Card>
-
-        {/* ===== Botones finales ===== */}
-        <div className="flex items-center gap-3 pt-2">
-          <Button type="submit" style={{ backgroundColor: "#235391", color: "white" }}>Guardar</Button>
-          <Button type="button" asChild style={{ backgroundColor: "#db200b", color: "white" }}>
-            <Link href="/dashboard">Salir</Link>
-          </Button>
-        </div>
       </form>
     </main>
   );

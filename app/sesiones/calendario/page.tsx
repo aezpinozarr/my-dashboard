@@ -29,8 +29,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react"; // 👈 flecha para volver al dashboard
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-console.log("🌍 API_BASE:", API_BASE);
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "http://127.0.0.1:8000";
 
 // ======================
 // Tipos
@@ -181,7 +183,7 @@ export default function SesionesPage() {
             asChild
             style={{ backgroundColor: "#235391", color: "white" }}
           >
-            <Link href="/sesiones/calendario/new">➕ Nueva sesión</Link>
+            <Link href="/sesiones/calendario/new">Nueva sesión</Link>
           </Button>
         </div>
       </div>

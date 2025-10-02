@@ -94,11 +94,11 @@ export default function EntesPage() {
             asChild
             style={{ backgroundColor: "#235391", color: "white" }}
           >
-            <Link href="/catalogos/entes/new">➕ Nuevo ente</Link>
+            <Link href="/catalogos/entes/new">Nuevo ente</Link>
           </Button>
 
           <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
-            <Link href="/dashboard">↩️ Salir</Link>
+            <Link href="/dashboard">Salir</Link>
           </Button>
         </div>
       </div>

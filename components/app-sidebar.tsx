@@ -66,6 +66,11 @@ const data = {
           title: "Nueva sesión (Calendario)",
           url: "/sesiones/calendario/new",
         },
+
+        {
+          title: "Fechas de sesiones (Pivot)",
+          url: "/sesiones/fechas-pivot",
+        },
       ],
     },
     {
@@ -86,10 +91,6 @@ const data = {
         {
           title: "Entes Servidores Público",
           url: "/catalogos/servidores-publicos-ente",
-        },
-        {
-          title: "Fuentes. Financiamiento",
-          url: "#",
         },
       ],
     },

@@ -75,7 +75,7 @@ export default function ServidoresPage() {
         {/* Botones de acciones */}
         <div className="flex gap-2">
           <Button asChild className="bg-[#235391] text-white">
-            <Link href="/catalogos/servidores-publicos/new">Nuevo</Link>
+            <Link href="/catalogos/servidores-publicos/new">Nuevo Servidor Público</Link>
           </Button>
           <Button
             className="bg-[#db200b] text-white"
