@@ -59,11 +59,16 @@ export default function EditEntePage() {
   React.useEffect(() => {
     const fetchData = async () => {
       try {
-        // Cargar ente actual
-        const resEnte = await fetch(
-          `${API_BASE}/catalogos/entes?p_id=${enteId}&p_descripcion=-99`
-        );
+        const [resEnte, resTipos] = await Promise.all([
+          fetch(`${API_BASE}/catalogos/entes?p_id=${enteId}&p_descripcion=-99`),
+          fetch(`${API_BASE}/catalogos/ente-tipo?p_id=-99`),
+        ]);
+
         const dataEnte = await resEnte.json();
+        const dataTipos = await resTipos.json();
+
+        setTiposEnte(Array.isArray(dataTipos) ? dataTipos : []);
+
         if (dataEnte && dataEnte.length > 0) {
           const e = dataEnte[0];
           form.reset({
@@ -74,11 +79,6 @@ export default function EditEntePage() {
             activo: e.activo,
           });
         }
-
-        // Cargar tipos de ente
-        const resTipos = await fetch(`${API_BASE}/catalogos/ente-tipo?p_id=-99`);
-        const dataTipos = await resTipos.json();
-        setTiposEnte(Array.isArray(dataTipos) ? dataTipos : []);
       } catch (err) {
         console.error("❌ Error cargando datos:", err);
       } finally {
@@ -144,7 +144,11 @@ export default function EditEntePage() {
 
             <div>
               <Label>Clasificación</Label>
-              <select {...form.register("clasificacion")} className="border p-2 rounded w-full">
+              <select
+                {...form.register("clasificacion")}
+                className="border p-2 rounded w-full"
+                defaultValue={form.watch("clasificacion") || ""}
+              >
                 <option value="">Selecciona…</option>
                 {CLASIFICACIONES.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -156,7 +160,11 @@ export default function EditEntePage() {
 
             <div>
               <Label>Tipo de ente</Label>
-              <select {...form.register("id_ente_tipo")} className="border p-2 rounded w-full">
+              <select
+                {...form.register("id_ente_tipo")}
+                className="border p-2 rounded w-full"
+                defaultValue={form.watch("id_ente_tipo") || ""}
+              >
                 <option value="">Selecciona…</option>
                 {tiposEnte.map((t) => (
                   <option key={t.id} value={t.id}>
