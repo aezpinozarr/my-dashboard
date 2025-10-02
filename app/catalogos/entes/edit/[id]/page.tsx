@@ -13,9 +13,9 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://127.0.0.1:8000";
+  process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL !== ""
+    ? process.env.NEXT_PUBLIC_API_URL
+    : "http://127.0.0.1:8000"; // solo para local
 
 const CLASIFICACIONES = [
   { value: "Centralizada", label: "Centralizada" },
