@@ -77,9 +77,15 @@ const data = {
           title: "Entes",
           url: "/catalogos/entes",
         },
-        {
-          title: "Servidores Público",
+
+         {
+          title: "Servidores Públicos",
           url: "/catalogos/servidores-publicos",
+        },
+
+        {
+          title: "Entes Servidores Público",
+          url: "/catalogos/servidores-publicos-ente",
         },
         {
           title: "Fuentes. Financiamiento",
