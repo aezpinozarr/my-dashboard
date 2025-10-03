@@ -45,7 +45,6 @@ export default function PivotPage() {
   const [clasificaciones, setClasificaciones] = React.useState<Clasificacion[]>([]);
   const [selectedEnte, setSelectedEnte] = React.useState("");
   const [selectedClasificacion, setSelectedClasificacion] = React.useState("");
-  const [selectedCalendario, setSelectedCalendario] = React.useState("");
 
   const fetchData = async () => {
     try {
@@ -53,7 +52,6 @@ export default function PivotPage() {
       const params = new URLSearchParams();
       if (selectedEnte) params.append("p_id_ente", selectedEnte);
       if (selectedClasificacion) params.append("p_id_clasificacion_licitacion", selectedClasificacion);
-      if (selectedCalendario) params.append("p_id_calendario", selectedCalendario);
 
       const url = `${API_BASE}/sesiones-fechas-pivot/${params.toString() ? `?${params.toString()}` : ""}`;
       const res = await fetch(url);
@@ -84,7 +82,7 @@ export default function PivotPage() {
   // recargar cuando cambian filtros
   React.useEffect(() => {
     fetchData();
-  }, [selectedEnte, selectedClasificacion, selectedCalendario]);
+  }, [selectedEnte, selectedClasificacion]);
 
   return (
     <main className="max-w-6xl mx-auto p-6">
@@ -102,7 +100,7 @@ export default function PivotPage() {
       </div>
 
       {/* Filtros */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div>
           <label className="font-semibold text-sm">Ente</label>
           <select
@@ -132,16 +130,6 @@ export default function PivotPage() {
               </option>
             ))}
           </select>
-        </div>
-        <div>
-          <label className="font-semibold text-sm">Calendario</label>
-          <input
-            type="number"
-            placeholder="ID calendario"
-            className="border p-2 rounded w-full"
-            value={selectedCalendario}
-            onChange={(e) => setSelectedCalendario(e.target.value)}
-          />
         </div>
       </div>
 
