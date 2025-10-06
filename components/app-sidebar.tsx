@@ -39,16 +39,7 @@ const data = {
       logo: GalleryVerticalEnd,
       plan: "Enterprise",
     },
-    {
-      name: "Acme Corp.",
-      logo: AudioWaveform,
-      plan: "Startup",
-    },
-    {
-      name: "Evil Corp.",
-      logo: Command,
-      plan: "Free",
-    },
+    
   ],
   navMain: [
     {
@@ -81,6 +72,16 @@ const data = {
         {
           title: "Entes",
           url: "/catalogos/entes",
+        },
+
+        {
+          title: "Rubros",
+          url: "/catalogos/rubros",
+        },
+
+        {
+          title: "Proveedores",
+          url: "/catalogos/proveedores",
         },
 
          {
