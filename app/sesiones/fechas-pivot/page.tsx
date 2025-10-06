@@ -5,6 +5,12 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandItem,
+} from "@/components/ui/command";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -44,7 +50,9 @@ export default function PivotPage() {
   const [entes, setEntes] = React.useState<Ente[]>([]);
   const [clasificaciones, setClasificaciones] = React.useState<Clasificacion[]>([]);
   const [selectedEnte, setSelectedEnte] = React.useState("");
+  const [searchTerm, setSearchTerm] = React.useState(""); 
   const [selectedClasificacion, setSelectedClasificacion] = React.useState("");
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
 
   const fetchData = async () => {
     try {
@@ -101,21 +109,53 @@ export default function PivotPage() {
 
       {/* Filtros */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        {/* Command para ente */}
         <div>
           <label className="font-semibold text-sm">Ente</label>
-          <select
-            className="border p-2 rounded w-full"
-            value={selectedEnte}
-            onChange={(e) => setSelectedEnte(e.target.value)}
-          >
-            <option value="">Todos</option>
-            {entes.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.descripcion}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <Command className="border rounded-md">
+              <CommandInput
+                placeholder="Buscar ente..."
+                className="p-2 w-full"
+                value={searchTerm}
+                onValueChange={(value) => {
+                  setSearchTerm(value);
+                  if (value.trim() === "") {
+                    setSelectedEnte("");
+                    setShowSuggestions(false);
+                  } else {
+                    setShowSuggestions(true);
+                  }
+                }}
+              />
+              {showSuggestions && searchTerm.trim() !== "" && (
+                <CommandList className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-60 overflow-y-auto shadow">
+                  {entes
+                    .filter((e) =>
+                      e.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map((e) => (
+                      <CommandItem
+                        key={e.id}
+                        onSelect={() => {
+                          setSelectedEnte(e.id);
+                          setSearchTerm(e.descripcion);
+                          setShowSuggestions(false); // cierra lista
+                        }}
+                        className={`cursor-pointer px-2 py-1 ${
+                          selectedEnte === e.id ? "bg-blue-100" : ""
+                        }`}
+                      >
+                        {e.descripcion}
+                      </CommandItem>
+                    ))}
+                </CommandList>
+              )}
+            </Command>
+          </div>
         </div>
+
+        {/* Select normal para clasificación */}
         <div>
           <label className="font-semibold text-sm">Clasificación</label>
           <select
@@ -164,7 +204,9 @@ export default function PivotPage() {
                   <td className="border px-2 py-1">{s.licitacion_clasificacion}</td>
                   <td className="border px-2 py-1">{s.licitacion_tipo}</td>
                   {["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"].map((mes) => (
-                    <td key={mes} className="border px-2 py-1">{s[mes as keyof SesionPivot]}</td>
+                    <td key={mes} className="border px-2 py-1">
+                      {s[mes as keyof SesionPivot]}
+                    </td>
                   ))}
                 </tr>
               ))}

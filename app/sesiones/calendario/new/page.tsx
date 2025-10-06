@@ -49,6 +49,7 @@ type Clasificacion = {
 type Fuente = {
   id: number;
   descripcion: string;
+  etiquetado: string; // 👈 añadimos etiquetado
 };
 
 type Entregable = {
@@ -136,10 +137,14 @@ export default function NewSessionPage() {
   };
 
   const toggleFuente = (id: number) =>
-    setSelectedFuentes((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]));
+    setSelectedFuentes((prev) =>
+      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
+    );
 
   const toggleEntregable = (id: number) =>
-    setSelectedEntregables((prev) => (prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]));
+    setSelectedEntregables((prev) =>
+      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]
+    );
 
   const toggleSelectAllFuentes = () => {
     if (selectedFuentes.length === fuentes.length) {
@@ -183,12 +188,15 @@ export default function NewSessionPage() {
       .then((data) => setClasificaciones(Array.isArray(data) ? data : []))
       .catch(console.error);
 
+    // 🚀 Fuentes de financiamiento con etiquetado
     fetch(`${API_BASE}/catalogos/fuentes-financiamiento`)
       .then((res) => res.json())
       .then((data) => setFuentes(Array.isArray(data) ? data : []))
       .catch(console.error);
 
-    fetch(`${API_BASE}/sesiones/entregables-popular?p_id=-99&p_id_calendario_sesiones=-99`)
+    fetch(
+      `${API_BASE}/sesiones/entregables-popular?p_id=-99&p_id_calendario_sesiones=-99`
+    )
       .then((res) => res.json())
       .then((data) => setEntregables(Array.isArray(data) ? data : []))
       .catch(console.error);
@@ -202,7 +210,9 @@ export default function NewSessionPage() {
       setServidorSearch("");
       return;
     }
-    fetch(`${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=${enteId}`)
+    fetch(
+      `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=${enteId}`
+    )
       .then((res) => res.json())
       .then((data) => setServidores(Array.isArray(data) ? data : []))
       .catch((err) => {
@@ -229,7 +239,10 @@ export default function NewSessionPage() {
           fetch(`${API_BASE}/sesiones-fuentes/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id_calendario_sesiones: sesionId, id_fuente_financiamiento: fuenteId }),
+            body: JSON.stringify({
+              id_calendario_sesiones: sesionId,
+              id_fuente_financiamiento: fuenteId,
+            }),
           })
         )
       );
@@ -240,7 +253,12 @@ export default function NewSessionPage() {
           fetch(`${API_BASE}/sesiones-fechas/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id_calendario_sesiones: sesionId, fecha: f.fecha, hora: f.hora, activo: true }),
+            body: JSON.stringify({
+              id_calendario_sesiones: sesionId,
+              fecha: f.fecha,
+              hora: f.hora,
+              activo: true,
+            }),
           })
         )
       );
@@ -251,7 +269,10 @@ export default function NewSessionPage() {
           fetch(`${API_BASE}/sesiones-entregables/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id_calendario_sesiones: sesionId, id_listado_entregables: entregableId }),
+            body: JSON.stringify({
+              id_calendario_sesiones: sesionId,
+              id_listado_entregables: entregableId,
+            }),
           })
         )
       );
@@ -267,26 +288,42 @@ export default function NewSessionPage() {
   // ===== Render =====
   return (
     <main className="max-w-4xl mx-auto p-6 space-y-6">
-      {/* Header con título a la izquierda y botones a la derecha */}
+      {/* Header con título */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Nueva Sesión</h1>
-          <p className="text-gray-600 text-sm">Aquí puedes crear una nueva sesión del calendario.</p>
+          <p className="text-gray-600 text-sm">
+            Aquí puedes crear una nueva sesión del calendario.
+          </p>
         </div>
         <div className="flex gap-3">
-          <Button type="submit" form="session-form" style={{ backgroundColor: "#235391", color: "white" }}>
+          <Button
+            type="submit"
+            form="session-form"
+            style={{ backgroundColor: "#235391", color: "white" }}
+          >
             Guardar
           </Button>
-          <Button type="button" asChild style={{ backgroundColor: "#db200b", color: "white" }}>
+          <Button
+            type="button"
+            asChild
+            style={{ backgroundColor: "#db200b", color: "white" }}
+          >
             <Link href="/dashboard">Salir</Link>
           </Button>
         </div>
       </div>
 
-      <form id="session-form" onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6">
+      <form
+        id="session-form"
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="grid gap-6"
+      >
         {/* ===== Ente público ===== */}
         <Card>
-          <CardHeader><CardTitle>Ente público</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Ente público</CardTitle>
+          </CardHeader>
           <CardContent className="grid gap-4">
             <Label>Buscar ente</Label>
             <Command>
@@ -301,19 +338,27 @@ export default function NewSessionPage() {
                     <CommandEmpty>No se encontraron resultados</CommandEmpty>
                     <CommandGroup>
                       {entes
-                        .filter((e) => (e.descripcion || "").toLowerCase().includes(enteSearch.toLowerCase()))
+                        .filter((e) =>
+                          (e.descripcion || "")
+                            .toLowerCase()
+                            .includes(enteSearch.toLowerCase())
+                        )
                         .map((e) => (
                           <CommandItem
                             key={e.id}
                             value={e.descripcion}
                             onSelect={() => {
-                              form.setValue("id_ente", e.id, { shouldValidate: true });
+                              form.setValue("id_ente", e.id, {
+                                shouldValidate: true,
+                              });
                               setSelectedEnte(e);
                               setEnteSearch(e.descripcion);
                             }}
                           >
                             {e.descripcion}
-                            {form.watch("id_ente") === e.id && <Check className="ml-auto h-4 w-4 opacity-80" />}
+                            {form.watch("id_ente") === e.id && (
+                              <Check className="ml-auto h-4 w-4 opacity-80" />
+                            )}
                           </CommandItem>
                         ))}
                     </CommandGroup>
@@ -322,30 +367,65 @@ export default function NewSessionPage() {
               </CommandList>
             </Command>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Input readOnly className="bg-gray-200" placeholder="Siglas" value={selectedEnte?.siglas || ""} />
-              <Input readOnly className="bg-gray-200" placeholder="Clasificación" value={selectedEnte?.clasificacion || ""} />
-              <Input readOnly className="bg-gray-200" placeholder="Tipo de ente" value={selectedEnte?.ente_tipo_descripcion || ""} />
+              <Input
+                readOnly
+                className="bg-gray-200"
+                placeholder="Siglas"
+                value={selectedEnte?.siglas || ""}
+              />
+              <Input
+                readOnly
+                className="bg-gray-200"
+                placeholder="Clasificación"
+                value={selectedEnte?.clasificacion || ""}
+              />
+              <Input
+                readOnly
+                className="bg-gray-200"
+                placeholder="Tipo de ente"
+                value={selectedEnte?.ente_tipo_descripcion || ""}
+              />
             </div>
           </CardContent>
         </Card>
 
         {/* ===== Datos generales ===== */}
         <Card>
-          <CardHeader><CardTitle>Datos generales</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Datos generales</CardTitle>
+          </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-3">
-            <div><Label>No. Oficio</Label><Input maxLength={50} {...form.register("oficio_o_acta_numero")} /></div>
-            <div><Label>Asunto</Label><Input maxLength={50} {...form.register("asunto")} /></div>
-            <div><Label>Fecha</Label><Input type="date" {...form.register("fecha")} /></div>
+            <div>
+              <Label>No. Oficio</Label>
+              <Input
+                maxLength={50}
+                {...form.register("oficio_o_acta_numero")}
+              />
+            </div>
+            <div>
+              <Label>Asunto</Label>
+              <Input maxLength={50} {...form.register("asunto")} />
+            </div>
+            <div>
+              <Label>Fecha</Label>
+              <Input type="date" {...form.register("fecha")} />
+            </div>
           </CardContent>
         </Card>
 
         {/* ===== Servidor público ===== */}
         <Card>
-          <CardHeader><CardTitle>Servidor público</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Servidor público</CardTitle>
+          </CardHeader>
           <CardContent>
             <Command>
               <CommandInput
-                placeholder={form.watch("id_ente") ? "Escribe el nombre del servidor..." : "Primero selecciona un ente"}
+                placeholder={
+                  form.watch("id_ente")
+                    ? "Escribe el nombre del servidor..."
+                    : "Primero selecciona un ente"
+                }
                 value={servidorSearch}
                 onValueChange={setServidorSearch}
                 disabled={!form.watch("id_ente")}
@@ -356,18 +436,26 @@ export default function NewSessionPage() {
                     <CommandEmpty>No se encontraron resultados</CommandEmpty>
                     <CommandGroup>
                       {servidores
-                        .filter((s) => (s.nombre || "").toLowerCase().includes(servidorSearch.toLowerCase()))
+                        .filter((s) =>
+                          (s.nombre || "")
+                            .toLowerCase()
+                            .includes(servidorSearch.toLowerCase())
+                        )
                         .map((s) => (
                           <CommandItem
                             key={s.id}
                             value={s.nombre}
                             onSelect={() => {
-                              form.setValue("id_servidor_publico", s.id, { shouldValidate: true });
+                              form.setValue("id_servidor_publico", s.id, {
+                                shouldValidate: true,
+                              });
                               setServidorSearch(s.nombre);
                             }}
                           >
                             {s.nombre} {s.cargo ? `– ${s.cargo}` : ""}
-                            {form.watch("id_servidor_publico") === s.id && <Check className="ml-auto h-4 w-4 opacity-80" />}
+                            {form.watch("id_servidor_publico") === s.id && (
+                              <Check className="ml-auto h-4 w-4 opacity-80" />
+                            )}
                           </CommandItem>
                         ))}
                     </CommandGroup>
@@ -380,7 +468,9 @@ export default function NewSessionPage() {
 
         {/* ===== Clasificación de licitación ===== */}
         <Card>
-          <CardHeader><CardTitle>Clasificación de licitación</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Clasificación de licitación</CardTitle>
+          </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label>Descripción</Label>
@@ -388,37 +478,68 @@ export default function NewSessionPage() {
                 {...form.register("id_clasificacion_licitacion")}
                 className="border rounded-md p-2 w-full"
                 onChange={(e) => {
-                  const selected = clasificaciones.find((c) => c.id.toString() === e.target.value);
+                  const selected = clasificaciones.find(
+                    (c) => c.id.toString() === e.target.value
+                  );
                   setSelectedClasificacion(selected || null);
-                  form.setValue("id_clasificacion_licitacion", Number(e.target.value), { shouldValidate: true });
+                  form.setValue(
+                    "id_clasificacion_licitacion",
+                    Number(e.target.value),
+                    { shouldValidate: true }
+                  );
                 }}
               >
                 <option value="">Selecciona…</option>
                 {clasificaciones.map((c) => (
-                  <option key={c.id} value={c.id}>{c.descripcion}</option>
+                  <option key={c.id} value={c.id}>
+                    {c.descripcion}
+                  </option>
                 ))}
               </select>
             </div>
-            <div><Label>Tipo de licitación</Label><Input readOnly className="bg-gray-200" value={selectedClasificacion?.tipo_licitacion || ""} /></div>
+            <div>
+              <Label>Tipo de licitación</Label>
+              <Input
+                readOnly
+                className="bg-gray-200"
+                value={selectedClasificacion?.tipo_licitacion || ""}
+              />
+            </div>
           </CardContent>
         </Card>
 
         {/* ===== Comité y modo ===== */}
         <Card>
-          <CardHeader><CardTitle>Comité y modo</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Comité y modo</CardTitle>
+          </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label>Comité</Label>
-              <select {...form.register("comite")} className="border rounded-md p-2 w-full">
+              <select
+                {...form.register("comite")}
+                className="border rounded-md p-2 w-full"
+              >
                 <option value="">Selecciona…</option>
-                {comites.map((c) => (<option key={c} value={c}>{c}</option>))}
+                {comites.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
               <Label>Modo de sesión</Label>
-              <select {...form.register("modo_sesion")} className="border rounded-md p-2 w-full">
+              <select
+                {...form.register("modo_sesion")}
+                className="border rounded-md p-2 w-full"
+              >
                 <option value="">Selecciona…</option>
-                {modos.map((m) => (<option key={m} value={m}>{m}</option>))}
+                {modos.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
               </select>
             </div>
           </CardContent>
@@ -426,20 +547,28 @@ export default function NewSessionPage() {
 
         {/* ===== Fuentes de financiamiento ===== */}
         <Card>
-          <CardHeader><CardTitle>Fuentes de financiamiento</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Fuentes de financiamiento</CardTitle>
+          </CardHeader>
           <CardContent className="grid gap-2">
             <label className="flex items-center gap-2 font-semibold">
               <input
                 type="checkbox"
-                checked={selectedFuentes.length === fuentes.length && fuentes.length > 0}
+                checked={
+                  selectedFuentes.length === fuentes.length && fuentes.length > 0
+                }
                 onChange={toggleSelectAllFuentes}
               />
               Seleccionar todo
             </label>
             {fuentes.map((f) => (
               <label key={`fuente-${f.id}`} className="flex items-center gap-2">
-                <input type="checkbox" checked={selectedFuentes.includes(f.id)} onChange={() => toggleFuente(f.id)} />
-                {f.descripcion}
+                <input
+                  type="checkbox"
+                  checked={selectedFuentes.includes(f.id)}
+                  onChange={() => toggleFuente(f.id)}
+                />
+                {f.descripcion} ({f.etiquetado})
               </label>
             ))}
           </CardContent>
@@ -447,19 +576,53 @@ export default function NewSessionPage() {
 
         {/* ===== Fechas de la sesión ===== */}
         <Card>
-          <CardHeader><CardTitle>Fechas de la sesión</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Fechas de la sesión</CardTitle>
+          </CardHeader>
           <CardContent className="grid gap-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div><Label>Fecha (YYYY-MM-DD)</Label><Input type="date" value={newFecha} onChange={(e) => setNewFecha(e.target.value)} /></div>
-              <div><Label>Hora (HH:mm o HH:mm:ss)</Label><Input placeholder="HH:mm:ss" value={newHora} onChange={(e) => setNewHora(e.target.value)} /></div>
+              <div>
+                <Label>Fecha (YYYY-MM-DD)</Label>
+                <Input
+                  type="date"
+                  value={newFecha}
+                  onChange={(e) => setNewFecha(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Hora (HH:mm o HH:mm:ss)</Label>
+                <Input
+                  placeholder="HH:mm:ss"
+                  value={newHora}
+                  onChange={(e) => setNewHora(e.target.value)}
+                />
+              </div>
             </div>
-            <Button type="button" onClick={addFecha} className="w-fit bg-green-600 text-white">Añadir fecha</Button>
+            <Button
+              type="button"
+              onClick={addFecha}
+              className="w-fit bg-green-600 text-white"
+            >
+              Añadir fecha
+            </Button>
             {fechas.length > 0 && (
               <ul className="mt-2 space-y-2">
                 {fechas.map((f, i) => (
-                  <li key={`${f.fecha}-${f.hora}-${i}`} className="flex items-center justify-between border p-2 rounded">
-                    <span>{f.fecha} – {f.hora}</span>
-                    <Button type="button" variant="destructive" size="sm" onClick={() => removeFecha(i)}>Eliminar</Button>
+                  <li
+                    key={`${f.fecha}-${f.hora}-${i}`}
+                    className="flex items-center justify-between border p-2 rounded"
+                  >
+                    <span>
+                      {f.fecha} – {f.hora}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeFecha(i)}
+                    >
+                      Eliminar
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -469,19 +632,28 @@ export default function NewSessionPage() {
 
         {/* ===== Entregables ===== */}
         <Card>
-          <CardHeader><CardTitle>Entregables</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Entregables</CardTitle>
+          </CardHeader>
           <CardContent className="grid gap-2">
             <label className="flex items-center gap-2 font-semibold">
               <input
                 type="checkbox"
-                checked={selectedEntregables.length === entregables.length && entregables.length > 0}
+                checked={
+                  selectedEntregables.length === entregables.length &&
+                  entregables.length > 0
+                }
                 onChange={toggleSelectAllEntregables}
               />
               Seleccionar todo
             </label>
             {entregables.map((e) => (
               <label key={`ent-${e.id}`} className="flex items-center gap-2">
-                <input type="checkbox" checked={selectedEntregables.includes(e.id)} onChange={() => toggleEntregable(e.id)} />
+                <input
+                  type="checkbox"
+                  checked={selectedEntregables.includes(e.id)}
+                  onChange={() => toggleEntregable(e.id)}
+                />
                 {e.descripcion}
               </label>
             ))}

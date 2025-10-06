@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft } from "lucide-react"; // 👈 flecha para volver al dashboard
+import { ArrowLeft } from "lucide-react";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -51,9 +51,9 @@ type Sesion = {
 };
 
 type Fuente = {
-  id: number | null;
+  id_calendario_sesiones: number;
   id_fuente_financiamiento: number;
-  fuente_descripcion: string;
+  fuente_descripcion: string; // 👈 usamos el concatenado del SP
 };
 
 type Fecha = {
@@ -153,16 +153,14 @@ export default function SesionesPage() {
 
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-6">
-      {/* ===== Encabezado con flecha, título, subtítulo y acciones ===== */}
+      {/* ===== Encabezado ===== */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          {/* Flecha a dashboard */}
           <Button asChild variant="outline" size="icon">
             <Link href="/dashboard" aria-label="Regresar al dashboard">
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
-
           <div>
             <h1 className="text-3xl font-bold">Sesiones registradas</h1>
             <p className="text-gray-600 text-sm">
@@ -178,17 +176,13 @@ export default function SesionesPage() {
               <TabsTrigger value="table">📋 Tabla</TabsTrigger>
             </TabsList>
           </Tabs>
-          {/* Botón Nueva sesión con color solicitado */}
-          <Button
-            asChild
-            style={{ backgroundColor: "#235391", color: "white" }}
-          >
+          <Button asChild style={{ backgroundColor: "#235391", color: "white" }}>
             <Link href="/sesiones/calendario/new">Nueva sesión</Link>
           </Button>
         </div>
       </div>
 
-      {/* ===== Contenido: Cards / Tabla ===== */}
+      {/* ===== Contenido ===== */}
       {sesiones.length === 0 ? (
         <p>No hay sesiones registradas.</p>
       ) : switching ? (
@@ -273,19 +267,7 @@ export default function SesionesPage() {
 // ======================
 // Tarjeta por sesión (Cards)
 // ======================
-function SesionCard({
-  sesion,
-  entesMap,
-  servidoresMap,
-  clasificacionMap,
-  onDeleted,
-}: {
-  sesion: Sesion;
-  entesMap: Record<string, string>;
-  servidoresMap: Record<number, string>;
-  clasificacionMap: Record<number, string>;
-  onDeleted: () => void;
-}) {
+function SesionCard({ sesion, entesMap, servidoresMap, clasificacionMap, onDeleted }: any) {
   const router = useRouter();
   const [fuentes, setFuentes] = React.useState<Fuente[]>([]);
   const [fechas, setFechas] = React.useState<Fecha[]>([]);
@@ -308,19 +290,6 @@ function SesionCard({
       .catch(console.error);
   }, [sesion.id]);
 
-  const handleDelete = async () => {
-    if (!confirm("¿Seguro que deseas eliminar esta sesión?")) return;
-    const resp = await fetch(`${API_BASE}/sesiones/${sesion.id}`, {
-      method: "DELETE",
-    });
-    if (resp.ok) {
-      alert("Sesión eliminada ✅");
-      onDeleted();
-    } else {
-      alert("❌ Error eliminando la sesión");
-    }
-  };
-
   return (
     <Card className="shadow-md hover:shadow-lg transition">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -335,9 +304,7 @@ function SesionCard({
             <DropdownMenuItem onClick={() => router.push(`/sesiones/calendario/edit/${sesion.id}`)}>
               ✏️ Editar
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDelete}>
-              🗑️ Eliminar
-            </DropdownMenuItem>
+            <DropdownMenuItem>🗑️ Eliminar</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
@@ -345,26 +312,20 @@ function SesionCard({
       <CardContent className="grid gap-2 text-sm">
         <p><strong>Oficio:</strong> {sesion.oficio_o_acta_numero}</p>
         <p><strong>Fecha:</strong> {sesion.fecha}</p>
-        <p><strong>Ente:</strong> {entesMap[sesion.id_ente] || `ID ${sesion.id_ente}`}</p>
-        <p><strong>Servidor:</strong>{" "}
-          {sesion.id_servidor_publico
-            ? servidoresMap[sesion.id_servidor_publico] || `ID ${sesion.id_servidor_publico}`
-            : "No asignado"}
-        </p>
-        <p><strong>Comité:</strong> {sesion.comite || "—"}</p>
-        <p><strong>Modo:</strong> {sesion.modo_sesion || "—"}</p>
-        <p><strong>Clasificación:</strong>{" "}
-          {sesion.id_clasificacion_licitacion
-            ? clasificacionMap[sesion.id_clasificacion_licitacion] || `ID ${sesion.id_clasificacion_licitacion}`
-            : "No asignada"}
-        </p>
+        <p><strong>Ente:</strong> {entesMap[sesion.id_ente]}</p>
+        <p><strong>Servidor:</strong> {sesion.id_servidor_publico ? servidoresMap[sesion.id_servidor_publico] : "No asignado"}</p>
+        <p><strong>Comité:</strong> {sesion.comite}</p>
+        <p><strong>Modo:</strong> {sesion.modo_sesion}</p>
+        <p><strong>Clasificación:</strong> {sesion.id_clasificacion_licitacion ? clasificacionMap[sesion.id_clasificacion_licitacion] : "No asignada"}</p>
 
         {/* Fuentes */}
         <div>
           <strong>Fuentes:</strong>{" "}
           {fuentes.length > 0 ? (
             <ul className="list-disc list-inside">
-              {fuentes.map((f, i) => <li key={f.id ?? `fuente-${i}`}>{f.fuente_descripcion}</li>)}
+              {fuentes.map((f, i) => (
+                <li key={`fuente-${i}`}>{f.fuente_descripcion}</li>
+              ))}
             </ul>
           ) : (
             <span className="text-gray-500">Ninguna</span>
@@ -376,7 +337,9 @@ function SesionCard({
           <strong>Fechas:</strong>{" "}
           {fechas.length > 0 ? (
             <ul className="list-disc list-inside">
-              {fechas.map((f, i) => <li key={f.id ?? `fecha-${i}`}>{f.fecha} – {f.hora}</li>)}
+              {fechas.map((f, i) => (
+                <li key={`fecha-${i}`}>{f.fecha} – {f.hora}</li>
+              ))}
             </ul>
           ) : (
             <span className="text-gray-500">Ninguna</span>
@@ -402,53 +365,16 @@ function SesionCard({
 // ======================
 // Fila por sesión (Tabla)
 // ======================
-function SesionRow({
-  sesion,
-  entesMap,
-  servidoresMap,
-  clasificacionMap,
-  onDeleted,
-}: {
-  sesion: Sesion;
-  entesMap: Record<string, string>;
-  servidoresMap: Record<number, string>;
-  clasificacionMap: Record<number, string>;
-  onDeleted: () => void;
-}) {
+function SesionRow({ sesion, entesMap, servidoresMap, clasificacionMap, onDeleted }: any) {
   const router = useRouter();
   const [fuentes, setFuentes] = React.useState<Fuente[]>([]);
-  const [fechas, setFechas] = React.useState<Fecha[]>([]);
-  const [entregables, setEntregables] = React.useState<Entregable[]>([]);
 
   React.useEffect(() => {
     fetch(`${API_BASE}/sesiones-fuentes/${sesion.id}`)
       .then((res) => res.json())
       .then((data: Fuente[]) => setFuentes(Array.isArray(data) ? data : []))
       .catch(console.error);
-
-    fetch(`${API_BASE}/sesiones-fechas/by-sesion/${sesion.id}`)
-      .then((res) => res.json())
-      .then((data: Fecha[]) => setFechas(Array.isArray(data) ? data : []))
-      .catch(console.error);
-
-    fetch(`${API_BASE}/sesiones-entregables/?id_calendario_sesiones=${sesion.id}`)
-      .then((res) => res.json())
-      .then((data: Entregable[]) => setEntregables(Array.isArray(data) ? data : []))
-      .catch(console.error);
   }, [sesion.id]);
-
-  const handleDelete = async () => {
-    if (!confirm("¿Seguro que deseas eliminar esta sesión?")) return;
-    const resp = await fetch(`${API_BASE}/sesiones/${sesion.id}`, {
-      method: "DELETE",
-    });
-    if (resp.ok) {
-      alert("Sesión eliminada ✅");
-      onDeleted();
-    } else {
-      alert("❌ Error eliminando la sesión");
-    }
-  };
 
   return (
     <TableRow>
@@ -456,41 +382,10 @@ function SesionRow({
       <TableCell>{sesion.asunto}</TableCell>
       <TableCell>{sesion.oficio_o_acta_numero}</TableCell>
       <TableCell>{sesion.fecha}</TableCell>
-      <TableCell>{entesMap[sesion.id_ente] || `ID ${sesion.id_ente}`}</TableCell>
-      <TableCell>
-        {sesion.id_servidor_publico
-          ? servidoresMap[sesion.id_servidor_publico] || `ID ${sesion.id_servidor_publico}`
-          : "No asignado"}
-      </TableCell>
-      <TableCell>
-        {sesion.id_clasificacion_licitacion
-          ? clasificacionMap[sesion.id_clasificacion_licitacion] || `ID ${sesion.id_clasificacion_licitacion}`
-          : "No asignada"}
-      </TableCell>
-      <TableCell>
-        {fuentes.length > 0 ? fuentes.map((f) => f.fuente_descripcion).join(", ") : "—"}
-      </TableCell>
-      <TableCell>
-        {fechas.length > 0 ? fechas.map((f) => `${f.fecha} ${f.hora}`).join(" | ") : "—"}
-      </TableCell>
-      <TableCell>
-        {entregables.length > 0 ? entregables.map((e) => e.descripcion).join(", ") : "—"}
-      </TableCell>
-      <TableCell>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">⋮</Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => router.push(`/sesiones/calendario/edit/${sesion.id}`)}>
-              ✏️ Editar
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDelete}>
-              🗑️ Eliminar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </TableCell>
+      <TableCell>{entesMap[sesion.id_ente]}</TableCell>
+      <TableCell>{sesion.id_servidor_publico ? servidoresMap[sesion.id_servidor_publico] : "No asignado"}</TableCell>
+      <TableCell>{sesion.id_clasificacion_licitacion ? clasificacionMap[sesion.id_clasificacion_licitacion] : "No asignada"}</TableCell>
+      <TableCell>{fuentes.length > 0 ? fuentes.map((f) => f.fuente_descripcion).join(", ") : "—"}</TableCell>
     </TableRow>
   );
 }

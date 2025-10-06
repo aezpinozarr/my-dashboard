@@ -1,4 +1,3 @@
-// app/catalogos/servidores/page.tsx
 "use client";
 
 import * as React from "react";
@@ -63,8 +62,8 @@ export default function ServidoresPage() {
     <main className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+        {/* Título y regreso */}
         <div className="flex items-center gap-3">
-          {/* Flecha de regreso al Dashboard */}
           <Link href="/dashboard">
             <Button variant="outline">←</Button>
           </Link>
@@ -76,14 +75,31 @@ export default function ServidoresPage() {
           </div>
         </div>
 
+        {/* Controles derechos */}
         <div className="flex items-center gap-4">
-          <Tabs value={view} onValueChange={(v) => setView(v as "cards" | "table")}>
+          {/* Vista tipo cards / tabla */}
+          <Tabs
+            value={view}
+            onValueChange={(v) => setView(v as "cards" | "table")}
+          >
             <TabsList>
               <TabsTrigger value="cards">📇 Cards</TabsTrigger>
               <TabsTrigger value="table">📋 Tabla</TabsTrigger>
             </TabsList>
           </Tabs>
 
+          {/* 🔵 Botón de vincular (sin ente preseleccionado) */}
+          <Button
+            asChild
+            style={{ backgroundColor: "#235391", color: "white" }}
+          >
+            {/* ✅ Llevamos a la ruta base para seleccionar servidor */}
+            <Link href="/catalogos/servidores-publicos-ente/vincular/0">
+              Vincular Servidores
+            </Link>
+          </Button>
+
+          {/* 🔴 Botón de salir */}
           <Button
             asChild
             style={{ backgroundColor: "#db200b", color: "white" }}
@@ -93,15 +109,15 @@ export default function ServidoresPage() {
         </div>
       </div>
 
-      {/* Contenido */}
+      {/* Contenido principal */}
       {loading ? (
         <p>Cargando...</p>
       ) : servidores.length === 0 ? (
         <p>No hay servidores registrados</p>
       ) : view === "cards" ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {servidores.map((s) => (
-            <Card key={s.id} className="shadow hover:shadow-lg transition">
+          {servidores.map((s, index) => (
+            <Card key={`${s.id}-${index}`} className="shadow hover:shadow-lg transition">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold">
                   {s.nombre}
@@ -131,8 +147,8 @@ export default function ServidoresPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {servidores.map((s) => (
-              <TableRow key={s.id}>
+            {servidores.map((s, index) => (
+              <TableRow key={`${s.id}-${index}`}>
                 <TableCell>{s.id}</TableCell>
                 <TableCell>{s.nombre}</TableCell>
                 <TableCell>{s.cargo}</TableCell>
