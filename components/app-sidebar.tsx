@@ -64,6 +64,20 @@ const data = {
         },
       ],
     },
+
+    {
+      title: "Seguridad",
+      url: "#",
+      icon: Bot,
+      isActive: true,
+      items: [
+        {
+          title: "Usuarios",
+          url: "/seguridad/usuarios",
+        },
+      ],
+    },
+
     {
       title: "Catálogos",
       url: "#",
