@@ -20,9 +20,8 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://127.0.0.1:8000";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/^http:\/\//, "https://") ||
+  "https://backend-licitacion-production.up.railway.app";
 
 type Proveedor = {
   rfc: string;
