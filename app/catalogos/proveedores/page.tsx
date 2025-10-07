@@ -19,10 +19,29 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/^http:\/\//, "https://") ||
-  "https://backend-licitacion-production.up.railway.app";
+// ======================
+// 🔹 Función universal para detectar entorno
+// ======================
+const getApiBase = () => {
+  const envUrl =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    "http://127.0.0.1:8000";
 
+  // 🔒 Si estamos en producción (la web carga con HTTPS), forzar HTTPS
+  if (typeof window !== "undefined" && window.location.protocol === "https:") {
+    return envUrl.replace(/^http:\/\//, "https://");
+  }
+
+  // 🧩 En local, mantener HTTP normal
+  return envUrl;
+};
+
+const API_BASE = getApiBase();
+
+// ======================
+// 🔹 Tipado de datos
+// ======================
 type Proveedor = {
   rfc: string;
   razon_social: string;
@@ -34,6 +53,9 @@ type Proveedor = {
   entidad_federativa: string;
 };
 
+// ======================
+// 🔹 Componente principal
+// ======================
 export default function ProveedoresPage() {
   const [proveedores, setProveedores] = React.useState<Proveedor[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -59,7 +81,7 @@ export default function ProveedoresPage() {
   }, []);
 
   // ======================
-  // Eliminar (inactivar)
+  // Eliminar proveedor (inactivar)
   // ======================
   const eliminarProveedor = async (rfc: string) => {
     if (!confirm(`¿Seguro que deseas eliminar el proveedor ${rfc}?`)) return;
@@ -111,14 +133,22 @@ export default function ProveedoresPage() {
 
           <Button
             asChild
-            style={{ backgroundColor: "#235391", color: "white", cursor: "pointer" }}
+            style={{
+              backgroundColor: "#235391",
+              color: "white",
+              cursor: "pointer",
+            }}
           >
             <Link href="/catalogos/proveedores/new">Nuevo Proveedor</Link>
           </Button>
 
           <Button
             asChild
-            style={{ backgroundColor: "#db200b", color: "white", cursor: "pointer" }}
+            style={{
+              backgroundColor: "#db200b",
+              color: "white",
+              cursor: "pointer",
+            }}
           >
             <Link href="/dashboard">Salir</Link>
           </Button>
@@ -138,25 +168,47 @@ export default function ProveedoresPage() {
                 <CardTitle>{p.razon_social}</CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-1">
-                <p><strong>RFC:</strong> {p.rfc}</p>
-                <p><strong>Nombre comercial:</strong> {p.nombre_comercial || "—"}</p>
-                <p><strong>Persona jurídica:</strong> {p.persona_juridica || "—"}</p>
-                <p><strong>Correo:</strong> {p.correo_electronico || "—"}</p>
-                <p><strong>Entidad:</strong> {p.entidad_federativa}</p>
+                <p>
+                  <strong>RFC:</strong> {p.rfc}
+                </p>
+                <p>
+                  <strong>Nombre comercial:</strong>{" "}
+                  {p.nombre_comercial || "—"}
+                </p>
+                <p>
+                  <strong>Persona jurídica:</strong>{" "}
+                  {p.persona_juridica || "—"}
+                </p>
+                <p>
+                  <strong>Correo:</strong> {p.correo_electronico || "—"}
+                </p>
+                <p>
+                  <strong>Entidad:</strong> {p.entidad_federativa}
+                </p>
 
                 <div className="flex justify-end gap-2 pt-2">
                   <Button
                     asChild
                     size="sm"
                     variant="outline"
-                    style={{ borderColor: "#235391", color: "#235391", cursor: "pointer" }}
+                    style={{
+                      borderColor: "#235391",
+                      color: "#235391",
+                      cursor: "pointer",
+                    }}
                   >
-                    <Link href={`/catalogos/proveedores/edit/${p.rfc}`}>✏️ Editar</Link>
+                    <Link href={`/catalogos/proveedores/edit/${p.rfc}`}>
+                      ✏️ Editar
+                    </Link>
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    style={{ borderColor: "#db200b", color: "#db200b", cursor: "pointer" }}
+                    style={{
+                      borderColor: "#db200b",
+                      color: "#db200b",
+                      cursor: "pointer",
+                    }}
                     onClick={() => eliminarProveedor(p.rfc)}
                   >
                     🗑️ Eliminar
@@ -190,14 +242,24 @@ export default function ProveedoresPage() {
                       asChild
                       size="sm"
                       variant="outline"
-                      style={{ borderColor: "#235391", color: "#235391", cursor: "pointer" }}
+                      style={{
+                        borderColor: "#235391",
+                        color: "#235391",
+                        cursor: "pointer",
+                      }}
                     >
-                      <Link href={`/catalogos/proveedores/edit/${p.rfc}`}>✏️ Editar</Link>
+                      <Link href={`/catalogos/proveedores/edit/${p.rfc}`}>
+                        ✏️ Editar
+                      </Link>
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      style={{ borderColor: "#db200b", color: "#db200b", cursor: "pointer" }}
+                      style={{
+                        borderColor: "#db200b",
+                        color: "#db200b",
+                        cursor: "pointer",
+                      }}
                       onClick={() => eliminarProveedor(p.rfc)}
                     >
                       🗑️ Eliminar
