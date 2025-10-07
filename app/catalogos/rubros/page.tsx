@@ -3,24 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ======================
-// 🔹 Función universal para determinar el backend
+// 🔹 API Base – forzar HTTPS siempre en producción
 // ======================
 const getApiBase = () => {
   let base =
@@ -28,14 +16,17 @@ const getApiBase = () => {
     process.env.NEXT_PUBLIC_BACKEND_URL ||
     "http://127.0.0.1:8000";
 
-  // 🔒 Si la página está cargada bajo HTTPS, forzar HTTPS
-  if (typeof window !== "undefined" && window.location.protocol === "https:") {
-    base = base.replace(/^http:\/\//i, "https://");
+  // Si la app corre en Railway o el dominio contiene "railway.app", forzar HTTPS
+  if (typeof window !== "undefined") {
+    const isProd = window.location.hostname.includes("railway.app");
+    if (isProd) {
+      base = base.replace(/^http:\/\//i, "https://");
+    } else if (window.location.protocol === "https:") {
+      base = base.replace(/^http:\/\//i, "https://");
+    }
   }
 
-  // 🧩 Log de verificación (solo para debug)
   console.log("🌐 API_BASE:", base);
-
   return base;
 };
 
