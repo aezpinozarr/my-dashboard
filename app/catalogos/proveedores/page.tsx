@@ -23,18 +23,20 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // 🔹 Función universal para detectar entorno
 // ======================
 const getApiBase = () => {
-  const envUrl =
-    process.env.NEXT_PUBLIC_API_URL ||
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    "http://127.0.0.1:8000";
-
-  // 🔒 Si estamos en producción (la web carga con HTTPS), forzar HTTPS
-  if (typeof window !== "undefined" && window.location.protocol === "https:") {
-    return envUrl.replace(/^http:\/\//, "https://");
+  // 🟢 En producción (Railway), usar siempre HTTPS
+  if (
+    typeof window !== "undefined" &&
+    window.location.hostname.includes("railway")
+  ) {
+    return "https://backend-licitacion-production.up.railway.app";
   }
 
-  // 🧩 En local, mantener HTTP normal
-  return envUrl;
+  // 🧩 En desarrollo local
+  return (
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    "http://127.0.0.1:8000"
+  );
 };
 
 const API_BASE = getApiBase();
