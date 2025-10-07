@@ -8,43 +8,40 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ======================
-// 🔹 API Base – forzar HTTPS siempre en producción
+// 🔹 API Base – compatible con SSR y siempre HTTPS en producción
 // ======================
-const getApiBase = () => {
-  let base =
-    process.env.NEXT_PUBLIC_API_URL ||
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    "http://127.0.0.1:8000";
+const isProd =
+  typeof window === "undefined"
+    ? process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production"
+    : window.location.hostname.includes("railway.app");
 
-  // Si la app corre en Railway o el dominio contiene "railway.app", forzar HTTPS
-  if (typeof window !== "undefined") {
-    const isProd = window.location.hostname.includes("railway.app");
-    if (isProd) {
-      base = base.replace(/^http:\/\//i, "https://");
-    } else if (window.location.protocol === "https:") {
-      base = base.replace(/^http:\/\//i, "https://");
-    }
-  }
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "http://127.0.0.1:8000"
+).replace(/^http:\/\//i, isProd ? "https://" : "http://");
 
-  console.log("🌐 API_BASE:", base);
-  return base;
-};
+console.log("🌐 API_BASE:", API_BASE);
 
-const API_BASE = getApiBase();
-
+// ======================
+// 🧩 Tipado de datos
+// ======================
 type Rubro = {
   id: string;
   descripcion: string;
   activo: boolean;
 };
 
+// ======================
+// 🧱 Página principal
+// ======================
 export default function RubrosPage() {
   const [rubros, setRubros] = React.useState<Rubro[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState<"cards" | "table">("cards");
 
   // ======================
-  // Cargar rubros activos
+  // 🔄 Cargar rubros activos
   // ======================
   const fetchRubros = async () => {
     try {
@@ -63,7 +60,7 @@ export default function RubrosPage() {
   }, []);
 
   // ======================
-  // Eliminar (inactivar) rubro
+  // 🗑️ Eliminar (inactivar) rubro
   // ======================
   const eliminarRubro = async (id: string) => {
     if (!confirm(`¿Seguro que deseas eliminar el rubro ${id}?`)) return;
@@ -85,7 +82,7 @@ export default function RubrosPage() {
   };
 
   // ======================
-  // Render principal
+  // 🎨 Render principal
   // ======================
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-6">
