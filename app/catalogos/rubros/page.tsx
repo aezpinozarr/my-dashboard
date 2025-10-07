@@ -19,10 +19,33 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+// ======================
+// 🔹 Definir tipo
+// ======================
 type Rubro = {
   id: string;
   descripcion: string;
   activo: boolean;
+};
+
+// ======================
+// 🔹 Determinar API_BASE solo en cliente
+// ======================
+const getApiBase = (): string => {
+  if (typeof window === "undefined") return "";
+
+  // Si estamos en Railway → usa el backend HTTPS de producción
+  if (window.location.hostname.includes("railway.app")) {
+    return "https://backend-licitacion-production.up.railway.app";
+  }
+
+  // Si estamos en HTTPS local (por túnel o proxy)
+  if (window.location.protocol === "https:") {
+    return "https://127.0.0.1:8000";
+  }
+
+  // Modo local normal
+  return "http://127.0.0.1:8000";
 };
 
 export default function RubrosPage() {
@@ -32,19 +55,10 @@ export default function RubrosPage() {
   const [apiBase, setApiBase] = React.useState("");
 
   // ======================
-  // ⚙️ Determinar API_BASE en tiempo real
+  // ⚙️ Configurar API_BASE
   // ======================
   React.useEffect(() => {
-    let base =
-      process.env.NEXT_PUBLIC_API_URL ||
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      "http://127.0.0.1:8000";
-
-    // Si la app está en Railway o HTTPS, forzar HTTPS
-    if (window.location.protocol === "https:" || window.location.hostname.includes("railway.app")) {
-      base = base.replace(/^http:\/\//i, "https://");
-    }
-
+    const base = getApiBase();
     console.log("🌐 API_BASE:", base);
     setApiBase(base);
   }, []);
@@ -58,6 +72,7 @@ export default function RubrosPage() {
     const fetchRubros = async () => {
       try {
         const resp = await fetch(`${apiBase}/catalogos/rubro?p_id=-99`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
         setRubros(Array.isArray(data) ? data.filter((r) => r.activo) : []);
       } catch (err) {
@@ -71,7 +86,7 @@ export default function RubrosPage() {
   }, [apiBase]);
 
   // ======================
-  // 🗑️ Eliminar (inactivar) rubro
+  // 🗑️ Eliminar rubro
   // ======================
   const eliminarRubro = async (id: string) => {
     if (!apiBase) return;
@@ -86,7 +101,8 @@ export default function RubrosPage() {
 
       if (!resp.ok) throw new Error(await resp.text());
       alert("🗑️ Rubro eliminado correctamente");
-      // recargar lista
+
+      // Recargar lista
       const resp2 = await fetch(`${apiBase}/catalogos/rubro?p_id=-99`);
       const data = await resp2.json();
       setRubros(Array.isArray(data) ? data.filter((r) => r.activo) : []);
