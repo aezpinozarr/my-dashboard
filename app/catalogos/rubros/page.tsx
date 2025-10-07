@@ -19,9 +19,6 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// ======================
-// 🔹 Definir tipo
-// ======================
 type Rubro = {
   id: string;
   descripcion: string;
@@ -29,23 +26,27 @@ type Rubro = {
 };
 
 // ======================
-// 🔹 Determinar API_BASE solo en cliente
+// 🔧 Función segura para determinar API base
 // ======================
-const getApiBase = (): string => {
+const getSecureApiBase = (): string => {
   if (typeof window === "undefined") return "";
 
-  // Si estamos en Railway → usa el backend HTTPS de producción
+  let base =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    "http://127.0.0.1:8000";
+
+  // Si estamos en Railway, forzar HTTPS
   if (window.location.hostname.includes("railway.app")) {
-    return "https://backend-licitacion-production.up.railway.app";
+    base = base.replace(/^http:\/\//i, "https://");
   }
 
-  // Si estamos en HTTPS local (por túnel o proxy)
+  // Si estamos navegando en HTTPS local (por túnel o proxy)
   if (window.location.protocol === "https:") {
-    return "https://127.0.0.1:8000";
+    base = base.replace(/^http:\/\//i, "https://");
   }
 
-  // Modo local normal
-  return "http://127.0.0.1:8000";
+  return base;
 };
 
 export default function RubrosPage() {
@@ -55,24 +56,31 @@ export default function RubrosPage() {
   const [apiBase, setApiBase] = React.useState("");
 
   // ======================
-  // ⚙️ Configurar API_BASE
+  // ⚙️ Establecer API base
   // ======================
   React.useEffect(() => {
-    const base = getApiBase();
+    const base = getSecureApiBase();
     console.log("🌐 API_BASE:", base);
     setApiBase(base);
   }, []);
 
   // ======================
-  // 🔄 Cargar rubros cuando API_BASE esté lista
+  // 🔄 Cargar rubros (solo cuando API esté lista)
   // ======================
   React.useEffect(() => {
     if (!apiBase) return;
 
     const fetchRubros = async () => {
       try {
-        const resp = await fetch(`${apiBase}/catalogos/rubro?p_id=-99`);
+        // 🔐 Si el backend devuelve una redirección a http://, la forzamos a https://
+        let url = `${apiBase}/catalogos/rubro?p_id=-99`;
+        if (url.startsWith("http://backend-licitacion-production.up.railway.app")) {
+          url = url.replace("http://", "https://");
+        }
+
+        const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
         const data = await resp.json();
         setRubros(Array.isArray(data) ? data.filter((r) => r.activo) : []);
       } catch (err) {
@@ -102,7 +110,7 @@ export default function RubrosPage() {
       if (!resp.ok) throw new Error(await resp.text());
       alert("🗑️ Rubro eliminado correctamente");
 
-      // Recargar lista
+      // 🔄 Recargar lista
       const resp2 = await fetch(`${apiBase}/catalogos/rubro?p_id=-99`);
       const data = await resp2.json();
       setRubros(Array.isArray(data) ? data.filter((r) => r.activo) : []);
