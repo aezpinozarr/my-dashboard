@@ -19,10 +19,27 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://127.0.0.1:8000";
+// ======================
+// 🔹 Función universal para determinar el backend
+// ======================
+const getApiBase = () => {
+  let base =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    "http://127.0.0.1:8000";
+
+  // 🔒 Si la página está cargada bajo HTTPS, forzar HTTPS
+  if (typeof window !== "undefined" && window.location.protocol === "https:") {
+    base = base.replace(/^http:\/\//i, "https://");
+  }
+
+  // 🧩 Log de verificación (solo para debug)
+  console.log("🌐 API_BASE:", base);
+
+  return base;
+};
+
+const API_BASE = getApiBase();
 
 type Rubro = {
   id: string;
@@ -121,11 +138,7 @@ export default function RubrosPage() {
           </Button>
 
           {/* 🗑️ Rubros eliminados */}
-          <Button
-            asChild
-            variant="outline"
-            className="cursor-pointer"
-          >
+          <Button asChild variant="outline" className="cursor-pointer">
             <Link href="/catalogos/rubros/delete">Eliminados</Link>
           </Button>
 
