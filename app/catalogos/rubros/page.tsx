@@ -3,70 +3,82 @@
 import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// ======================
-// 🔹 API Base – compatible con SSR y siempre HTTPS en producción
-// ======================
-const isProd =
-  typeof window === "undefined"
-    ? process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production"
-    : window.location.hostname.includes("railway.app");
-
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://127.0.0.1:8000"
-).replace(/^http:\/\//i, isProd ? "https://" : "http://");
-
-console.log("🌐 API_BASE:", API_BASE);
-
-// ======================
-// 🧩 Tipado de datos
-// ======================
 type Rubro = {
   id: string;
   descripcion: string;
   activo: boolean;
 };
 
-// ======================
-// 🧱 Página principal
-// ======================
 export default function RubrosPage() {
   const [rubros, setRubros] = React.useState<Rubro[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState<"cards" | "table">("cards");
+  const [apiBase, setApiBase] = React.useState("");
 
   // ======================
-  // 🔄 Cargar rubros activos
+  // ⚙️ Determinar API_BASE en tiempo real
   // ======================
-  const fetchRubros = async () => {
-    try {
-      const resp = await fetch(`${API_BASE}/catalogos/rubro?p_id=-99`);
-      const data = await resp.json();
-      setRubros(Array.isArray(data) ? data.filter((r) => r.activo) : []);
-    } catch (err) {
-      console.error("❌ Error cargando rubros:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   React.useEffect(() => {
-    fetchRubros();
+    let base =
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      "http://127.0.0.1:8000";
+
+    // Si la app está en Railway o HTTPS, forzar HTTPS
+    if (window.location.protocol === "https:" || window.location.hostname.includes("railway.app")) {
+      base = base.replace(/^http:\/\//i, "https://");
+    }
+
+    console.log("🌐 API_BASE:", base);
+    setApiBase(base);
   }, []);
+
+  // ======================
+  // 🔄 Cargar rubros cuando API_BASE esté lista
+  // ======================
+  React.useEffect(() => {
+    if (!apiBase) return;
+
+    const fetchRubros = async () => {
+      try {
+        const resp = await fetch(`${apiBase}/catalogos/rubro?p_id=-99`);
+        const data = await resp.json();
+        setRubros(Array.isArray(data) ? data.filter((r) => r.activo) : []);
+      } catch (err) {
+        console.error("❌ Error cargando rubros:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRubros();
+  }, [apiBase]);
 
   // ======================
   // 🗑️ Eliminar (inactivar) rubro
   // ======================
   const eliminarRubro = async (id: string) => {
+    if (!apiBase) return;
     if (!confirm(`¿Seguro que deseas eliminar el rubro ${id}?`)) return;
 
     try {
-      const resp = await fetch(`${API_BASE}/catalogos/rubro`, {
+      const resp = await fetch(`${apiBase}/catalogos/rubro`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
@@ -74,7 +86,10 @@ export default function RubrosPage() {
 
       if (!resp.ok) throw new Error(await resp.text());
       alert("🗑️ Rubro eliminado correctamente");
-      fetchRubros();
+      // recargar lista
+      const resp2 = await fetch(`${apiBase}/catalogos/rubro?p_id=-99`);
+      const data = await resp2.json();
+      setRubros(Array.isArray(data) ? data.filter((r) => r.activo) : []);
     } catch (err) {
       console.error("❌ Error al eliminar rubro:", err);
       alert("Error al eliminar rubro");
@@ -88,7 +103,6 @@ export default function RubrosPage() {
     <main className="max-w-7xl mx-auto p-6 space-y-6">
       {/* ENCABEZADO */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        {/* Título y regreso */}
         <div className="flex items-center gap-3">
           <Link href="/dashboard">
             <Button variant="outline" className="cursor-pointer">
@@ -103,7 +117,6 @@ export default function RubrosPage() {
           </div>
         </div>
 
-        {/* CONTROLES */}
         <div className="flex items-center gap-4">
           <Tabs value={view} onValueChange={(v) => setView(v as any)}>
             <TabsList>
@@ -116,7 +129,6 @@ export default function RubrosPage() {
             </TabsList>
           </Tabs>
 
-          {/* ➕ Nuevo rubro */}
           <Button
             asChild
             style={{ backgroundColor: "#235391", color: "white" }}
@@ -125,12 +137,10 @@ export default function RubrosPage() {
             <Link href="/catalogos/rubros/new">Nuevo Rubro</Link>
           </Button>
 
-          {/* 🗑️ Rubros eliminados */}
           <Button asChild variant="outline" className="cursor-pointer">
             <Link href="/catalogos/rubros/delete">Eliminados</Link>
           </Button>
 
-          {/* 🔴 Salir */}
           <Button
             asChild
             style={{ backgroundColor: "#db200b", color: "white" }}
