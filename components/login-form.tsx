@@ -1,37 +1,84 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { useRouter } from "next/navigation"
-import { Loader2 } from "lucide-react"   // spinner de lucide-react
+import * as React from "react";
+import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useUser } from "@/context/UserContext"; // ✅ importa el contexto
 
-export function LoginForm({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = React.useState(false)
+// Función para detectar el backend actual
+const getApiBase = (): string => {
+  if (typeof window === "undefined") return "";
+  if (window.location.hostname.includes("railway.app"))
+    return "https://backend-licitacion-production.up.railway.app";
+  if (window.location.protocol === "https:")
+    return "https://127.0.0.1:8000";
+  return "http://127.0.0.1:8000";
+};
 
+export function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
+  const router = useRouter();
+  const { setUser } = useUser(); // ✅ acceso al contexto global
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState("");
+  const [form, setForm] = React.useState({
+    username: "",
+    password: "",
+  });
+
+  // Función principal de login
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setIsLoading(true)
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMsg("");
 
-    // Simulación de petición async (ejemplo: login con backend)
-    await new Promise((res) => setTimeout(res, 1500))
+    try {
+      const base = getApiBase();
 
-    // Redirigir al dashboard
-    router.push("/dashboard")
+      const resp = await fetch(`${base}/seguridad/usuarios/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          p_username: form.username,
+          p_password: form.password,
+        }),
+      });
+
+      const data = await resp.json();
+
+      if (!resp.ok || !data.exito) {
+        throw new Error(data.mensaje || "Error de autenticación");
+      }
+
+      // ✅ Guardar en el contexto global
+      setUser({
+        id: data.id,
+        username: data.username,
+        nombre: data.nombre,
+        id_ente: data.id_ente,
+        tipo: data.tipo,
+      });
+
+      // 🔁 Redirigir al dashboard
+      router.push("/dashboard");
+    } catch (err: any) {
+      console.error("❌ Error al autenticar usuario:", err);
+      setErrorMsg(err.message || "Error al autenticar usuario");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="overflow-hidden p-0">
         <CardContent className="grid p-0 md:grid-cols-2">
+          {/* Formulario */}
           <form className="p-6 md:p-12" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-8">
               {/* Encabezado */}
@@ -42,15 +89,19 @@ export function LoginForm({
                 </p>
               </div>
 
-              {/* Correo */}
+              {/* Usuario */}
               <div className="grid gap-3">
-                <Label htmlFor="email">Correo electrónico</Label>
+                <Label htmlFor="username">Usuario</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
+                  id="username"
+                  type="text"
+                  placeholder="Usuario"
                   required
                   className="h-12 text-lg"
+                  value={form.username}
+                  onChange={(e) =>
+                    setForm({ ...form, username: e.target.value })
+                  }
                 />
               </div>
 
@@ -70,6 +121,10 @@ export function LoginForm({
                   type="password"
                   required
                   className="h-12 text-lg"
+                  value={form.password}
+                  onChange={(e) =>
+                    setForm({ ...form, password: e.target.value })
+                  }
                 />
               </div>
 
@@ -88,6 +143,11 @@ export function LoginForm({
                   "Iniciar sesión"
                 )}
               </Button>
+
+              {/* Mensaje de error */}
+              {errorMsg && (
+                <p className="text-red-600 text-center text-sm">{errorMsg}</p>
+              )}
             </div>
           </form>
 
@@ -114,5 +174,5 @@ export function LoginForm({
         </a>.
       </div>
     </div>
-  )
+  );
 }
