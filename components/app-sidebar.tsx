@@ -63,6 +63,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         { title: "Entes Servidores Público", url: "/catalogos/servidores-publicos-ente" },
       ],
     },
+
+    {
+      title: "Procesos",
+      url: "#",
+      icon: SquareTerminal,
+      isActive: true,
+      items: [
+        { title: "Nuevo seguimiento", url: "/procesos/new" },
+      ],
+    },
   ];
 
   // ✅ Equipos (TeamSwitcher)
