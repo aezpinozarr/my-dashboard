@@ -70,6 +70,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       icon: SquareTerminal,
       isActive: true,
       items: [
+        { title: "Seguimiento de procesos", url: "/procesos" },
         { title: "Nuevo seguimiento", url: "/procesos/new" },
       ],
     },
