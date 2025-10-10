@@ -261,17 +261,90 @@ export default function NuevoProcesoPage() {
           }),
         });
 
+        const data = await resp.json(); // 👈 capturamos respuesta
         if (!resp.ok) {
           const errorText = await resp.text();
           console.error("❌ Error en partida:", errorText);
           throw new Error(`Error al guardar la partida: ${errorText}`);
         }
+
+        // 👇 Guardamos el ID del presupuesto devuelto por el backend
+        if (data?.resultado) {
+          localStorage.setItem("id_presupuesto", data.resultado);
+        }
       }
 
       alert("✅ Paso 2 guardado correctamente");
+      setCurrentStep(3); // ⬅️ Avanzar automáticamente al Paso 3
     } catch (err) {
       console.error("❌ Error al guardar el paso 2:", err);
       alert("Error al guardar el paso 2. Revisa la consola para más detalles.");
+    }
+  };
+
+  /* ============================
+     PASO 3 - PROVEEDOR
+  ============================ */
+  const [rfcBusqueda, setRfcBusqueda] = React.useState("");
+  const [proveedor, setProveedor] = React.useState<any | null>(null);
+  const [importeSinIVA, setImporteSinIVA] = React.useState("");
+  const [importeTotal, setImporteTotal] = React.useState("");
+
+  const buscarProveedor = async () => {
+    if (!rfcBusqueda.trim()) return alert("Ingrese un RFC para buscar");
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/proveedor/?p_rfc=${encodeURIComponent(rfcBusqueda)}`);
+      const data = await resp.json();
+      if (Array.isArray(data) && data.length > 0) {
+        setProveedor(data[0]);
+      } else {
+        setProveedor(null);
+        alert("No se encontró proveedor con ese RFC");
+      }
+    } catch (err) {
+      console.error("❌ Error al buscar proveedor:", err);
+    }
+  };
+
+  const handleImporteChange = (val: string) => {
+    const formatted = formatCurrency(val);
+    setImporteSinIVA(formatted);
+    const numericValue = Number(val.replace(/[^\d]/g, "")) / 100;
+    const total = numericValue * 1.16;
+    setImporteTotal(
+      isNaN(total)
+        ? ""
+        : total.toLocaleString("es-MX", { style: "currency", currency: "MXN" })
+    );
+  };
+
+  const handleGuardarProveedor = async () => {
+    const idPresupuesto = localStorage.getItem("id_presupuesto"); // ✅ usar ID correcto
+    if (!idPresupuesto) return alert("No se encontró el ID del presupuesto");
+    if (!proveedor) return alert("Selecciona un proveedor válido");
+    if (!importeSinIVA) return alert("Captura el importe sin IVA");
+
+    try {
+      const resp = await fetch(`${API_BASE}/procesos/seguimiento/presupuesto-proveedor/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          p_accion: "NUEVO",
+          p_id_proceso_seguimiento_presupuesto: Number(idPresupuesto), // ✅ corregido
+          p_e_rfc_proveedor: proveedor.rfc,
+          p_e_importe_sin_iva: Number((importeSinIVA || "").replace(/[^0-9.-]+/g, "")),
+          p_e_importe_total: Number((importeTotal || "").replace(/[^0-9.-]+/g, "")),
+        }),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      alert("✅ Proveedor guardado correctamente");
+      setRfcBusqueda("");
+      setProveedor(null);
+      setImporteSinIVA("");
+      setImporteTotal("");
+    } catch (err) {
+      console.error("❌ Error al guardar proveedor:", err);
+      alert("Error al guardar proveedor");
     }
   };
 
@@ -287,12 +360,18 @@ export default function NuevoProcesoPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold">
-            {currentStep === 1 ? "Proceso — Paso 1: Datos del Ente" : "Proceso — Paso 2: Presupuesto del Ente"}
+            {currentStep === 1
+              ? "Proceso — Paso 1: Datos del Ente"
+              : currentStep === 2
+              ? "Proceso — Paso 2: Presupuesto del Ente"
+              : "Proceso — Paso 3: Proveedores del Presupuesto"}
           </h1>
           <p className="text-gray-600 text-sm">
             {currentStep === 1
               ? "Completa los datos generales del ente antes de continuar."
-              : "Registra la información presupuestal correspondiente (puedes capturar varias partidas)."}
+              : currentStep === 2
+              ? "Registra la información presupuestal correspondiente (puedes capturar varias partidas)."
+              : "Vincula proveedores y asigna sus importes al proceso."}
           </p>
         </div>
       </div>
@@ -607,6 +686,61 @@ export default function NuevoProcesoPage() {
                 style={{ backgroundColor: "#235391", color: "white" }}
               >
                 Guardar paso 2
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Paso 3 */}
+      {currentStep === 3 && (
+        <Card>
+          <CardContent className="space-y-6 mt-4">
+            <div>
+              <Label>RFC del proveedor</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Ej. ABCD123456EF7"
+                  value={rfcBusqueda}
+                  onChange={(e) => setRfcBusqueda(e.target.value.toUpperCase())}
+                />
+                <Button onClick={buscarProveedor} className="bg-blue-700 text-white">
+                  Buscar
+                </Button>
+              </div>
+            </div>
+
+            {proveedor && (
+              <div className="border rounded-lg p-4 bg-gray-50 space-y-2">
+                <p><b>RFC:</b> {proveedor.rfc}</p>
+                <p><b>Razón social:</b> {proveedor.razon_social}</p>
+                <p><b>Nombre comercial:</b> {proveedor.nombre_comercial}</p>
+                <p><b>Persona jurídica:</b> {proveedor.persona_juridica}</p>
+                <p><b>Correo electrónico:</b> {proveedor.correo_electronico}</p>
+                <p><b>Entidad federativa:</b> {proveedor.entidad_federativa}</p>
+              </div>
+            )}
+
+            <div>
+              <Label>Importe sin IVA</Label>
+              <Input
+                value={importeSinIVA}
+                onChange={(e) => handleImporteChange(e.target.value)}
+                placeholder="$0.00"
+              />
+            </div>
+
+            <div>
+              <Label>Importe total con IVA (16%)</Label>
+              <Input value={importeTotal} disabled className="bg-gray-100" />
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                onClick={handleGuardarProveedor}
+                style={{ backgroundColor: "#235391", color: "white" }}
+              >
+                Guardar proveedor
               </Button>
             </div>
           </CardContent>

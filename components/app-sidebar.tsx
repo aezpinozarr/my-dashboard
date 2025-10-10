@@ -13,12 +13,11 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { useUser } from "@/context/UserContext"; // ✅ Usa el contexto global
+import { useUser } from "@/context/UserContext";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user } = useUser(); // ✅ Accede a los datos del usuario logueado
+  const { user } = useUser();
 
-  // ✅ Construye la información del usuario desde el contexto
   const userData = user
     ? {
         name: user.nombre || user.username,
@@ -31,13 +30,53 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         avatar: "/avatars/default.jpg",
       };
 
-  // ✅ Menú principal dinámico
+  // ======================================
+  // 💾 Estado de menús abiertos (persistente)
+  // ======================================
+  const [openMenus, setOpenMenus] = React.useState<string[]>([]);
+  const [isLoaded, setIsLoaded] = React.useState(false); // ← se usa para montar NavMain solo después de cargar localStorage
+
+  // Cargar desde localStorage al iniciar
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem("sidebarOpenMenus");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) setOpenMenus(parsed);
+      }
+    } catch {
+      setOpenMenus([]);
+    } finally {
+      // 🔁 fuerza render cuando ya cargó el estado guardado
+      setIsLoaded(true);
+    }
+  }, []);
+
+  // Guardar al cambiar
+  React.useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem("sidebarOpenMenus", JSON.stringify(openMenus));
+    }
+  }, [openMenus, isLoaded]);
+
+  // Alternar apertura
+  const toggleMenu = (title: string) => {
+    setOpenMenus((prev) =>
+      prev.includes(title)
+        ? prev.filter((t) => t !== title)
+        : [...prev, title]
+    );
+  };
+
+  // ===============================
+  // 🧭 Menú principal
+  // ===============================
   const navData = [
     {
       title: "Sesiones",
       url: "#",
       icon: SquareTerminal,
-      isActive: true,
+      isActive: openMenus.includes("Sesiones"),
       items: [
         { title: "Calendario", url: "/sesiones/calendario" },
         { title: "Nueva sesión (Calendario)", url: "/sesiones/calendario/new" },
@@ -48,13 +87,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       title: "Seguridad",
       url: "#",
       icon: Bot,
-      isActive: true,
+      isActive: openMenus.includes("Seguridad"),
       items: [{ title: "Usuarios", url: "/seguridad/usuarios" }],
     },
     {
       title: "Catálogos",
       url: "#",
       icon: Bot,
+      isActive: openMenus.includes("Catálogos"),
       items: [
         { title: "Entes", url: "/catalogos/entes" },
         { title: "Rubros", url: "/catalogos/rubros" },
@@ -63,12 +103,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         { title: "Entes Servidores Público", url: "/catalogos/servidores-publicos-ente" },
       ],
     },
-
     {
       title: "Procesos",
       url: "#",
       icon: SquareTerminal,
-      isActive: true,
+      isActive: openMenus.includes("Procesos"),
       items: [
         { title: "Seguimiento de procesos", url: "/procesos" },
         { title: "Nuevo seguimiento", url: "/procesos/new" },
@@ -76,7 +115,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     },
   ];
 
-  // ✅ Equipos (TeamSwitcher)
   const teams = [
     {
       name: "Gobierno de Tabasco",
@@ -85,24 +123,27 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     },
   ];
 
+  // 🔁 mientras carga el estado, no renderizamos NavMain (evita cierre visual)
+  if (!isLoaded) return null;
+
   return (
     <Sidebar collapsible="icon" {...props}>
-      {/* Encabezado */}
       <SidebarHeader>
         <TeamSwitcher teams={teams} />
       </SidebarHeader>
 
-      {/* Contenido principal */}
       <SidebarContent>
-        <NavMain items={navData} />
+        <NavMain
+          items={navData}
+          openMenus={openMenus}
+          onToggleMenu={toggleMenu}
+        />
       </SidebarContent>
 
-      {/* Footer: usuario logueado */}
       <SidebarFooter>
         <NavUser />
       </SidebarFooter>
 
-      {/* Botón flotante (colapsar/expandir) */}
       <SidebarRail />
     </Sidebar>
   );
