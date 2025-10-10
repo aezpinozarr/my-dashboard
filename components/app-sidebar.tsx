@@ -119,7 +119,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     {
       name: "Gobierno de Tabasco",
       logo: GalleryVerticalEnd,
-      plan: "Enterprise",
+      plan: "Empresa",
     },
   ];
 

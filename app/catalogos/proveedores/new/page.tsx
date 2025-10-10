@@ -1,17 +1,19 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Command,
   CommandInput,
   CommandList,
+  CommandGroup,
   CommandItem,
   CommandEmpty,
 } from "@/components/ui/command";
-import Link from "next/link";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -31,15 +33,25 @@ export default function NuevoProveedorPage() {
   const [nombreComercial, setNombreComercial] = React.useState("");
   const [personaJuridica, setPersonaJuridica] = React.useState("");
   const [correo, setCorreo] = React.useState("");
-
   const [entidades, setEntidades] = React.useState<Entidad[]>([]);
   const [search, setSearch] = React.useState("");
   const [selectedEntidad, setSelectedEntidad] = React.useState<Entidad | null>(null);
-
   const [loading, setLoading] = React.useState(false);
+  const [hoy, setHoy] = React.useState("");
 
-  // Cargar entidades
+  // ======================
+  // 🕒 Cargar fecha actual y entidades
+  // ======================
   React.useEffect(() => {
+    setHoy(
+      new Date().toLocaleDateString("es-MX", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    );
+
     const fetchEntidades = async () => {
       try {
         const resp = await fetch(`${API_BASE}/catalogos/entidad-federativa?p_id=-99`);
@@ -52,7 +64,9 @@ export default function NuevoProveedorPage() {
     fetchEntidades();
   }, []);
 
-  // Guardar proveedor
+  // ======================
+  // 💾 Guardar Proveedor
+  // ======================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEntidad) {
@@ -75,13 +89,13 @@ export default function NuevoProveedorPage() {
           entidad_federativa: selectedEntidad.descripcion ?? "",
         }),
       });
-      if (!resp.ok) throw new Error(await resp.text());
 
+      if (!resp.ok) throw new Error(await resp.text());
       alert("✅ Proveedor creado correctamente");
       router.push("/catalogos/proveedores");
     } catch (err) {
       console.error("❌ Error al crear proveedor:", err);
-      alert("Error al crear proveedor");
+      alert("❌ Error al crear proveedor");
     } finally {
       setLoading(false);
     }
@@ -91,52 +105,86 @@ export default function NuevoProveedorPage() {
     e.descripcion.toLowerCase().includes(search.toLowerCase())
   );
 
+  // ======================
+  // 🎨 Render principal
+  // ======================
   return (
-    <main className="max-w-md mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Nuevo Proveedor</h1>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
-          placeholder="RFC"
-          value={rfc}
-          onChange={(e) => setRfc(e.target.value.toUpperCase())}
-          required
-        />
-
-        <Input
-          placeholder="Razón social"
-          value={razonSocial}
-          onChange={(e) => setRazonSocial(e.target.value)}
-          required
-        />
-
-        <Input
-          placeholder="Nombre comercial (opcional)"
-          value={nombreComercial}
-          onChange={(e) => setNombreComercial(e.target.value)}
-        />
-
-        <Input
-          placeholder="Persona jurídica (opcional)"
-          value={personaJuridica}
-          onChange={(e) => setPersonaJuridica(e.target.value)}
-        />
-
-        <Input
-          placeholder="Correo electrónico (opcional)"
-          type="email"
-          value={correo}
-          onChange={(e) => setCorreo(e.target.value)}
-        />
-
-        {/* Command para entidad federativa */}
+    <main className="max-w-lg mx-auto p-6 space-y-6">
+      {/* 🔹 ENCABEZADO */}
+      <div className="flex items-center gap-3">
+        <Link href="/catalogos/proveedores">
+          <Button variant="outline" className="cursor-pointer">←</Button>
+        </Link>
         <div>
-          <label className="text-gray-700 text-sm font-medium">
-            Entidad Federativa
-          </label>
-          <Command className="border rounded-md mt-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">Nuevo Proveedor</h1>
+            <span className="text-xs text-gray-500 capitalize">{hoy}</span>
+          </div>
+          <p className="text-gray-600 text-sm">Registra un nuevo proveedor en el sistema.</p>
+        </div>
+      </div>
+
+      {/* 🔹 FORMULARIO */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* RFC */}
+        <div>
+          <Label>RFC</Label>
+          <Input
+            placeholder="Ejemplo: ABC123456T78"
+            value={rfc}
+            onChange={(e) => setRfc(e.target.value.toUpperCase())}
+            required
+          />
+        </div>
+
+        {/* Razón Social */}
+        <div>
+          <Label>Razón Social</Label>
+          <Input
+            placeholder="Nombre legal de la empresa"
+            value={razonSocial}
+            onChange={(e) => setRazonSocial(e.target.value)}
+            required
+          />
+        </div>
+
+        {/* Nombre Comercial */}
+        <div>
+          <Label>Nombre Comercial (opcional)</Label>
+          <Input
+            placeholder="Nombre con el que opera la empresa"
+            value={nombreComercial}
+            onChange={(e) => setNombreComercial(e.target.value)}
+          />
+        </div>
+
+        {/* Persona Jurídica */}
+        <div>
+          <Label>Persona Jurídica (opcional)</Label>
+          <Input
+            placeholder="Ejemplo: S.A. de C.V., S.C., etc."
+            value={personaJuridica}
+            onChange={(e) => setPersonaJuridica(e.target.value)}
+          />
+        </div>
+
+        {/* Correo Electrónico */}
+        <div>
+          <Label>Correo Electrónico (opcional)</Label>
+          <Input
+            type="email"
+            placeholder="correo@ejemplo.com"
+            value={correo}
+            onChange={(e) => setCorreo(e.target.value)}
+          />
+        </div>
+
+        {/* ENTIDAD FEDERATIVA */}
+        <div>
+          <Label>Entidad Federativa</Label>
+          <Command className="border rounded-md">
             <CommandInput
-              placeholder="Escribe para buscar..."
+              placeholder="Buscar entidad..."
               value={search}
               onValueChange={setSearch}
             />
@@ -163,16 +211,15 @@ export default function NuevoProveedorPage() {
               )}
             </CommandList>
           </Command>
-
           {selectedEntidad && (
-            <p className="text-sm text-gray-500 mt-1">
-              Seleccionado: <strong>{selectedEntidad.descripcion}</strong> (ID:{" "}
-              {selectedEntidad.id})
+            <p className="text-xs text-gray-500 mt-1">
+              Seleccionado: {selectedEntidad.descripcion} (ID: {selectedEntidad.id})
             </p>
           )}
         </div>
 
-        <div className="flex justify-between pt-2">
+        {/* BOTONES */}
+        <div className="flex items-center gap-3 pt-2">
           <Button
             type="submit"
             disabled={loading}
@@ -181,12 +228,9 @@ export default function NuevoProveedorPage() {
               color: "white",
               cursor: loading ? "not-allowed" : "pointer",
             }}
+            className="w-full"
           >
-            Guardar
-          </Button>
-
-          <Button asChild variant="outline" style={{ cursor: "pointer" }}>
-            <Link href="/catalogos/proveedores">Cancelar</Link>
+            {loading ? "Guardando..." : "Guardar Proveedor"}
           </Button>
         </div>
       </form>

@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input"; // ✅ Import para la barra de búsqueda
 
 type Rubro = {
   id: string;
@@ -26,7 +27,7 @@ type Rubro = {
 };
 
 // ======================
-// 🔧 Función segura para determinar API base
+// 🔧 Determinar API base
 // ======================
 const getSecureApiBase = (): string => {
   if (typeof window === "undefined") return "";
@@ -36,16 +37,12 @@ const getSecureApiBase = (): string => {
     process.env.NEXT_PUBLIC_BACKEND_URL ||
     "http://127.0.0.1:8000";
 
-  // Si estamos en Railway, forzar HTTPS
   if (window.location.hostname.includes("railway.app")) {
     base = base.replace(/^http:\/\//i, "https://");
   }
-
-  // Si estamos navegando en HTTPS local (por túnel o proxy)
   if (window.location.protocol === "https:") {
     base = base.replace(/^http:\/\//i, "https://");
   }
-
   return base;
 };
 
@@ -54,9 +51,10 @@ export default function RubrosPage() {
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState<"cards" | "table">("cards");
   const [apiBase, setApiBase] = React.useState("");
+  const [search, setSearch] = React.useState(""); // ✅ Estado para búsqueda
 
   // ======================
-  // ⚙️ Establecer API base
+  // ⚙️ Inicializar API base
   // ======================
   React.useEffect(() => {
     const base = getSecureApiBase();
@@ -65,14 +63,13 @@ export default function RubrosPage() {
   }, []);
 
   // ======================
-  // 🔄 Cargar rubros (solo cuando API esté lista)
+  // 🔄 Cargar rubros
   // ======================
   React.useEffect(() => {
     if (!apiBase) return;
 
     const fetchRubros = async () => {
       try {
-        // 🔐 Si el backend devuelve una redirección a http://, la forzamos a https://
         let url = `${apiBase}/catalogos/rubro?p_id=-99`;
         if (url.startsWith("http://backend-licitacion-production.up.railway.app")) {
           url = url.replace("http://", "https://");
@@ -110,7 +107,6 @@ export default function RubrosPage() {
       if (!resp.ok) throw new Error(await resp.text());
       alert("🗑️ Rubro eliminado correctamente");
 
-      // 🔄 Recargar lista
       const resp2 = await fetch(`${apiBase}/catalogos/rubro?p_id=-99`);
       const data = await resp2.json();
       setRubros(Array.isArray(data) ? data.filter((r) => r.activo) : []);
@@ -121,11 +117,24 @@ export default function RubrosPage() {
   };
 
   // ======================
+  // 🔍 Filtrar rubros según búsqueda
+  // ======================
+  const rubrosFiltrados = React.useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return rubros;
+    return rubros.filter(
+      (r) =>
+        r.id.toLowerCase().includes(term) ||
+        r.descripcion.toLowerCase().includes(term)
+    );
+  }, [rubros, search]);
+
+  // ======================
   // 🎨 Render principal
   // ======================
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-6">
-      {/* ENCABEZADO */}
+      {/* 🔹 ENCABEZADO */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
           <Link href="/dashboard">
@@ -141,6 +150,7 @@ export default function RubrosPage() {
           </div>
         </div>
 
+        {/* 🔹 CONTROLES */}
         <div className="flex items-center gap-4">
           <Tabs value={view} onValueChange={(v) => setView(v as any)}>
             <TabsList>
@@ -158,10 +168,10 @@ export default function RubrosPage() {
             style={{ backgroundColor: "#235391", color: "white" }}
             className="cursor-pointer"
           >
-            <Link href="/catalogos/rubros/new">Nuevo Rubro</Link>
+            <Link href="/catalogos/rubros/new">Nuevo</Link>
           </Button>
 
-          <Button asChild variant="outline" className="cursor-pointer">
+          <Button asChild variant="outline" className="cursor-pointer hover:shadow-sm">
             <Link href="/catalogos/rubros/delete">Eliminados</Link>
           </Button>
 
@@ -175,14 +185,25 @@ export default function RubrosPage() {
         </div>
       </div>
 
-      {/* CONTENIDO */}
+      {/* 🔍 BARRA DE BÚSQUEDA */}
+      <div className="w-full">
+        <Input
+          type="text"
+          placeholder="Buscar..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full"
+        />
+      </div>
+
+      {/* 🔹 CONTENIDO */}
       {loading ? (
         <p>Cargando...</p>
-      ) : rubros.length === 0 ? (
+      ) : rubrosFiltrados.length === 0 ? (
         <p>No hay rubros activos</p>
       ) : view === "cards" ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {rubros.map((r) => (
+          {rubrosFiltrados.map((r) => (
             <Card
               key={r.id}
               className="shadow hover:shadow-lg transition cursor-default"
@@ -228,7 +249,7 @@ export default function RubrosPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rubros.map((r) => (
+            {rubrosFiltrados.map((r) => (
               <TableRow key={r.id}>
                 <TableCell>{r.id}</TableCell>
                 <TableCell>{r.descripcion}</TableCell>

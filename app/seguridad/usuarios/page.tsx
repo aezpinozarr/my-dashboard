@@ -1,11 +1,25 @@
+// 🚀 Force rebuild cache 2025-10-10
 "use client";
 
 import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input"; // ✅ Campo de búsqueda
 
 type Usuario = {
   id: number;
@@ -26,6 +40,7 @@ const getApiBase = (): string => {
 
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = React.useState<Usuario[]>([]);
+  const [filtro, setFiltro] = React.useState<string>(""); // ✅ Nuevo estado para búsqueda
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState<"cards" | "table">("cards");
   const [apiBase, setApiBase] = React.useState("");
@@ -50,7 +65,6 @@ export default function UsuariosPage() {
 
     const fetchUsuarios = async () => {
       try {
-        // 👇 Se agrega "/" final para evitar 307 redirect
         const res = await fetch(`${apiBase}/seguridad/usuarios/`);
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
@@ -69,14 +83,11 @@ export default function UsuariosPage() {
   const eliminarUsuario = async (id: number) => {
     if (!confirm(`¿Eliminar usuario con ID ${id}?`)) return;
     try {
-      // 👇 También se agrega "/" final para evitar redirección
       const resp = await fetch(`${apiBase}/seguridad/usuarios/${id}/`, {
         method: "DELETE",
       });
-
       if (!resp.ok) throw new Error(await resp.text());
       alert("🗑️ Usuario eliminado correctamente");
-
       setUsuarios((prev) => prev.filter((u) => u.id !== id));
     } catch (err) {
       console.error("❌ Error al eliminar usuario:", err);
@@ -84,13 +95,30 @@ export default function UsuariosPage() {
     }
   };
 
+  // ✅ Filtrado dinámico de usuarios
+  const usuariosFiltrados = React.useMemo(() => {
+    const term = filtro.trim().toLowerCase();
+    if (!term) return usuarios;
+
+    return usuarios.filter((u) =>
+      [u.id, u.username, u.nombre, u.tipo]
+        .filter(Boolean)
+        .some((field) => field!.toString().toLowerCase().includes(term))
+    );
+  }, [usuarios, filtro]);
+
+  // ======================
+  // Render principal
+  // ======================
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-6">
       {/* ENCABEZADO */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
           <Link href="/dashboard">
-            <Button variant="outline" className="cursor-pointer">←</Button>
+            <Button variant="outline" className="cursor-pointer">
+              ←
+            </Button>
           </Link>
           <div>
             <div className="flex items-center gap-3">
@@ -103,6 +131,7 @@ export default function UsuariosPage() {
           </div>
         </div>
 
+        {/* CONTROLES */}
         <div className="flex items-center gap-4">
           <Tabs value={view} onValueChange={(v) => setView(v as any)}>
             <TabsList>
@@ -111,8 +140,11 @@ export default function UsuariosPage() {
             </TabsList>
           </Tabs>
 
-          <Button asChild style={{ backgroundColor: "#235391", color: "white" }}>
-            <Link href="/seguridad/usuarios/new">Nuevo Usuario</Link>
+          <Button
+            asChild
+            style={{ backgroundColor: "#235391", color: "white" }}
+          >
+            <Link href="/seguridad/usuarios/new">Nuevo</Link>
           </Button>
 
           <Button asChild variant="outline">
@@ -121,14 +153,25 @@ export default function UsuariosPage() {
         </div>
       </div>
 
+      {/* 🔍 Barra de búsqueda */}
+      <div className="w-full">
+        <Input
+          type="text"
+          placeholder="Buscar por nombre, usuario o tipo..."
+          value={filtro}
+          onChange={(e) => setFiltro(e.target.value)}
+          className="w-full"
+        />
+      </div>
+
       {/* LISTADO */}
       {loading ? (
         <p>Cargando...</p>
-      ) : usuarios.length === 0 ? (
-        <p>No hay usuarios activos</p>
+      ) : usuariosFiltrados.length === 0 ? (
+        <p>No se encontraron usuarios con ese criterio</p>
       ) : view === "cards" ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {usuarios.map((u) => (
+          {usuariosFiltrados.map((u) => (
             <Card key={u.id} className="shadow hover:shadow-lg transition">
               <CardHeader>
                 <CardTitle>{u.nombre || "Sin nombre"}</CardTitle>
@@ -172,7 +215,7 @@ export default function UsuariosPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {usuarios.map((u) => (
+            {usuariosFiltrados.map((u) => (
               <TableRow key={u.id}>
                 <TableCell>{u.id}</TableCell>
                 <TableCell>{u.username}</TableCell>

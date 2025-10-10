@@ -1,3 +1,4 @@
+// 🚀 Force rebuild cache 2025-10-10
 "use client";
 
 import * as React from "react";
@@ -18,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MoreHorizontal } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 // ======================
 // 🔹 Base de la API
@@ -48,6 +49,8 @@ export default function EntesPage() {
   const [entes, setEntes] = React.useState<Ente[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState<"cards" | "table">("cards");
+  const [showDeleted, setShowDeleted] = React.useState(false);
+  const [search, setSearch] = React.useState("");
 
   // ======================
   // Cargar entes
@@ -69,23 +72,43 @@ export default function EntesPage() {
   }, []);
 
   // ======================
-  // Eliminar ente
+  // Eliminar o reactivar ente
   // ======================
-  const eliminarEnte = async (id: string) => {
-    if (!confirm(`¿Seguro que deseas eliminar el ente ${id}?`)) return;
+  const toggleEstado = async (id: string, activar = false) => {
+    const accion = activar ? "reactivar" : "eliminar";
+    if (!confirm(`¿Seguro que deseas ${accion} el ente ${id}?`)) return;
 
     try {
       const resp = await fetch(`${API_BASE}/catalogos/entes/${id}`, {
-        method: "DELETE",
+        method: activar ? "PUT" : "DELETE",
       });
+
       if (!resp.ok) throw new Error(await resp.text());
-      alert("🗑️ Ente eliminado correctamente");
+      alert(activar ? "♻️ Ente reactivado correctamente" : "🗑️ Ente eliminado correctamente");
       fetchEntes();
     } catch (err) {
-      console.error("❌ Error al eliminar ente:", err);
-      alert("Error al eliminar ente");
+      console.error(`❌ Error al ${accion} ente:`, err);
+      alert(`Error al ${accion} ente`);
     }
   };
+
+  // ======================
+  // Filtrar entes
+  // ======================
+  const entesFiltrados = React.useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const filtrados = entes.filter((e) =>
+      showDeleted ? !e.activo : e.activo
+    );
+
+    if (!term) return filtrados;
+
+    return filtrados.filter((e) =>
+      [e.id, e.descripcion, e.siglas, e.clasificacion, e.ente_tipo_descripcion]
+        .filter(Boolean)
+        .some((field) => field!.toString().toLowerCase().includes(term))
+    );
+  }, [entes, search, showDeleted]);
 
   // ======================
   // Render principal
@@ -96,14 +119,14 @@ export default function EntesPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
           <Link href="/dashboard">
-            <Button variant="outline" style={{ cursor: "pointer" }}>
+            <Button variant="outline" className="cursor-pointer">
               ←
             </Button>
           </Link>
           <div>
             <h1 className="text-2xl font-bold">Catálogo de Entes</h1>
             <p className="text-gray-600 text-sm">
-              Consulta, crea o edita los entes registrados en el sistema.
+              Consulta, crea, edita o recupera entes registrados en el sistema.
             </p>
           </div>
         </div>
@@ -117,17 +140,30 @@ export default function EntesPage() {
             </TabsList>
           </Tabs>
 
+          {/* Nuevo */}
+          {!showDeleted && (
+            <Button
+              asChild
+              style={{
+                backgroundColor: "#235391",
+                color: "white",
+                cursor: "pointer",
+              }}
+            >
+              <Link href="/catalogos/entes/new">Nuevo</Link>
+            </Button>
+          )}
+
+          {/* Eliminados (outline con hover como UsuariosPage) */}
           <Button
-            asChild
-            style={{
-              backgroundColor: "#235391",
-              color: "white",
-              cursor: "pointer",
-            }}
+            variant="outline"
+            className="cursor-pointer hover:shadow-sm transition"
+            onClick={() => setShowDeleted(!showDeleted)}
           >
-            <Link href="/catalogos/entes/new">Nuevo Ente</Link>
+            {showDeleted ? "← Volver a Activos" : "Eliminados"}
           </Button>
 
+          {/* Salir */}
           <Button
             asChild
             style={{
@@ -141,14 +177,25 @@ export default function EntesPage() {
         </div>
       </div>
 
+      {/* 🔍 Barra de búsqueda */}
+      <div className="w-full">
+        <Input
+          type="text"
+          placeholder="Buscar..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full"
+        />
+      </div>
+
       {/* CONTENIDO */}
       {loading ? (
         <p>Cargando...</p>
-      ) : entes.length === 0 ? (
-        <p>No hay entes registrados</p>
+      ) : entesFiltrados.length === 0 ? (
+        <p>{showDeleted ? "No hay entes eliminados" : "No hay entes activos"}</p>
       ) : view === "cards" ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {entes.map((e) => (
+          {entesFiltrados.map((e) => (
             <Card
               key={e.id}
               className="shadow hover:shadow-lg transition border border-gray-200"
@@ -157,47 +204,54 @@ export default function EntesPage() {
                 <CardTitle>{e.descripcion}</CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-1">
-                <p>
-                  <strong>ID:</strong> {e.id}
-                </p>
-                <p>
-                  <strong>Siglas:</strong> {e.siglas || "—"}
-                </p>
-                <p>
-                  <strong>Clasificación:</strong> {e.clasificacion || "—"}
-                </p>
-                <p>
-                  <strong>Tipo:</strong> {e.ente_tipo_descripcion || "—"}
-                </p>
-                <p>
-                  <strong>Activo:</strong> {e.activo ? "✅ Sí" : "❌ No"}
-                </p>
+                <p><strong>ID:</strong> {e.id}</p>
+                <p><strong>Siglas:</strong> {e.siglas || "—"}</p>
+                <p><strong>Clasificación:</strong> {e.clasificacion || "—"}</p>
+                <p><strong>Tipo:</strong> {e.ente_tipo_descripcion || "—"}</p>
+                <p><strong>Activo:</strong> {e.activo ? "✅ Sí" : "❌ No"}</p>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button
-                    asChild
-                    size="sm"
-                    variant="outline"
-                    style={{
-                      borderColor: "#235391",
-                      color: "#235391",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <Link href={`/catalogos/entes/edit/${e.id}`}>✏️ Editar</Link>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    style={{
-                      borderColor: "#db200b",
-                      color: "#db200b",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => eliminarEnte(e.id)}
-                  >
-                    🗑️ Eliminar
-                  </Button>
+                  {showDeleted ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      style={{
+                        borderColor: "#235391",
+                        color: "#235391",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => toggleEstado(e.id, true)}
+                    >
+                      ♻️ Reactivar
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                        style={{
+                          borderColor: "#235391",
+                          color: "#235391",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <Link href={`/catalogos/entes/edit/${e.id}`}>✏️ Editar</Link>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        style={{
+                          borderColor: "#db200b",
+                          color: "#db200b",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => toggleEstado(e.id)}
+                      >
+                        🗑️ Eliminar
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -217,7 +271,7 @@ export default function EntesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {entes.map((e) => (
+            {entesFiltrados.map((e) => (
               <TableRow key={e.id}>
                 <TableCell>{e.id}</TableCell>
                 <TableCell>{e.descripcion}</TableCell>
@@ -227,32 +281,49 @@ export default function EntesPage() {
                 <TableCell>{e.activo ? "✅" : "❌"}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">
-                    <Button
-                      asChild
-                      size="sm"
-                      variant="outline"
-                      style={{
-                        borderColor: "#235391",
-                        color: "#235391",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <Link href={`/catalogos/entes/edit/${e.id}`}>
-                        ✏️ Editar
-                      </Link>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      style={{
-                        borderColor: "#db200b",
-                        color: "#db200b",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => eliminarEnte(e.id)}
-                    >
-                      🗑️ Eliminar
-                    </Button>
+                    {showDeleted ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        style={{
+                          borderColor: "#235391",
+                          color: "#235391",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => toggleEstado(e.id, true)}
+                      >
+                        ♻️ Reactivar
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          style={{
+                            borderColor: "#235391",
+                            color: "#235391",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Link href={`/catalogos/entes/edit/${e.id}`}>
+                            ✏️ Editar
+                          </Link>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          style={{
+                            borderColor: "#db200b",
+                            color: "#db200b",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => toggleEstado(e.id)}
+                        >
+                          🗑️ Eliminar
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

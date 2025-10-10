@@ -8,6 +8,7 @@ type User = {
   nombre: string;
   tipo: string;
   id_ente: string;
+  tipo_usuario?: string;
 };
 
 type UserContextType = {

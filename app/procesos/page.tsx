@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useUser } from "@/context/UserContext"; // ✅ Importamos el contexto del usuario
 
 const API_BASE =
   typeof window !== "undefined" && window.location.hostname.includes("railway")
@@ -39,27 +40,35 @@ type Registro = {
 };
 
 export default function DetallePresupuestoPage() {
+  const { user } = useUser(); // ✅ obtenemos datos del usuario logueado
   const [registros, setRegistros] = React.useState<Registro[]>([]);
   const [view, setView] = React.useState<"table" | "cards">("table");
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch(
-          `${API_BASE}/procesos/seguimiento/presupuesto-proveedor/all`
-        );
-        const data = await res.json();
-        console.log("📦 Datos cargados:", data.resultado);
-        setRegistros(data.resultado || []);
-      } catch (err) {
-        console.error("❌ Error cargando datos:", err);
-      } finally {
-        setLoading(false);
+  const fetchData = async () => {
+    try {
+      if (!user) return;
+
+      let url = `${API_BASE}/procesos/seguimiento/presupuesto-proveedor/all`;
+
+      // ✅ Si es ENTE, usa el nuevo endpoint by-ente
+      if ((user.tipo || user.tipo_usuario)?.toUpperCase() === "ENTE" && user.id_ente) {
+        url = `${API_BASE}/procesos/seguimiento/presupuesto-proveedor/by-ente?p_id_ente=${Number(user.id_ente)}`;
       }
-    };
-    fetchData();
-  }, []);
+
+      const res = await fetch(url);
+      const data = await res.json();
+      setRegistros(data.resultado || []);
+    } catch (err) {
+      console.error("❌ Error cargando datos:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, [user]);
 
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-6">
@@ -170,7 +179,8 @@ export default function DetallePresupuestoPage() {
             >
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-semibold text-gray-800">
-                  {r.ente} <span className="text-gray-500">({r.ente_siglas})</span>
+                  {r.ente}{" "}
+                  <span className="text-gray-500">({r.ente_siglas})</span>
                 </CardTitle>
               </CardHeader>
 
