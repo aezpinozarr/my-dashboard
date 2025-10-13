@@ -1,14 +1,12 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useUser } from "@/context/UserContext";
-import { Loader2, PlusCircle } from "lucide-react";
 import {
   Command,
   CommandInput,
@@ -16,18 +14,20 @@ import {
   CommandItem,
   CommandEmpty,
 } from "@/components/ui/command";
+import { Loader2, PlusCircle, Trash2 } from "lucide-react";
+import { useUser } from "@/context/UserContext";
 
-/* ============================
-   API base
-============================ */
+/* ========================================
+   🔹 Configuración del backend
+======================================== */
 const API_BASE =
   typeof window !== "undefined" && window.location.hostname.includes("railway")
     ? "https://backend-licitacion-production.up.railway.app"
     : "http://127.0.0.1:8000";
 
-/* ============================
-   Utilidades
-============================ */
+/* ========================================
+   🔹 Utilidades
+======================================== */
 function formatDateDDMMYYYY(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 8);
   const dd = digits.slice(0, 2);
@@ -38,20 +38,6 @@ function formatDateDDMMYYYY(raw: string): string {
   if (yyyy) out += "/" + yyyy;
   return out;
 }
-function isValidDateDDMMYYYY(val: string): boolean {
-  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(val)) return false;
-  const [ddStr, mmStr, yyyyStr] = val.split("/");
-  const dd = Number(ddStr);
-  const mm = Number(mmStr);
-  const yyyy = Number(yyyyStr);
-  if (yyyyStr.length !== 4 || mm < 1 || mm > 12 || dd < 1 || dd > 31) return false;
-  const diasMes = [
-    31,
-    (yyyy % 4 === 0 && (yyyy % 100 !== 0 || yyyy % 400 === 0)) ? 29 : 28,
-    31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
-  ];
-  return dd <= diasMes[mm - 1];
-}
 function formatTimeHHMM(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 4);
   const hh = digits.slice(0, 2);
@@ -60,128 +46,229 @@ function formatTimeHHMM(raw: string): string {
   if (mm) out += ":" + mm;
   return out;
 }
-function isValidTimeHHMM(val: string): boolean {
+function isValidDateDDMMYYYY(val: string) {
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(val)) return false;
+  const [dd, mm, yyyy] = val.split("/").map(Number);
+  const diasMes = [
+    31,
+    yyyy % 4 === 0 && (yyyy % 100 !== 0 || yyyy % 400 === 0) ? 29 : 28,
+    31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+  ];
+  return mm >= 1 && mm <= 12 && dd >= 1 && dd <= diasMes[mm - 1];
+}
+function isValidTimeHHMM(val: string) {
   if (!/^(\d{2}):(\d{2})$/.test(val)) return false;
   const [h, m] = val.split(":").map(Number);
-  return !(h < 0 || h > 23 || m < 0 || m > 59);
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59;
 }
-function toIsoLocalDateTime(dmy: string, hm: string): string {
+function toIsoLocalDateTime(dmy: string, hm: string) {
   const [dd, mm, yyyy] = dmy.split("/");
   return `${yyyy}-${mm}-${dd}T${hm}:00`;
 }
-function formatCurrency(value: string): string {
-  const clean = value.replace(/[^\d]/g, "");
-  const num = parseFloat(clean) / 100;
-  if (isNaN(num)) return "";
-  return num.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+function formatMoney(value: string) {
+  const num = value.replace(/[^\d]/g, "");
+  if (!num) return "";
+  return "$" + parseInt(num).toLocaleString("es-MX");
 }
 
-/* ============================
-   Página principal
-============================ */
+/* ========================================
+   🔹 Step Indicator (UI Visual)
+======================================== */
+function StepIndicator({ currentStep }: { currentStep: number }) {
+  const steps = [
+    { id: 1, label: "Datos del Ente" },
+    { id: 2, label: "Presupuesto del Ente" },
+    { id: 3, label: "Presupuesto Rubro" },
+    { id: 4, label: "Confirmación" },
+  ];
+
+  return (
+    <div className="flex flex-col items-start space-y-4 mb-6">
+      {steps.map((step) => {
+        const isActive = step.id === currentStep;
+        const isCompleted = step.id < currentStep;
+
+        return (
+          <div key={step.id} className="flex items-center w-full">
+            <div
+              className={`flex items-center justify-center w-10 h-10 rounded-full border-2 font-bold
+                ${
+                  isActive
+                    ? "bg-[#235391] border-[#235391] text-white"
+                    : isCompleted
+                    ? "bg-[#235391]/20 border-[#235391] text-[#235391]"
+                    : "bg-gray-200 border-gray-300 text-gray-600"
+                }`}
+            >
+              {step.id}
+            </div>
+
+            <div className="flex-1 ml-4">
+              <div
+                className={`h-3 rounded-full transition-all duration-300
+                  ${
+                    isActive
+                      ? "bg-[#235391] w-3/4"
+                      : isCompleted
+                      ? "bg-[#235391]/50 w-3/4"
+                      : "bg-gray-200 w-2/4"
+                  }`}
+              ></div>
+              <p
+                className={`mt-2 text-sm font-medium ${
+                  isActive
+                    ? "text-[#235391]"
+                    : isCompleted
+                    ? "text-[#235391]/70"
+                    : "text-gray-500"
+                }`}
+              >
+                {step.label}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ========================================
+   🔹 Componente principal (Paso 1, 2 y 3)
+======================================== */
 export default function NuevoProcesoPage() {
-  const router = useRouter();
   const { user } = useUser();
-  const [currentStep, setCurrentStep] = React.useState(1);
-
-  /* ============================
-     PASO 1
-  ============================ */
+  const router = useRouter();
+  const [step, setStep] = React.useState(1);
   const [loading, setLoading] = React.useState(false);
+
+  // Paso 1
   const [enteDescripcion, setEnteDescripcion] = React.useState("");
-  const [tiposLicitacion, setTiposLicitacion] = React.useState<string[]>([]);
-  const [numerosSesion, setNumerosSesion] = React.useState<any[]>([]);
   const [servidores, setServidores] = React.useState<any[]>([]);
-  const [busquedaServidor, setBusquedaServidor] = React.useState("");
   const [servidorSeleccionado, setServidorSeleccionado] = React.useState<any>(null);
-  const [servidoresFiltrados, setServidoresFiltrados] = React.useState<any[]>([]);
-
-  const [formEnte, setFormEnte] = React.useState({
-    e_oficio_invitacion: "",
-    e_servidor_publico_cargo: "",
-    e_tipo_licitacion: "",
-    e_tipo_licitacion_no_veces: "",
-    e_tipo_licitacion_notas: "",
-    e_fecha: "",
-    e_hora: "",
+  const [tiposEvento, setTiposEvento] = React.useState<any[]>([]);
+  const [tiposLicitacion, setTiposLicitacion] = React.useState<any[]>([]);
+  const [numerosSesion, setNumerosSesion] = React.useState<any[]>([]);
+  const [sesionSeleccionada, setSesionSeleccionada] = React.useState<any>(null);
+  const [busquedaServidor, setBusquedaServidor] = React.useState("");
+  const [busquedaSesion, setBusquedaSesion] = React.useState("");
+  const [mostrarServidores, setMostrarServidores] = React.useState(true);
+  const [mostrarSesiones, setMostrarSesiones] = React.useState(true);
+  const [form, setForm] = React.useState({
+    oficio_invitacion: "",
+    servidor_publico_cargo: "",
+    tipo_evento: "",
+    tipo_licitacion: "",
+    tipo_licitacion_notas: "",
+    fecha: "",
+    hora: "",
   });
+  const [folio, setFolio] = React.useState<number | null>(null);
 
+  // Paso 2
+  const [fuentes, setFuentes] = React.useState<any[]>([]);
+  const [catalogoPartidas, setCatalogoPartidas] = React.useState<any[]>([]);
+  const [partidas, setPartidas] = React.useState<any[]>([
+  {
+    id: null, // <--- agregado
+    e_no_requisicion: "",
+    e_id_partida: "",
+    partida_descripcion: "",
+    clave_capitulo: "",
+    capitulo: "",
+    e_id_fuente_financiamiento: "",
+    fuente_descripcion: "",
+    fuente_etiquetado: "",
+    fuente_fondo: "",
+    e_monto_presupuesto_suficiencia: "",
+  },
+]);
+
+  // Paso 3
+  const [rubros, setRubros] = React.useState<any[]>([]);
+  const [presupuestosRubro, setPresupuestosRubro] = React.useState<any[]>([
+    { p_e_id_rubro: "", rubro_descripcion: "", p_e_monto_presupuesto_suficiencia: "" },
+  ]);
+
+  /* ========================================
+     🔹 Cargar catálogos paso 1
+  ======================================== */
   React.useEffect(() => {
-    if (!user) return;
-    const load = async () => {
+    if (!user?.id_ente) return;
+    (async () => {
       try {
-        const enteResp = await fetch(`${API_BASE}/catalogos/entes?p_id=-99&p_descripcion=-99`);
-        const entesData = await enteResp.json();
-        const ente = Array.isArray(entesData)
-          ? entesData.find((e: any) => String(e.id) === String(user.id_ente))
-          : null;
-        setEnteDescripcion(ente?.descripcion || "—");
+        const enteResp = await fetch(`${API_BASE}/catalogos/entes?p_id=${user.id_ente}&p_descripcion=-99`);
+        const enteData = await enteResp.json();
+        setEnteDescripcion(enteData?.[0]?.descripcion || "—");
 
-        const sResp = await fetch(`${API_BASE}/catalogos/servidores-publicos?id_ente=${user.id_ente}`);
-        const sData = await sResp.json();
-        const normalized = Array.isArray(sData)
-          ? sData.map((x: any) => ({
-              id: x.id ?? x.value,
-              nombre: x.nombre ?? x.label ?? "",
-              cargo: x.cargo ?? "",
-            }))
-          : [];
-        setServidores(normalized);
-        setServidoresFiltrados(normalized);
+        const sResp = await fetch(
+          `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=${user.id_ente}`
+        );
+        setServidores(await sResp.json());
 
-        const licResp = await fetch(`${API_BASE}/procesos/tipo-licitacion`);
-        setTiposLicitacion(await licResp.json());
+        const tResp = await fetch(`${API_BASE}/procesos/tipos-evento/`);
+        setTiposEvento(await tResp.json());
 
-        const nResp = await fetch(`${API_BASE}/catalogos/sesiones-numeros`);
+        const nResp = await fetch(`${API_BASE}/catalogos/sesiones-numeros/`);
         setNumerosSesion(await nResp.json());
       } catch (err) {
-        console.error("❌ Error cargando datos:", err);
+        console.error("❌ Error al cargar datos:", err);
       }
-    };
-    load();
-  }, [user]);
+    })();
+  }, [user?.id_ente]);
 
   React.useEffect(() => {
-    const term = busquedaServidor.toLowerCase();
-    setServidoresFiltrados(
-      servidores.filter(
-        (s) => s.nombre.toLowerCase().includes(term) || String(s.id).includes(term)
-      )
-    );
-  }, [busquedaServidor, servidores]);
+    if (!form.tipo_evento) {
+      setTiposLicitacion([]);
+      return;
+    }
+    (async () => {
+      try {
+        const resp = await fetch(`${API_BASE}/catalogos/auxiliares?p_tipo=${form.tipo_evento}`);
+        setTiposLicitacion(await resp.json());
+      } catch {
+        setTiposLicitacion([]);
+      }
+    })();
+  }, [form.tipo_evento]);
 
-  const handleSubmitEnte = async () => {
+  /* ========================================
+     🔹 Guardar Paso 1
+  ======================================== */
+  const handleGuardarPaso1 = async () => {
     if (!user) return alert("No hay usuario logeado");
     if (!servidorSeleccionado) return alert("Selecciona un servidor público");
+    if (!form.tipo_evento) return alert("Selecciona un tipo de evento");
+    if (!form.tipo_licitacion) return alert("Selecciona un tipo de licitación");
+    if (!sesionSeleccionada) return alert("Selecciona un número de sesión");
+    if (!isValidDateDDMMYYYY(form.fecha)) return alert("Fecha inválida");
+    if (!isValidTimeHHMM(form.hora)) return alert("Hora inválida");
 
-    if (!isValidDateDDMMYYYY(formEnte.e_fecha)) return alert("Fecha inválida (dd/mm/aaaa)");
-    if (!isValidTimeHHMM(formEnte.e_hora)) return alert("Hora inválida (HH:MM 24h)");
-
-    const fechaHora = toIsoLocalDateTime(formEnte.e_fecha, formEnte.e_hora);
+    const fechaHora = toIsoLocalDateTime(form.fecha, form.hora);
     setLoading(true);
     try {
-      const resp = await fetch(`${API_BASE}/procesos/seguimiento/ente`, {
+      const resp = await fetch(`${API_BASE}/procesos/seguimiento/ente/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           p_accion: "NUEVO",
-          p_e_id_ente: user.id_ente,
-          p_e_oficio_invitacion: formEnte.e_oficio_invitacion,
+          p_id: 0,
+          p_e_id_ente: String(user.id_ente),
+          p_e_oficio_invitacion: form.oficio_invitacion,
           p_e_id_servidor_publico_emite: Number(servidorSeleccionado.id),
-          p_e_servidor_publico_cargo: formEnte.e_servidor_publico_cargo,
-          p_e_tipo_licitacion: formEnte.e_tipo_licitacion,
-          p_e_tipo_licitacion_no_veces: Number(formEnte.e_tipo_licitacion_no_veces),
-          p_e_tipo_licitacion_notas: formEnte.e_tipo_licitacion_notas,
+          p_e_servidor_publico_cargo: form.servidor_publico_cargo,
+          p_e_tipo_licitacion: form.tipo_licitacion,
+          p_e_tipo_licitacion_no_veces: Number(sesionSeleccionada.id),
+          p_e_tipo_licitacion_notas: form.tipo_licitacion_notas,
           p_e_fecha_y_hora_reunion: fechaHora,
           p_e_id_usuario_registra: user.id,
         }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.detail || "Error al guardar");
-
-      localStorage.setItem("id_proceso", data.resultado);
+      setFolio(data.resultado);
       alert("✅ Paso 1 guardado correctamente");
-      setCurrentStep(2);
+      setStep(2);
     } catch (err) {
       console.error(err);
       alert("Error al guardar el paso 1");
@@ -190,562 +277,656 @@ export default function NuevoProcesoPage() {
     }
   };
 
-  /* ============================
-     PASO 2
-  ============================ */
-  const [partidas, setPartidas] = React.useState<any[]>([]);
-  const [rubros, setRubros] = React.useState<any[]>([]);
-  const [fuentes, setFuentes] = React.useState<any[]>([]);
-
+  /* ========================================
+     🔹 Cargar catálogos paso 2
+  ======================================== */
   React.useEffect(() => {
-    if (currentStep !== 2) return;
-    const loadCatalogos = async () => {
+    if (step !== 2) return;
+    (async () => {
       try {
-        const [pRes, rRes, fRes] = await Promise.all([
-          fetch(`${API_BASE}/catalogos/partidas/?p_id=-99&p_id_capitulo=-99`),
-          fetch(`${API_BASE}/catalogos/rubro?p_id=-99`),
-          fetch(`${API_BASE}/catalogos/fuentes-financiamiento/?p_id=-99&p_id_ramo=-99`),
+        const [fResp, pResp] = await Promise.all([
+          fetch(`${API_BASE}/catalogos/fuentes-financiamiento?p_id=-99&p_id_ramo=-99`).then((r) => r.json()),
+          fetch(`${API_BASE}/catalogos/partidas?p_id=-99&p_id_capitulo=-99`).then((r) => r.json()),
         ]);
-        setPartidas(await pRes.json());
-        setRubros(await rRes.json());
-        setFuentes(await fRes.json());
+        setFuentes(Array.isArray(fResp) ? fResp : []);
+        setCatalogoPartidas(Array.isArray(pResp) ? pResp : []);
       } catch (err) {
-        console.error("❌ Error cargando catálogos:", err);
+        console.error("❌ Error al cargar catálogos del paso 2:", err);
       }
-    };
-    loadCatalogos();
-  }, [currentStep]);
+    })();
+  }, [step]);
 
-  const [listaPartidas, setListaPartidas] = React.useState<any[]>([
-    {
-      e_no_requisicion: "",
-      e_id_partida: "",
-      e_id_rubro: "",
-      e_id_fuente_financiamiento: "",
-      e_monto_presupuesto_suficiencia: "",
-    },
-  ]);
+  /* ========================================
+     🔹 Guardar Paso 2 (envía montos al paso 3)
+  ======================================== */
+  const handleGuardarPartidas = async () => {
+  if (!folio) return alert("No hay folio del proceso anterior");
+  try {
+    for (const p of partidas) {
+      // 🔍 Verificar si la partida ya existe en BD
+      const checkResp = await fetch(
+        `${API_BASE}/procesos/seguimiento/presupuesto-ente?p_id_proceso_seguimiento=${folio}&p_e_id_partida=${p.e_id_partida}`
+      );
+      const existente = await checkResp.json();
 
-  const handleNuevaPartida = () =>
-    setListaPartidas((prev) => [
-      ...prev,
-      {
-        e_no_requisicion: "",
-        e_id_partida: "",
-        e_id_rubro: "",
-        e_id_fuente_financiamiento: "",
-        e_monto_presupuesto_suficiencia: "",
-      },
-    ]);
+      // Si el backend devuelve un registro existente, usar su id
+      const idExistente = Array.isArray(existente) && existente.length > 0 ? existente[0].id : null;
 
-  const handleGuardarPaso2 = async () => {
-    const idProceso = localStorage.getItem("id_proceso");
-    if (!idProceso) return alert("No se encontró el ID del proceso");
+      // Enviar al SP con la acción correcta
+      const resp = await fetch(`${API_BASE}/procesos/seguimiento/presupuesto-ente/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          p_accion: idExistente ? "EDITAR" : "NUEVO",
+          p_id_proceso_seguimiento: folio,
+          p_id: idExistente || 0,
+          p_e_no_requisicion: p.e_no_requisicion,
+          p_e_id_partida: p.e_id_partida,
+          p_e_id_fuente_financiamiento: p.e_id_fuente_financiamiento,
+          p_e_monto_presupuesto_suficiencia: parseFloat(
+            (p.e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "") || "0"
+          ),
+        }),
+      });
 
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.detail || "Error al guardar presupuesto");
+
+      // Si fue nuevo o editado correctamente, guarda el id en el estado
+      if (data.resultado) {
+        setPartidas((prev) =>
+          prev.map((x) =>
+            x.e_id_partida === p.e_id_partida ? { ...x, id: data.resultado } : x
+          )
+        );
+      }
+    }
+
+    alert("✅ Presupuesto guardado correctamente");
+    setStep(3);
+  } catch (err) {
+    console.error("❌ Error al guardar presupuesto:", err);
+    alert("Error al guardar presupuesto");
+  }
+};
+
+  /* ========================================
+     🔹 Cargar catálogos paso 3
+  ======================================== */
+  React.useEffect(() => {
+    if (step !== 3) return;
+    (async () => {
+      try {
+        const rResp = await fetch(`${API_BASE}/catalogos/rubro?p_id=-99`);
+        const data = await rResp.json();
+        setRubros(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("❌ Error al cargar rubros:", err);
+      }
+    })();
+  }, [step]);
+
+  /* ========================================
+     🔹 Guardar Paso 3
+  ======================================== */
+  const handleGuardarRubros = async () => {
+    if (!folio) return alert("No hay folio del proceso anterior");
     try {
-      for (const partida of listaPartidas) {
-        const resp = await fetch(`${API_BASE}/procesos/seguimiento/presupuesto-ente/`, {
+      for (const r of presupuestosRubro) {
+        const resp = await fetch(`${API_BASE}/procesos/seguimiento/presupuesto-rubro-ente/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             p_accion: "NUEVO",
-            p_id_proceso_seguimiento: Number(idProceso),
+            p_id_proceso_seguimiento_presupuesto: folio,
             p_id: 0,
-            p_e_no_requisicion: partida.e_no_requisicion,
-            p_e_id_partida: partida.e_id_partida,
-            p_e_id_rubro: partida.e_id_rubro,
-            p_e_id_fuente_financiamiento: partida.e_id_fuente_financiamiento,
-            p_e_monto_presupuesto_suficiencia: Number(
-              (partida.e_monto_presupuesto_suficiencia || "").replace(/[^0-9.-]+/g, "")
+            p_e_id_rubro: r.p_e_id_rubro,
+            p_e_monto_presupuesto_suficiencia: parseFloat(
+              (r.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "") || "0"
             ),
           }),
         });
-
-        const data = await resp.json(); // 👈 capturamos respuesta
-        if (!resp.ok) {
-          const errorText = await resp.text();
-          console.error("❌ Error en partida:", errorText);
-          throw new Error(`Error al guardar la partida: ${errorText}`);
-        }
-
-        // 👇 Guardamos el ID del presupuesto devuelto por el backend
-        if (data?.resultado) {
-          localStorage.setItem("id_presupuesto", data.resultado);
-        }
+        await resp.json();
       }
-
-      alert("✅ Paso 2 guardado correctamente");
-      setCurrentStep(3); // ⬅️ Avanzar automáticamente al Paso 3
+      alert("✅ Rubros guardados correctamente");
+      router.push("/dashboard");
     } catch (err) {
-      console.error("❌ Error al guardar el paso 2:", err);
-      alert("Error al guardar el paso 2. Revisa la consola para más detalles.");
+      console.error("❌ Error al guardar rubros:", err);
+      alert("Error al guardar rubros");
     }
   };
 
-  /* ============================
-     PASO 3 - PROVEEDOR
-  ============================ */
-  const [rfcBusqueda, setRfcBusqueda] = React.useState("");
-  const [proveedor, setProveedor] = React.useState<any | null>(null);
-  const [importeSinIVA, setImporteSinIVA] = React.useState("");
-  const [importeTotal, setImporteTotal] = React.useState("");
+  const addRubro = () => {
+    setPresupuestosRubro((prev) => [
+      ...prev,
+      { p_e_id_rubro: "", rubro_descripcion: "", p_e_monto_presupuesto_suficiencia: "" },
+    ]);
+  };
 
-  const buscarProveedor = async () => {
-    if (!rfcBusqueda.trim()) return alert("Ingrese un RFC para buscar");
-    try {
-      const resp = await fetch(`${API_BASE}/catalogos/proveedor/?p_rfc=${encodeURIComponent(rfcBusqueda)}`);
-      const data = await resp.json();
-      if (Array.isArray(data) && data.length > 0) {
-        setProveedor(data[0]);
-      } else {
-        setProveedor(null);
-        alert("No se encontró proveedor con ese RFC");
+  const removeRubro = (idx: number) => {
+    setPresupuestosRubro((prev) => {
+      if (prev.length === 1) {
+        return [{ p_e_id_rubro: "", rubro_descripcion: "", p_e_monto_presupuesto_suficiencia: "" }];
       }
-    } catch (err) {
-      console.error("❌ Error al buscar proveedor:", err);
-    }
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
-  const handleImporteChange = (val: string) => {
-    const formatted = formatCurrency(val);
-    setImporteSinIVA(formatted);
-    const numericValue = Number(val.replace(/[^\d]/g, "")) / 100;
-    const total = numericValue * 1.16;
-    setImporteTotal(
-      isNaN(total)
-        ? ""
-        : total.toLocaleString("es-MX", { style: "currency", currency: "MXN" })
-    );
-  };
-
-  const handleGuardarProveedor = async () => {
-    const idPresupuesto = localStorage.getItem("id_presupuesto"); // ✅ usar ID correcto
-    if (!idPresupuesto) return alert("No se encontró el ID del presupuesto");
-    if (!proveedor) return alert("Selecciona un proveedor válido");
-    if (!importeSinIVA) return alert("Captura el importe sin IVA");
-
-    try {
-      const resp = await fetch(`${API_BASE}/procesos/seguimiento/presupuesto-proveedor/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          p_accion: "NUEVO",
-          p_id_proceso_seguimiento_presupuesto: Number(idPresupuesto), // ✅ corregido
-          p_e_rfc_proveedor: proveedor.rfc,
-          p_e_importe_sin_iva: Number((importeSinIVA || "").replace(/[^0-9.-]+/g, "")),
-          p_e_importe_total: Number((importeTotal || "").replace(/[^0-9.-]+/g, "")),
-        }),
-      });
-      if (!resp.ok) throw new Error(await resp.text());
-      alert("✅ Proveedor guardado correctamente");
-      setRfcBusqueda("");
-      setProveedor(null);
-      setImporteSinIVA("");
-      setImporteTotal("");
-    } catch (err) {
-      console.error("❌ Error al guardar proveedor:", err);
-      alert("Error al guardar proveedor");
-    }
-  };
-
-  /* ============================
-     UI
-  ============================ */
+  /* ========================================
+     🔹 Render UI (Paso 1, 2, 3)
+  ======================================== */
   return (
-    <main className="max-w-5xl mx-auto p-6 space-y-6">
-      {/* Encabezado */}
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard">
-          <Button variant="outline" className="cursor-pointer">←</Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold">
-            {currentStep === 1
-              ? "Proceso — Paso 1: Datos del Ente"
-              : currentStep === 2
-              ? "Proceso — Paso 2: Presupuesto del Ente"
-              : "Proceso — Paso 3: Proveedores del Presupuesto"}
-          </h1>
-          <p className="text-gray-600 text-sm">
-            {currentStep === 1
-              ? "Completa los datos generales del ente antes de continuar."
-              : currentStep === 2
-              ? "Registra la información presupuestal correspondiente (puedes capturar varias partidas)."
-              : "Vincula proveedores y asigna sus importes al proceso."}
-          </p>
-        </div>
-      </div>
-
-      {/* Paso 1 */}
-      {currentStep === 1 && (
-        <Card>
-          <CardContent className="space-y-5 mt-4">
-            <div className="grid gap-2 md:grid-cols-2">
-              <div>
-                <Label>Ente</Label>
-                <Input value={enteDescripcion || "Cargando..."} disabled />
-              </div>
-              <div>
-                <Label>Usuario</Label>
-                <Input value={user?.nombre || "Cargando..."} disabled />
-              </div>
-            </div>
-
-            <div>
-              <Label>Oficio de invitación</Label>
-              <Input
-                value={formEnte.e_oficio_invitacion}
-                onChange={(e) => setFormEnte({ ...formEnte, e_oficio_invitacion: e.target.value })}
-                placeholder="Ej. OF.123/2025"
-              />
-            </div>
-
-            <div>
-              <Label>Servidor público (emite)</Label>
-              <Command className="rounded-md border border-gray-300 shadow-sm bg-white">
-                <CommandInput
-                  placeholder="Buscar servidor..."
-                  value={busquedaServidor}
-                  onValueChange={setBusquedaServidor}
-                  className="px-3 py-2 text-sm"
-                />
-                {busquedaServidor.trim() !== "" && (
-                  <CommandList className="max-h-56 overflow-y-auto mt-1 border">
-                    {servidoresFiltrados.length > 0 ? (
-                      servidoresFiltrados.map((s) => (
-                        <CommandItem
-                          key={s.id}
-                          onSelect={() => {
-                            setServidorSeleccionado(s);
-                            setFormEnte((prev) => ({
-                              ...prev,
-                              e_servidor_publico_cargo: s.cargo,
-                            }));
-                            setBusquedaServidor(s.nombre);
-                          }}
-                        >
-                          {s.nombre}
-                        </CommandItem>
-                      ))
-                    ) : (
-                      <CommandEmpty>No se encontraron coincidencias</CommandEmpty>
-                    )}
-                  </CommandList>
-                )}
-              </Command>
-            </div>
-
-            <div>
-              <Label>Cargo</Label>
-              <Input
-                value={formEnte.e_servidor_publico_cargo}
-                onChange={(e) =>
-                  setFormEnte({ ...formEnte, e_servidor_publico_cargo: e.target.value })
-                }
-                placeholder="Ej. Directora General"
-              />
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label>Tipo de licitación</Label>
-                <select
-                  className="border rounded-md p-2 w-full"
-                  value={formEnte.e_tipo_licitacion}
-                  onChange={(e) => setFormEnte({ ...formEnte, e_tipo_licitacion: e.target.value })}
-                >
-                  <option value="">Seleccione…</option>
-                  {tiposLicitacion.map((t, i) => (
-                    <option key={i} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label>Número de sesión</Label>
-                <select
-                  className="border rounded-md p-2 w-full"
-                  value={formEnte.e_tipo_licitacion_no_veces}
-                  onChange={(e) =>
-                    setFormEnte({ ...formEnte, e_tipo_licitacion_no_veces: e.target.value })
-                  }
-                >
-                  <option value="">Seleccione…</option>
-                  {numerosSesion.map((n) => (
-                    <option key={n.id} value={n.id}>
-                      {n.descripcion}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <Label>Notas</Label>
-              <Input
-                value={formEnte.e_tipo_licitacion_notas}
-                onChange={(e) =>
-                  setFormEnte({ ...formEnte, e_tipo_licitacion_notas: e.target.value })
-                }
-                placeholder="Observaciones..."
-              />
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-2">
-              <div>
-                <Label>Fecha (dd/mm/aaaa)</Label>
-                <Input
-                  inputMode="numeric"
-                  placeholder="dd/mm/aaaa"
-                  maxLength={10}
-                  value={formEnte.e_fecha}
-                  onChange={(e) =>
-                    setFormEnte({ ...formEnte, e_fecha: formatDateDDMMYYYY(e.target.value) })
-                  }
-                />
-              </div>
-              <div>
-                <Label>Hora (HH:MM 24h)</Label>
-                <Input
-                  inputMode="numeric"
-                  placeholder="HH:MM"
-                  maxLength={5}
-                  value={formEnte.e_hora}
-                  onChange={(e) =>
-                    setFormEnte({ ...formEnte, e_hora: formatTimeHHMM(e.target.value) })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <Button
-                onClick={handleSubmitEnte}
-                disabled={loading}
-                style={{ backgroundColor: "#235391", color: "white" }}
-              >
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Guardar paso 1"}
+    <main className="flex gap-6 max-w-7xl mx-auto p-6">
+      {/* Aside: Step Indicator */}
+      <aside className="sticky top-6 h-[calc(100vh-3rem)] overflow-y-auto w-1/5 pr-4">
+        <StepIndicator currentStep={step} />
+      </aside>
+      {/* Section: Steps Content */}
+      <section className="flex-1 w-4/5 pl-4">
+        {/* Paso 1 */}
+        {step === 1 && (
+          <>
+            <div className="flex items-center gap-3">
+              <Button asChild variant="outline">
+                <Link href="/dashboard">←</Link>
               </Button>
+              <h1 className="text-2xl font-bold">Proceso — Paso 1: Datos del Ente</h1>
             </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Paso 2 */}
-      {currentStep === 2 && (
-        <Card>
-          <CardContent className="space-y-6 mt-4">
-            {listaPartidas.map((p, i) => {
-              const fuenteSel = fuentes.find((f) => f.id === p.e_id_fuente_financiamiento);
-              const partidaSel = partidas.find((pt) => pt.id === p.e_id_partida);
-
-              return (
-                <div key={i} className="border rounded-lg p-4 space-y-4 bg-gray-50">
-                  <h4 className="font-semibold text-gray-700">Partida #{i + 1}</h4>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>No. Requisición</Label>
-                      <Input
-                        value={p.e_no_requisicion}
-                        onChange={(e) =>
-                          setListaPartidas((prev) =>
-                            prev.map((x, idx) =>
-                              idx === i ? { ...x, e_no_requisicion: e.target.value } : x
-                            )
-                          )
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Capítulo</Label>
-                      <Input
-                        value={partidaSel?.capitulo || ""}
-                        disabled
-                        placeholder="Capítulo"
-                        className="bg-gray-100"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Partida</Label>
-                      <select
-                        className="border rounded-md p-2 w-full"
-                        value={p.e_id_partida}
-                        onChange={(e) =>
-                          setListaPartidas((prev) =>
-                            prev.map((x, idx) =>
-                              idx === i ? { ...x, e_id_partida: e.target.value } : x
-                            )
-                          )
-                        }
-                      >
-                        <option value="">Seleccione…</option>
-                        {partidas.map((pt: any) => (
-                          <option key={pt.id} value={pt.id}>
-                            {pt.descripcion}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <Label>Fuente de financiamiento</Label>
-                      <select
-                        className="border rounded-md p-2 w-full"
-                        value={p.e_id_fuente_financiamiento}
-                        onChange={(e) =>
-                          setListaPartidas((prev) =>
-                            prev.map((x, idx) =>
-                              idx === i ? { ...x, e_id_fuente_financiamiento: e.target.value } : x
-                            )
-                          )
-                        }
-                      >
-                        <option value="">Seleccione…</option>
-                        {fuentes.map((f: any) => (
-                          <option key={f.id} value={f.id}>
-                            {f.id}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Rubro ahora ocupa ancho completo */}
+            <Card>
+              <CardContent className="space-y-5 mt-4">
+                <div className="grid md:grid-cols-2 gap-2">
                   <div>
-                    <Label>Rubro</Label>
+                    <Label>Ente</Label>
+                    <Input value={enteDescripcion || "Cargando..."} disabled />
+                  </div>
+                  <div>
+                    <Label>Usuario</Label>
+                    <Input value={user?.nombre || "Cargando..."} disabled />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Oficio de invitación</Label>
+                  <Input
+                    value={form.oficio_invitacion ?? ""}
+                    onChange={(e) => setForm({ ...form, oficio_invitacion: e.target.value })}
+                    placeholder="Ej. OF.123/2025"
+                  />
+                </div>
+
+                {/* Servidor público */}
+                <div>
+                  <Label>Servidor público (emite)</Label>
+                  <Command>
+                    <CommandInput
+                      placeholder="Escribe para buscar…"
+                      value={busquedaServidor}
+                      onValueChange={(val) => {
+                        setBusquedaServidor(val);
+                        setMostrarServidores(true);
+                      }}
+                    />
+                    {mostrarServidores && (
+                      <CommandList>
+                        {busquedaServidor.trim() !== "" ? (
+                          servidores
+                            .filter((s) =>
+                              (s.nombre || "").toLowerCase().includes(busquedaServidor.toLowerCase())
+                            )
+                            .map((s) => (
+                              <CommandItem
+                                key={s.id}
+                                onSelect={() => {
+                                  setServidorSeleccionado(s);
+                                  setForm((prev) => ({ ...prev, servidor_publico_cargo: s.cargo || "" }));
+                                  setBusquedaServidor(s.nombre);
+                                  setMostrarServidores(false);
+                                }}
+                              >
+                                {s.nombre}
+                              </CommandItem>
+                            ))
+                        ) : (
+                          <CommandEmpty>Escribe para buscar un servidor</CommandEmpty>
+                        )}
+                      </CommandList>
+                    )}
+                  </Command>
+                </div>
+
+                <div>
+                  <Label>Cargo</Label>
+                  <Input
+                    value={form.servidor_publico_cargo ?? ""}
+                    onChange={(e) => setForm({ ...form, servidor_publico_cargo: e.target.value })}
+                    placeholder="Ej. Directora General"
+                  />
+                </div>
+
+                {/* Tipo evento y licitación */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Tipo de evento</Label>
                     <select
                       className="border rounded-md p-2 w-full"
-                      value={p.e_id_rubro}
-                      onChange={(e) =>
-                        setListaPartidas((prev) =>
-                          prev.map((x, idx) =>
-                            idx === i ? { ...x, e_id_rubro: e.target.value } : x
-                          )
-                        )
-                      }
+                      value={form.tipo_evento}
+                      onChange={(e) => setForm({ ...form, tipo_evento: e.target.value })}
                     >
                       <option value="">Seleccione…</option>
-                      {rubros.map((r: any) => (
-                        <option key={r.id} value={r.id}>
-                          {r.descripcion}
+                      {tiposEvento.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.descripcion}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  {fuenteSel && (
-                    <div className="grid md:grid-cols-3 gap-4">
-                      <div>
-                        <Label>Descripción</Label>
-                        <Input value={fuenteSel.descripcion || ""} disabled className="bg-gray-100" />
-                      </div>
-                      <div>
-                        <Label>Etiquetado</Label>
-                        <Input value={fuenteSel.etiquetado || ""} disabled className="bg-gray-100" />
-                      </div>
-                      <div>
-                        <Label>Fondo</Label>
-                        <Input value={fuenteSel.fondo || ""} disabled className="bg-gray-100" />
-                      </div>
-                    </div>
-                  )}
+                  <div>
+                    <Label>Tipo de licitación</Label>
+                    <select
+                      className="border rounded-md p-2 w-full"
+                      value={form.tipo_licitacion}
+                      onChange={(e) => setForm({ ...form, tipo_licitacion: e.target.value })}
+                      disabled={!form.tipo_evento}
+                    >
+                      <option value="">
+                        {form.tipo_evento ? "Seleccione…" : "Seleccione un tipo de evento primero"}
+                      </option>
+                      {tiposLicitacion.map((a) => (
+                        <option key={a.id} value={a.valor}>
+                          {a.valor}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Sesión */}
+                <div>
+                  <Label>Número de sesión</Label>
+                  <Command>
+                    <CommandInput
+                      placeholder="Escribe para buscar…"
+                      value={busquedaSesion}
+                      onValueChange={(val) => {
+                        setBusquedaSesion(val);
+                        setMostrarSesiones(true);
+                      }}
+                    />
+                    {mostrarSesiones && (
+                      <CommandList>
+                        {busquedaSesion.trim() !== "" ? (
+                          numerosSesion
+                            .filter((n) =>
+                              (n.descripcion || "").toLowerCase().includes(busquedaSesion.toLowerCase())
+                            )
+                            .map((n) => (
+                              <CommandItem
+                                key={n.id}
+                                onSelect={() => {
+                                  setSesionSeleccionada(n);
+                                  setBusquedaSesion(n.descripcion);
+                                  setMostrarSesiones(false);
+                                }}
+                              >
+                                {n.descripcion}
+                              </CommandItem>
+                            ))
+                        ) : (
+                          <CommandEmpty>Escribe para buscar una sesión</CommandEmpty>
+                        )}
+                      </CommandList>
+                    )}
+                  </Command>
+                </div>
+
+                {/* Fecha / hora */}
+                <div className="grid md:grid-cols-2 gap-2">
+                  <div>
+                    <Label>Fecha (dd/mm/aaaa)</Label>
+                    <Input
+                      value={form.fecha ?? ""}
+                      onChange={(e) => setForm({ ...form, fecha: formatDateDDMMYYYY(e.target.value) })}
+                      placeholder="dd/mm/aaaa"
+                      maxLength={10}
+                    />
+                  </div>
+                  <div>
+                    <Label>Hora (HH:MM)</Label>
+                    <Input
+                      value={form.hora ?? ""}
+                      onChange={(e) => setForm({ ...form, hora: formatTimeHHMM(e.target.value) })}
+                      placeholder="HH:MM"
+                      maxLength={5}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleGuardarPaso1}
+                    disabled={loading}
+                    style={{ backgroundColor: "#235391", color: "white" }}
+                  >
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Guardar paso 1"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Paso 2 */}
+        {step === 2 && (
+          <Card>
+            <CardContent className="space-y-5 mt-4">
+              <h1 className="text-2xl font-bold">Paso 2 — Presupuesto del Ente</h1>
+              <div>
+                <Label>Folio</Label>
+                <Input value={folio ?? ""} disabled />
+              </div>
+
+              {partidas.map((p, i) => (
+                <Card key={i} className="p-4 space-y-4 border border-gray-200 relative">
+                  <button
+                    type="button"
+                    className="absolute right-3 top-3 text-red-600 hover:text-red-700"
+                    onClick={() => setPartidas(partidas.filter((_, idx) => idx !== i))}
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
 
                   <div>
-                    <Label>Monto presupuestal</Label>
+                    <Label>No. Requisición</Label>
                     <Input
-                      value={p.e_monto_presupuesto_suficiencia}
-                      placeholder="$0.00"
-                      onChange={(e) => {
-                        const formatted = formatCurrency(e.target.value);
-                        setListaPartidas((prev) =>
+                      value={p.e_no_requisicion ?? ""}
+                      onChange={(e) =>
+                        setPartidas((prev) =>
                           prev.map((x, idx) =>
-                            idx === i
-                              ? { ...x, e_monto_presupuesto_suficiencia: formatted }
-                              : x
+                            idx === i ? { ...x, e_no_requisicion: e.target.value } : x
+                          )
+                        )
+                      }
+                    />
+                  </div>
+
+                  {/* Partida */}
+                  <div>
+                    <Label>Partida</Label>
+                    <Command>
+                      <CommandInput
+                        placeholder="Escribe ID o descripción…"
+                        value={p.e_id_partida ?? ""}
+                        onValueChange={(val) =>
+                          setPartidas((prev) =>
+                            prev.map((x, idx) =>
+                              idx === i ? { ...x, e_id_partida: val } : x
+                            )
+                          )
+                        }
+                      />
+                      {Boolean((p.e_id_partida || "").trim()) && (
+                        <CommandList>
+                          {catalogoPartidas
+                            .filter((row: any) => {
+                              const q = (p.e_id_partida || "").toLowerCase();
+                              return (
+                                row.id?.toString().toLowerCase().includes(q) ||
+                                row.descripcion?.toLowerCase().includes(q)
+                              );
+                            })
+                            .map((row: any) => (
+                              <CommandItem
+                                key={row.id}
+                                onSelect={() =>
+                                  setPartidas((prev) =>
+                                    prev.map((x, idx) =>
+                                      idx === i
+                                        ? {
+                                            ...x,
+                                            e_id_partida: row.id,
+                                            partida_descripcion: row.descripcion ?? "",
+                                            clave_capitulo: row.id_capitulo ?? "",
+                                            capitulo: row.capitulo ?? "",
+                                          }
+                                        : x
+                                    )
+                                  )
+                                }
+                              >
+                                {row.id} — {row.descripcion}
+                              </CommandItem>
+                            ))}
+                          <CommandEmpty>No se encontraron partidas</CommandEmpty>
+                        </CommandList>
+                      )}
+                    </Command>
+                  </div>
+
+                  {/* Capítulo bloqueado */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label>Clave capítulo</Label>
+                      <Input value={p.clave_capitulo ?? ""} disabled />
+                    </div>
+                    <div>
+                      <Label>Capítulo</Label>
+                      <Input value={p.capitulo ?? ""} disabled />
+                    </div>
+                  </div>
+
+                  {/* Fuente de financiamiento */}
+                  <div>
+                    <Label>Fuente de financiamiento</Label>
+                    <Command>
+                      <CommandInput
+                        placeholder="Escribe ID o nombre…"
+                        value={p.e_id_fuente_financiamiento ?? ""}
+                        onValueChange={(val) =>
+                          setPartidas((prev) =>
+                            prev.map((x, idx) =>
+                              idx === i ? { ...x, e_id_fuente_financiamiento: val } : x
+                            )
+                          )
+                        }
+                      />
+                      {Boolean((p.e_id_fuente_financiamiento || "").trim()) && (
+                        <CommandList>
+                          {fuentes
+                            .filter((f: any) => {
+                              const q = (p.e_id_fuente_financiamiento || "").toLowerCase();
+                              return (
+                                f.id?.toString().toLowerCase().includes(q) ||
+                                f.descripcion?.toLowerCase().includes(q)
+                              );
+                            })
+                            .map((f: any) => (
+                              <CommandItem
+                                key={f.id}
+                                onSelect={() =>
+                                  setPartidas((prev) =>
+                                    prev.map((x, idx) =>
+                                      idx === i
+                                        ? {
+                                            ...x,
+                                            e_id_fuente_financiamiento: f.id,
+                                            fuente_descripcion: f.descripcion ?? "",
+                                            fuente_etiquetado: f.etiquetado ?? "",
+                                            fuente_fondo: f.fondo ?? "",
+                                          }
+                                        : x
+                                    )
+                                  )
+                                }
+                              >
+                                {f.id} — {f.descripcion}
+                              </CommandItem>
+                            ))}
+                          <CommandEmpty>No se encontraron fuentes</CommandEmpty>
+                        </CommandList>
+                      )}
+                    </Command>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label>Descripción</Label>
+                      <Input value={p.fuente_descripcion ?? ""} disabled />
+                    </div>
+                    <div>
+                      <Label>Etiquetado</Label>
+                      <Input value={p.fuente_etiquetado ?? ""} disabled />
+                    </div>
+                    <div>
+                      <Label>Fondo</Label>
+                      <Input value={p.fuente_fondo ?? ""} disabled />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Monto presupuesto suficiencia</Label>
+                    <Input
+                      value={p.e_monto_presupuesto_suficiencia ?? ""}
+                      onChange={(e) => {
+                        const val = formatMoney(e.target.value);
+                        setPartidas((prev) =>
+                          prev.map((x, idx) =>
+                            idx === i ? { ...x, e_monto_presupuesto_suficiencia: val } : x
                           )
                         );
                       }}
                     />
                   </div>
-                </div>
-              );
-            })}
+                </Card>
+              ))}
 
-            <div className="flex justify-between">
-              <Button className="bg-green-600 text-white hover:bg-green-700" onClick={handleNuevaPartida}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Nueva partida
-              </Button>
-
-              <Button
-                onClick={handleGuardarPaso2}
-                style={{ backgroundColor: "#235391", color: "white" }}
-              >
-                Guardar paso 2
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Paso 3 */}
-      {currentStep === 3 && (
-        <Card>
-          <CardContent className="space-y-6 mt-4">
-            <div>
-              <Label>RFC del proveedor</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Ej. ABCD123456EF7"
-                  value={rfcBusqueda}
-                  onChange={(e) => setRfcBusqueda(e.target.value.toUpperCase())}
-                />
-                <Button onClick={buscarProveedor} className="bg-blue-700 text-white">
-                  Buscar
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => setPartidas([...partidas, partidas[0]])}>
+                  <PlusCircle className="w-4 h-4 mr-2" /> Nueva partida
                 </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setStep(1)}>
+                    ← Volver al paso 1
+                  </Button>
+                  <Button
+                    onClick={handleGuardarPartidas}
+                    style={{ backgroundColor: "#235391", color: "white" }}
+                  >
+                    Guardar presupuesto
+                  </Button>
+                </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
+        )}
 
-            {proveedor && (
-              <div className="border rounded-lg p-4 bg-gray-50 space-y-2">
-                <p><b>RFC:</b> {proveedor.rfc}</p>
-                <p><b>Razón social:</b> {proveedor.razon_social}</p>
-                <p><b>Nombre comercial:</b> {proveedor.nombre_comercial}</p>
-                <p><b>Persona jurídica:</b> {proveedor.persona_juridica}</p>
-                <p><b>Correo electrónico:</b> {proveedor.correo_electronico}</p>
-                <p><b>Entidad federativa:</b> {proveedor.entidad_federativa}</p>
+        {/* Paso 3 */}
+        {step === 3 && (
+          <Card>
+            <CardContent className="space-y-5 mt-4">
+              <h1 className="text-2xl font-bold">Paso 3 — Presupuesto por Rubro</h1>
+              <div>
+                <Label>Folio</Label>
+                <Input value={folio ?? ""} disabled />
               </div>
-            )}
 
-            <div>
-              <Label>Importe sin IVA</Label>
-              <Input
-                value={importeSinIVA}
-                onChange={(e) => handleImporteChange(e.target.value)}
-                placeholder="$0.00"
-              />
-            </div>
+              {presupuestosRubro.map((r, i) => (
+                <Card key={i} className="p-4 space-y-4 border border-gray-200 relative">
+                  <button
+                    type="button"
+                    className="absolute right-3 top-3 text-red-600 hover:text-red-700"
+                    onClick={() => removeRubro(i)}
+                    title="Eliminar rubro"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
 
-            <div>
-              <Label>Importe total con IVA (16%)</Label>
-              <Input value={importeTotal} disabled className="bg-gray-100" />
-            </div>
+                  <div>
+                    <Label>Rubro</Label>
+                    <Command>
+                      <CommandInput
+                        placeholder="Escribe ID o nombre…"
+                        value={r.p_e_id_rubro ?? ""}
+                        onValueChange={(val) =>
+                          setPresupuestosRubro((prev) =>
+                            prev.map((x, idx) =>
+                              idx === i ? { ...x, p_e_id_rubro: val } : x
+                            )
+                          )
+                        }
+                      />
+                      {Boolean((r.p_e_id_rubro || "").trim()) && (
+                        <CommandList>
+                          {rubros
+                            .filter((rb) => {
+                              const q = (r.p_e_id_rubro || "").toLowerCase();
+                              return (
+                                rb.id?.toString().toLowerCase().includes(q) ||
+                                rb.descripcion?.toLowerCase().includes(q)
+                              );
+                            })
+                            .map((rb) => (
+                              <CommandItem
+                                key={rb.id}
+                                onSelect={() =>
+                                  setPresupuestosRubro((prev) =>
+                                    prev.map((x, idx) =>
+                                      idx === i
+                                        ? {
+                                            ...x,
+                                            p_e_id_rubro: rb.id,
+                                            rubro_descripcion: rb.descripcion,
+                                          }
+                                        : x
+                                    )
+                                  )
+                                }
+                              >
+                                {rb.id} — {rb.descripcion}
+                              </CommandItem>
+                            ))}
+                          <CommandEmpty>No se encontraron rubros</CommandEmpty>
+                        </CommandList>
+                      )}
+                    </Command>
+                  </div>
 
-            <div className="flex justify-end">
-              <Button
-                onClick={handleGuardarProveedor}
-                style={{ backgroundColor: "#235391", color: "white" }}
-              >
-                Guardar proveedor
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  <div>
+                    <Label>Descripción</Label>
+                    <Input value={r.rubro_descripcion ?? ""} disabled />
+                  </div>
+
+                  <div>
+                    <Label>Monto presupuesto suficiencia</Label>
+                    <Input
+                      value={r.p_e_monto_presupuesto_suficiencia ?? ""}
+                      disabled
+                    />
+                  </div>
+                </Card>
+              ))}
+
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={addRubro}>
+                  <PlusCircle className="w-4 h-4 mr-2" /> Nuevo rubro
+                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setStep(2)}>
+                    ← Volver al paso 2
+                  </Button>
+                  <Button
+                    onClick={handleGuardarRubros}
+                    style={{ backgroundColor: "#235391", color: "white" }}
+                  >
+                    Finalizar proceso
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </section>
     </main>
   );
 }

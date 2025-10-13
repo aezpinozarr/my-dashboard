@@ -56,8 +56,9 @@ export default function ServidoresPage() {
   // ======================
   const fetchServidores = async () => {
     try {
+      // 🔹 Ahora consulta todos los servidores (asociados o no)
       const resp = await fetch(
-        `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=-99`
+        `${API_BASE}/catalogos/servidores-publicos-ente/todos`
       );
       const data = await resp.json();
       setServidores(Array.isArray(data) ? data : []);
@@ -82,9 +83,9 @@ export default function ServidoresPage() {
       (s) =>
         s.nombre.toLowerCase().includes(term) ||
         s.cargo.toLowerCase().includes(term) ||
-        s.ente_publico.toLowerCase().includes(term) ||
-        s.ente_siglas.toLowerCase().includes(term) ||
-        s.ente_clasificacion.toLowerCase().includes(term) ||
+        s.ente_publico?.toLowerCase().includes(term) ||
+        s.ente_siglas?.toLowerCase().includes(term) ||
+        s.ente_clasificacion?.toLowerCase().includes(term) ||
         s.id.toString().includes(term)
     );
   }, [servidores, search]);
@@ -196,13 +197,13 @@ export default function ServidoresPage() {
                   <strong>Activo:</strong> {s.activo ? "✅" : "❌"}
                 </p>
                 <p>
-                  <strong>Ente:</strong> {s.ente_publico}
+                  <strong>Ente:</strong> {s.ente_publico || "Sin asociar"}
                 </p>
                 <p>
-                  <strong>Siglas:</strong> {s.ente_siglas}
+                  <strong>Siglas:</strong> {s.ente_siglas || "—"}
                 </p>
                 <p>
-                  <strong>Clasificación:</strong> {s.ente_clasificacion}
+                  <strong>Clasificación:</strong> {s.ente_clasificacion || "—"}
                 </p>
               </CardContent>
             </Card>
@@ -229,9 +230,9 @@ export default function ServidoresPage() {
                 <TableCell>{s.nombre}</TableCell>
                 <TableCell>{s.cargo}</TableCell>
                 <TableCell>{s.activo ? "✅" : "❌"}</TableCell>
-                <TableCell>{s.ente_publico}</TableCell>
-                <TableCell>{s.ente_siglas}</TableCell>
-                <TableCell>{s.ente_clasificacion}</TableCell>
+                <TableCell>{s.ente_publico || "Sin asociar"}</TableCell>
+                <TableCell>{s.ente_siglas || "—"}</TableCell>
+                <TableCell>{s.ente_clasificacion || "—"}</TableCell>
                 <TableCell>
                   <Button
                     variant="outline"
