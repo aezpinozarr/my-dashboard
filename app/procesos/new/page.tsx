@@ -1080,7 +1080,7 @@ if (Array.isArray(data) && data.length > 0) {
                   const data = await resp.json();
 
                   if (!resp.ok) throw new Error(data.detail || "Error al guardar rubro");
-                  // ⬇️ Sustituido por bloque corregido
+                  // Bloque corregido: agrega todos los campos requeridos cuando data.resultado tiene valor
                   if (data.resultado) {
                     console.log("✅ Rubro guardado correctamente:", {
                       rubro: r.p_e_id_rubro,
@@ -1092,8 +1092,8 @@ if (Array.isArray(data) && data.length > 0) {
                         x.p_e_id_rubro === r.p_e_id_rubro
                           ? {
                               ...x,
-                              id: data.resultado, // ✅ ID real del rubro recién guardado
-                              p_id_proceso_seguimiento_presupuesto: folio, // guarda también el folio del proceso
+                              id: data.resultado,
+                              p_id_proceso_seguimiento_presupuesto: folio,
                               p_id_proceso_seguimiento_presupuesto_rubro: data.resultado,
                               p_e_id_rubro_partida: data.resultado,
                             }
@@ -1340,20 +1340,21 @@ if (Array.isArray(data) && data.length > 0) {
                       for (const prov of proveedores) {
                         if (!prov.e_rfc_proveedor) continue;
 
-                        // Normaliza el ID del rubro-partida seleccionado
+                        // Nueva lógica robusta para obtener el ID real del rubro-partida
                         const rubroRelacionado = presupuestosRubro.find((r) => {
                           return (
-                            String(r.id) === String(prov.p_e_id_rubro_partida) ||
                             String(r.p_id_proceso_seguimiento_presupuesto_rubro) ===
-                              String(prov.p_e_id_rubro_partida)
+                              String(prov.p_e_id_rubro_partida) ||
+                            String(r.id) === String(prov.p_e_id_rubro_partida)
                           );
                         });
 
-                        const idRubroValido =
-                          rubroRelacionado?.id ||
+                        const idRubroValido = Number(
                           rubroRelacionado?.p_id_proceso_seguimiento_presupuesto_rubro ||
-                          Number(prov.p_e_id_rubro_partida) ||
-                          0;
+                            rubroRelacionado?.id ||
+                            prov.p_e_id_rubro_partida ||
+                            0
+                        );
 
                         console.log("🧩 Proveedor:", prov.e_rfc_proveedor);
                         console.log("➡️ ID de rubro válido:", idRubroValido);
@@ -1365,6 +1366,22 @@ if (Array.isArray(data) && data.length > 0) {
                           continue;
                         }
 
+                        // Log de depuración del payload a enviar
+                        console.log("📤 Enviando payload al backend:", {
+                          p_accion: "NUEVO",
+                          p_id_proceso_seguimiento_presupuesto: folio,
+                          p_id_proceso_seguimiento_presupuesto_rubro: idRubroValido,
+                          p_id: 0,
+                          p_e_rfc_proveedor: prov.e_rfc_proveedor,
+                          p_e_importe_sin_iva: parseFloat(
+                            (prov.e_importe_sin_iva || "").replace(/[^\d]/g, "") || "0"
+                          ),
+                          p_e_importe_total: parseFloat(
+                            (prov.e_importe_total || "").replace(/[^\d]/g, "") || "0"
+                          ),
+                          p_r_importe_ajustado_sin_iva: 0,
+                          p_r_importe_ajustado_total: 0,
+                        });
                         // Enviar datos al backend
                         const resp = await fetch(
                           `${API_BASE}/procesos/seguimiento/presupuesto-proveedor/`,

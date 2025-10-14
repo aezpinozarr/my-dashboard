@@ -29,20 +29,23 @@ type Registro = {
   id: number;
   id_proceso_seguimiento: number;
   ente: string;
-  ente_siglas: string;
-  ente_tipo: string;
+  ente_clasificacion: string;
+  id_ente_tipo: string;
   partida: string;
+  capitulo: string;
+  clasificacion: string;
+  tipo_gasto: string;
   rubro: string;
-  fuente_financiamiento_descripcion: string;
   e_monto_presupuesto_suficiencia: number;
-  e_rfc_proveedor: string;
-  e_importe_total: number;
+  e_rfc_proveedor: string | null;
+  e_importe_total: number | null;
+  estatus: string;
 };
 
 export default function DetallePresupuestoPage() {
   const { user } = useUser(); // ✅ obtenemos datos del usuario logueado
   const [registros, setRegistros] = React.useState<Registro[]>([]);
-  const [view, setView] = React.useState<"table" | "cards">("table");
+  const [view, setView] = React.useState<"table" | "cards">("cards");
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -128,27 +131,33 @@ export default function DetallePresupuestoPage() {
             <TableRow>
               <TableHead>ID Proceso</TableHead>
               <TableHead>Ente</TableHead>
-              <TableHead>Siglas</TableHead>
-              <TableHead>Tipo</TableHead>
+              <TableHead>Clasificación Ente</TableHead>
+              <TableHead>Tipo Ente</TableHead>
               <TableHead>Partida</TableHead>
               <TableHead>Rubro</TableHead>
-              <TableHead>Fuente</TableHead>
+              <TableHead>Tipo Gasto</TableHead>
               <TableHead>Monto</TableHead>
               <TableHead>Proveedor</TableHead>
               <TableHead>Importe Total</TableHead>
+              <TableHead>Estatus</TableHead>
+              <TableHead>Detalle</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {registros.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell>{r.id_proceso_seguimiento}</TableCell>
+            {registros.map((r, index) => (
+              <TableRow key={`${r.id}-${r.id_proceso_seguimiento}-${r.e_rfc_proveedor || "NA"}-${index}`}>
+                <TableCell>
+                  <Link className="text-blue-700 underline" href={`/procesos/view/${r.id_proceso_seguimiento}`}>
+                    {r.id_proceso_seguimiento}
+                  </Link>
+                </TableCell>
                 <TableCell>{r.ente}</TableCell>
-                <TableCell>{r.ente_siglas}</TableCell>
-                <TableCell>{r.ente_tipo}</TableCell>
+                <TableCell>{r.ente_clasificacion}</TableCell>
+                <TableCell>{r.id_ente_tipo}</TableCell>
                 <TableCell>{r.partida || "—"}</TableCell>
                 <TableCell>{r.rubro || "—"}</TableCell>
                 <TableCell>
-                  {r.fuente_financiamiento_descripcion || "—"}
+                  {r.tipo_gasto || "—"}
                 </TableCell>
                 <TableCell>
                   {r.e_monto_presupuesto_suficiencia
@@ -159,9 +168,15 @@ export default function DetallePresupuestoPage() {
                   {r.e_rfc_proveedor ? r.e_rfc_proveedor : "NO ASIGNADO"}
                 </TableCell>
                 <TableCell>
-                  {r.e_importe_total
+                  {r.e_importe_total !== null && r.e_importe_total !== undefined
                     ? `$${r.e_importe_total.toLocaleString()}`
                     : "—"}
+                </TableCell>
+                <TableCell>{r.estatus}</TableCell>
+                <TableCell>
+                  <Link href={`/procesos/view/${r.id_proceso_seguimiento}`}>
+                    <Button variant="outline" style={{ cursor: "pointer" }}>Ver detalle</Button>
+                  </Link>
                 </TableCell>
               </TableRow>
             ))}
@@ -172,15 +187,15 @@ export default function DetallePresupuestoPage() {
         // 💳 VISTA TARJETAS
         // =======================
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {registros.map((r) => (
+          {registros.map((r, index) => (
             <Card
-              key={r.id}
+              key={`${r.id}-${r.id_proceso_seguimiento}-${r.e_rfc_proveedor || "NA"}-${index}`}
               className="shadow-md border border-gray-200 hover:shadow-lg transition-all duration-200"
             >
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-semibold text-gray-800">
                   {r.ente}{" "}
-                  <span className="text-gray-500">({r.ente_siglas})</span>
+                  <span className="text-gray-500">({r.ente_clasificacion})</span>
                 </CardTitle>
               </CardHeader>
 
@@ -189,7 +204,7 @@ export default function DetallePresupuestoPage() {
                   <strong>ID Proceso:</strong> {r.id_proceso_seguimiento}
                 </p>
                 <p>
-                  <strong>Tipo Ente:</strong> {r.ente_tipo}
+                  <strong>Tipo Ente:</strong> {r.id_ente_tipo}
                 </p>
                 <p>
                   <strong>Partida:</strong> {r.partida || "—"}
@@ -198,8 +213,8 @@ export default function DetallePresupuestoPage() {
                   <strong>Rubro:</strong> {r.rubro || "—"}
                 </p>
                 <p>
-                  <strong>Fuente:</strong>{" "}
-                  {r.fuente_financiamiento_descripcion || "—"}
+                  <strong>Tipo Gasto:</strong>{" "}
+                  {r.tipo_gasto || "—"}
                 </p>
                 <p>
                   <strong>Monto:</strong>{" "}
@@ -213,10 +228,18 @@ export default function DetallePresupuestoPage() {
                 </p>
                 <p>
                   <strong>Importe Total:</strong>{" "}
-                  {r.e_importe_total
+                  {r.e_importe_total !== null && r.e_importe_total !== undefined
                     ? `$${r.e_importe_total.toLocaleString()}`
                     : "—"}
                 </p>
+                <p>
+                  <strong>Estatus:</strong> {r.estatus}
+                </p>
+                <div className="pt-2">
+                  <Link href={`/procesos/view/${r.id_proceso_seguimiento}`}>
+                    <Button variant="outline" style={{ cursor: "pointer" }}>Ver detalle</Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           ))}
