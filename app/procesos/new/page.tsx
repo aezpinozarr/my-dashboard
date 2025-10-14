@@ -1493,7 +1493,7 @@ export default function NuevoProcesoPage() {
                           (r: any) => r.p_id_proceso_seguimiento_presupuesto === folio
                         );
 
-                        // Si no se encuentra, establecer a 0 para evitar inserciones incorrectas
+                        
                         const idRubroValido = rubroRelacionado?.id || 0;
 
                         console.log("🧩 Proveedor:", prov.e_rfc_proveedor);
