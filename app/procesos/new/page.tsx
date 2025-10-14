@@ -76,59 +76,59 @@ function formatMoney(value: string) {
 ======================================== */
 function StepIndicator({ currentStep }: { currentStep: number }) {
   const steps = [
-    { id: 1, label: "Datos del Ente" },
-    { id: 2, label: "Presupuesto del Ente" },
-    { id: 3, label: "Presupuesto Rubro" },
-    { id: 4, label: "Confirmación" },
+    { id: 1, label: "Oficio invitación" },
+    { id: 2, label: "Partidas" },
+    { id: 3, label: "Rubros" },
+    { id: 4, label: "Proveedor" },
   ];
 
   return (
-    <div className="flex flex-col items-start space-y-4 mb-6">
-      {steps.map((step) => {
-        const isActive = step.id === currentStep;
-        const isCompleted = step.id < currentStep;
+    <div className="flex justify-center items-center mb-8 pl-30">
+      <div className="flex items-center w-full max-w-4xl justify-between">
+        {steps.map((step, index) => {
+          const isActive = step.id === currentStep;
+          const isCompleted = step.id < currentStep;
+          const isLast = index === steps.length - 1;
 
-        return (
-          <div key={step.id} className="flex items-center w-full">
-            <div
-              className={`flex items-center justify-center w-10 h-10 rounded-full border-2 font-bold
-                ${
-                  isActive
-                    ? "bg-[#235391] border-[#235391] text-white"
-                    : isCompleted
-                    ? "bg-[#235391]/20 border-[#235391] text-[#235391]"
-                    : "bg-gray-200 border-gray-300 text-gray-600"
-                }`}
-            >
-              {step.id}
-            </div>
-
-            <div className="flex-1 ml-4">
-              <div
-                className={`h-3 rounded-full transition-all duration-300
-                  ${
+          return (
+            <div key={step.id} className="flex items-center w-full">
+              <div className="flex flex-col items-center">
+                <div
+                  className={`flex items-center justify-center w-10 h-10 rounded-full border-2 font-bold text-sm transition-all
+                    ${
+                      isActive
+                        ? "bg-[#235391] border-[#235391] text-white scale-110"
+                        : isCompleted
+                        ? "bg-[#235391]/20 border-[#235391] text-[#235391]"
+                        : "bg-gray-200 border-gray-300 text-gray-600"
+                    }`}
+                >
+                  {step.id}
+                </div>
+                <p
+                  className={`text-xs font-medium mt-2 ${
                     isActive
-                      ? "bg-[#235391] w-3/4"
+                      ? "text-[#235391]"
                       : isCompleted
-                      ? "bg-[#235391]/50 w-3/4"
-                      : "bg-gray-200 w-2/4"
+                      ? "text-[#235391]/70"
+                      : "text-gray-500"
                   }`}
-              ></div>
-              <p
-                className={`mt-2 text-sm font-medium ${
-                  isActive
-                    ? "text-[#235391]"
-                    : isCompleted
-                    ? "text-[#235391]/70"
-                    : "text-gray-500"
-                }`}
-              >
-                {step.label}
-              </p>
+                >
+                  {step.label}
+                </p>
+              </div>
+
+              {!isLast && (
+                <div
+                  className={`flex-1 h-[2px] mx-2 transition-all duration-500 ${
+                    isCompleted ? "bg-[#235391]" : "bg-gray-300"
+                  }`}
+                ></div>
+              )}
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -162,6 +162,16 @@ export default function NuevoProcesoPage() {
     tipo_licitacion_notas: "",
     fecha: "",
     hora: "",
+    // Campos del paso 4
+    e_rfc_proveedor: "",
+    razon_social: "",
+    nombre_comercial: "",
+    persona_juridica: "",
+    correo_electronico: "",
+    entidad_federativa: "",
+    e_importe_sin_iva: "",
+    e_importe_total: "",
+    p_e_id_rubro_partida: "",
   });
   const [folio, setFolio] = React.useState<number | null>(null);
 
@@ -189,6 +199,9 @@ export default function NuevoProcesoPage() {
   const [presupuestosRubro, setPresupuestosRubro] = React.useState<any[]>([
     { p_e_id_rubro: "", rubro_descripcion: "", p_e_monto_presupuesto_suficiencia: "" },
   ]);
+
+  // Paso 4: Proveedores
+  const [proveedores, setProveedores] = React.useState<any[]>([]);
 
   /* ========================================
      🔹 Cargar catálogos paso 1
@@ -253,7 +266,7 @@ export default function NuevoProcesoPage() {
         body: JSON.stringify({
           p_accion: "NUEVO",
           p_id: 0,
-          p_e_id_ente: String(user.id_ente),
+          p_e_id_ente: Number(user.id_ente),   // ✅ CORRECTO: lo manda como entero
           p_e_oficio_invitacion: form.oficio_invitacion,
           p_e_id_servidor_publico_emite: Number(servidorSeleccionado.id),
           p_e_servidor_publico_cargo: form.servidor_publico_cargo,
@@ -367,13 +380,44 @@ export default function NuevoProcesoPage() {
   }, [step]);
 
   /* ========================================
+     🔹 Cargar montos del paso 2 en el paso 3
+  ======================================== */
+  React.useEffect(() => {
+    if (step !== 3 || !folio) return;
+    (async () => {
+      try {
+       // Trae todos los registros de presupuesto-ente del proceso
+const resp = await fetch(
+  `${API_BASE}/procesos/seguimiento/presupuesto-ente/?p_id_proceso_seguimiento=${folio}&p_e_id_partida=-99`,
+  { method: "GET" }
+);
+const data = await resp.json();
+
+if (Array.isArray(data) && data.length > 0) {
+  const mapped = data.map((d: any) => ({
+    p_e_id_rubro: d.e_id_partida?.toString() || "",
+    rubro_descripcion: d.partida_descripcion || d.e_id_partida?.toString() || "",
+    p_e_monto_presupuesto_suficiencia:
+      "$" + parseFloat(d.e_monto_presupuesto_suficiencia || 0).toLocaleString("es-MX"),
+  }));
+  setPresupuestosRubro(mapped);
+} else {
+  console.warn("⚠️ No se encontraron registros de presupuesto para el folio:", folio);
+}
+      } catch (err) {
+        console.error("❌ Error al cargar montos del paso 2:", err);
+      }
+    })();
+  }, [step, folio]);
+
+  /* ========================================
      🔹 Guardar Paso 3
   ======================================== */
   const handleGuardarRubros = async () => {
     if (!folio) return alert("No hay folio del proceso anterior");
     try {
       for (const r of presupuestosRubro) {
-        const resp = await fetch(`${API_BASE}/procesos/seguimiento/presupuesto-rubro-ente/`, {
+        const resp = await fetch(`${API_BASE}/procesos/seguimiento/presupuesto-rubro-proveedor-ente/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -416,21 +460,16 @@ export default function NuevoProcesoPage() {
      🔹 Render UI (Paso 1, 2, 3)
   ======================================== */
   return (
-    <main className="flex gap-6 max-w-7xl mx-auto p-6">
-      {/* Aside: Step Indicator */}
-      <aside className="sticky top-6 h-[calc(100vh-3rem)] overflow-y-auto w-1/5 pr-4">
-        <StepIndicator currentStep={step} />
-      </aside>
-      {/* Section: Steps Content */}
-      <section className="flex-1 w-4/5 pl-4">
-        {/* Paso 1 */}
-        {step === 1 && (
+    <main className="max-w-5xl mx-auto p-6 space-y-6">
+      <StepIndicator currentStep={step} />
+      {/* Paso 1 */}
+      {step === 1 && (
           <>
             <div className="flex items-center gap-3">
               <Button asChild variant="outline">
                 <Link href="/dashboard">←</Link>
               </Button>
-              <h1 className="text-2xl font-bold">Proceso — Paso 1: Datos del Ente</h1>
+              <h1 className="text-2xl font-bold">Paso 1: Oficio de invitación</h1>
             </div>
 
             <Card>
@@ -438,11 +477,11 @@ export default function NuevoProcesoPage() {
                 <div className="grid md:grid-cols-2 gap-2">
                   <div>
                     <Label>Ente</Label>
-                    <Input value={enteDescripcion || "Cargando..."} disabled />
+                    <Input value={enteDescripcion || "Cargando..."} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
                   </div>
                   <div>
                     <Label>Usuario</Label>
-                    <Input value={user?.nombre || "Cargando..."} disabled />
+                    <Input value={user?.nombre || "Cargando..."} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
                   </div>
                 </div>
 
@@ -584,7 +623,7 @@ export default function NuevoProcesoPage() {
                 {/* Fecha / hora */}
                 <div className="grid md:grid-cols-2 gap-2">
                   <div>
-                    <Label>Fecha (dd/mm/aaaa)</Label>
+                    <Label>Fecha</Label>
                     <Input
                       value={form.fecha ?? ""}
                       onChange={(e) => setForm({ ...form, fecha: formatDateDDMMYYYY(e.target.value) })}
@@ -593,7 +632,7 @@ export default function NuevoProcesoPage() {
                     />
                   </div>
                   <div>
-                    <Label>Hora (HH:MM)</Label>
+                    <Label>Hora</Label>
                     <Input
                       value={form.hora ?? ""}
                       onChange={(e) => setForm({ ...form, hora: formatTimeHHMM(e.target.value) })}
@@ -609,47 +648,69 @@ export default function NuevoProcesoPage() {
                     disabled={loading}
                     style={{ backgroundColor: "#235391", color: "white" }}
                   >
-                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Guardar paso 1"}
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Siguiente"}
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </>
-        )}
+      )}
 
-        {/* Paso 2 */}
-        {step === 2 && (
+      {/* Paso 2 */}
+      {step === 2 && (
           <Card>
             <CardContent className="space-y-5 mt-4">
-              <h1 className="text-2xl font-bold">Paso 2 — Presupuesto del Ente</h1>
+              <h1 className="text-2xl font-bold">Paso 2: Partidas</h1>
               <div>
-                <Label>Folio</Label>
-                <Input value={folio ?? ""} disabled />
+                <Label>Oficio de invitación</Label>
+                <Input value={form.oficio_invitacion ?? ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
               </div>
 
-              {partidas.map((p, i) => (
-                <Card key={i} className="p-4 space-y-4 border border-gray-200 relative">
-                  <button
-                    type="button"
-                    className="absolute right-3 top-3 text-red-600 hover:text-red-700"
-                    onClick={() => setPartidas(partidas.filter((_, idx) => idx !== i))}
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-
-                  <div>
-                    <Label>No. Requisición</Label>
-                    <Input
-                      value={p.e_no_requisicion ?? ""}
-                      onChange={(e) =>
-                        setPartidas((prev) =>
-                          prev.map((x, idx) =>
-                            idx === i ? { ...x, e_no_requisicion: e.target.value } : x
-                          )
-                        )
+              {partidas.map((p, i) => {
+                const isLast = partidas.length === 1;
+                return (
+                  <Card key={i} className="p-4 space-y-4 border border-gray-200 relative">
+                    {/* Identificador de partida */}
+                    <div className="mb-2">
+                      <span className="inline-block rounded px-3 py-1 bg-blue-100 text-blue-800 font-semibold text-sm">{`Partida #${i + 1}`}</span>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={isLast ? "No se puede eliminar la última partida" : "Eliminar partida"}
+                      className={
+                        `absolute right-3 top-3 z-10 rounded-full p-2 transition-all duration-200
+                        ${isLast
+                          ? "bg-gray-200/80 cursor-not-allowed opacity-70"
+                          : "bg-red-500/20 hover:bg-red-600/70 cursor-pointer hover:scale-110"
+                        }`
                       }
-                    />
-                  </div>
+                      onClick={() => {
+                        if (!isLast) setPartidas(partidas.filter((_, idx) => idx !== i));
+                      }}
+                      disabled={isLast}
+                      tabIndex={0}
+                      onMouseEnter={e => {
+                        if (isLast) {
+                          (e.currentTarget as HTMLElement).setAttribute('title', 'Debe haber al menos una partida');
+                        }
+                      }}
+                    >
+                      <Trash2 className={`w-7 h-7 ${isLast ? "text-gray-400" : "text-red-600 hover:text-white"}`} />
+                    </button>
+
+                    <div>
+                      <Label>No. Requisición</Label>
+                      <Input
+                        value={p.e_no_requisicion ?? ""}
+                        onChange={(e) =>
+                          setPartidas((prev) =>
+                            prev.map((x, idx) =>
+                              idx === i ? { ...x, e_no_requisicion: e.target.value } : x
+                            )
+                          )
+                        }
+                      />
+                    </div>
 
                   {/* Partida */}
                   <div>
@@ -708,11 +769,11 @@ export default function NuevoProcesoPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label>Clave capítulo</Label>
-                      <Input value={p.clave_capitulo ?? ""} disabled />
+                      <Input value={p.clave_capitulo ?? ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
                     </div>
                     <div>
                       <Label>Capítulo</Label>
-                      <Input value={p.capitulo ?? ""} disabled />
+                      <Input value={p.capitulo ?? ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
                     </div>
                   </div>
 
@@ -772,15 +833,15 @@ export default function NuevoProcesoPage() {
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <Label>Descripción</Label>
-                      <Input value={p.fuente_descripcion ?? ""} disabled />
+                      <Input value={p.fuente_descripcion ?? ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
                     </div>
                     <div>
                       <Label>Etiquetado</Label>
-                      <Input value={p.fuente_etiquetado ?? ""} disabled />
+                      <Input value={p.fuente_etiquetado ?? ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
                     </div>
                     <div>
                       <Label>Fondo</Label>
-                      <Input value={p.fuente_fondo ?? ""} disabled />
+                      <Input value={p.fuente_fondo ?? ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
                     </div>
                   </div>
 
@@ -798,8 +859,9 @@ export default function NuevoProcesoPage() {
                       }}
                     />
                   </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
 
               <div className="flex justify-between">
                 <Button variant="outline" onClick={() => setPartidas([...partidas, partidas[0]])}>
@@ -813,120 +875,554 @@ export default function NuevoProcesoPage() {
                     onClick={handleGuardarPartidas}
                     style={{ backgroundColor: "#235391", color: "white" }}
                   >
-                    Guardar presupuesto
+                    Siguiente
                   </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
-        )}
+      )}
 
-        {/* Paso 3 */}
-        {step === 3 && (
-          <Card>
-            <CardContent className="space-y-5 mt-4">
-              <h1 className="text-2xl font-bold">Paso 3 — Presupuesto por Rubro</h1>
-              <div>
-                <Label>Folio</Label>
-                <Input value={folio ?? ""} disabled />
-              </div>
+     {/* Paso 3 */}
+{step === 3 && (
+  <Card>
+    <CardContent className="space-y-5 mt-4">
+      <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
+      <div>
+        <Label>Oficio de invitación</Label>
+        <Input
+          value={form.oficio_invitacion ?? ""}
+          disabled
+          className="bg-gray-100 text-gray-700 cursor-not-allowed"
+        />
+      </div>
 
-              {presupuestosRubro.map((r, i) => (
-                <Card key={i} className="p-4 space-y-4 border border-gray-200 relative">
-                  <button
-                    type="button"
-                    className="absolute right-3 top-3 text-red-600 hover:text-red-700"
-                    onClick={() => removeRubro(i)}
-                    title="Eliminar rubro"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+      {presupuestosRubro.map((r, i) => (
+        <Card key={i} className="p-4 space-y-4 border border-gray-200 relative">
+          {/* Identificador visual */}
+          <div className="mb-2 flex justify-between items-center">
+            <span className="inline-block rounded px-3 py-1 bg-green-100 text-green-800 font-semibold text-sm">
+              {`Rubro #${i + 1}`}
+            </span>
+            <button
+              type="button"
+              className="text-red-600 hover:text-red-700"
+              onClick={() => removeRubro(i)}
+              title="Eliminar rubro"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
 
-                  <div>
-                    <Label>Rubro</Label>
-                    <Command>
-                      <CommandInput
-                        placeholder="Escribe ID o nombre…"
-                        value={r.p_e_id_rubro ?? ""}
-                        onValueChange={(val) =>
+          {/* Si hay más de una partida, mostrar selector */}
+          {partidas.length > 1 && (
+            <div>
+              <Label>Partida asociada</Label>
+              <select
+                className="border rounded-md p-2 w-full"
+                value={r.p_id_partida_asociada || ""}
+                onChange={(e) =>
+                  setPresupuestosRubro((prev) =>
+                    prev.map((x, idx) =>
+                      idx === i
+                        ? { ...x, p_id_partida_asociada: e.target.value }
+                        : x
+                    )
+                  )
+                }
+              >
+                <option value="">Seleccione la partida…</option>
+                {partidas.map((p, idx) => (
+                  <option key={`${p.e_id_partida}-${idx}`} value={p.e_id_partida}>
+                    Partida #{idx + 1} — {p.partida_descripcion || p.e_id_partida}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Si solo hay una partida, mostrar etiqueta informativa */}
+          {partidas.length === 1 && (
+            <div>
+              <Label>Partida asociada</Label>
+              <Input
+                value={`Partida #1 — ${
+                  partidas[0].partida_descripcion || partidas[0].e_id_partida
+                }`}
+                disabled
+                className="bg-gray-100 text-gray-700 cursor-not-allowed"
+              />
+            </div>
+          )}
+
+          {/* Campo de selección del rubro */}
+          <div>
+            <Label>Rubro</Label>
+            <Command>
+              <CommandInput
+                placeholder="Escribe ID o nombre…"
+                value={r.p_e_id_rubro ?? ""}
+                onValueChange={(val) =>
+                  setPresupuestosRubro((prev) =>
+                    prev.map((x, idx) =>
+                      idx === i ? { ...x, p_e_id_rubro: val } : x
+                    )
+                  )
+                }
+              />
+              {Boolean((r.p_e_id_rubro || "").trim()) && (
+                <CommandList>
+                  {rubros
+                    .filter((rb) => {
+                      const q = (r.p_e_id_rubro || "").toLowerCase();
+                      return (
+                        rb.id?.toString().toLowerCase().includes(q) ||
+                        rb.descripcion?.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((rb) => (
+                      <CommandItem
+                        key={rb.id}
+                        onSelect={() =>
                           setPresupuestosRubro((prev) =>
                             prev.map((x, idx) =>
-                              idx === i ? { ...x, p_e_id_rubro: val } : x
+                              idx === i
+                                ? {
+                                    ...x,
+                                    p_e_id_rubro: rb.id,
+                                    rubro_descripcion: rb.descripcion,
+                                  }
+                                : x
                             )
                           )
                         }
-                      />
-                      {Boolean((r.p_e_id_rubro || "").trim()) && (
-                        <CommandList>
-                          {rubros
-                            .filter((rb) => {
-                              const q = (r.p_e_id_rubro || "").toLowerCase();
-                              return (
-                                rb.id?.toString().toLowerCase().includes(q) ||
-                                rb.descripcion?.toLowerCase().includes(q)
-                              );
-                            })
-                            .map((rb) => (
-                              <CommandItem
-                                key={rb.id}
-                                onSelect={() =>
-                                  setPresupuestosRubro((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? {
-                                            ...x,
-                                            p_e_id_rubro: rb.id,
-                                            rubro_descripcion: rb.descripcion,
-                                          }
-                                        : x
-                                    )
-                                  )
-                                }
-                              >
-                                {rb.id} — {rb.descripcion}
-                              </CommandItem>
-                            ))}
-                          <CommandEmpty>No se encontraron rubros</CommandEmpty>
-                        </CommandList>
-                      )}
-                    </Command>
-                  </div>
+                      >
+                        {rb.id} — {rb.descripcion}
+                      </CommandItem>
+                    ))}
+                  <CommandEmpty>No se encontraron rubros</CommandEmpty>
+                </CommandList>
+              )}
+            </Command>
+          </div>
 
-                  <div>
-                    <Label>Descripción</Label>
-                    <Input value={r.rubro_descripcion ?? ""} disabled />
-                  </div>
+          {/* Descripción bloqueada */}
+          <div>
+            <Label>Descripción</Label>
+            <Input
+              value={r.rubro_descripcion ?? ""}
+              disabled
+              className="bg-gray-100 text-gray-700 cursor-not-allowed"
+            />
+          </div>
 
-                  <div>
-                    <Label>Monto presupuesto suficiencia</Label>
-                    <Input
-                      value={r.p_e_monto_presupuesto_suficiencia ?? ""}
-                      disabled
-                    />
-                  </div>
-                </Card>
-              ))}
+          {/* Monto */}
+          <div>
+            <Label>Monto presupuesto suficiencia</Label>
+            <Input
+              value={r.p_e_monto_presupuesto_suficiencia ?? ""}
+              onChange={(e) => {
+                const val = formatMoney(e.target.value);
+                setPresupuestosRubro((prev) =>
+                  prev.map((x, idx) =>
+                    idx === i
+                      ? { ...x, p_e_monto_presupuesto_suficiencia: val }
+                      : x
+                  )
+                );
+              }}
+            />
+          </div>
+        </Card>
+      ))}
 
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={addRubro}>
-                  <PlusCircle className="w-4 h-4 mr-2" /> Nuevo rubro
-                </Button>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setStep(2)}>
-                    ← Volver al paso 2
-                  </Button>
-                  <Button
-                    onClick={handleGuardarRubros}
-                    style={{ backgroundColor: "#235391", color: "white" }}
+      <div className="flex justify-between">
+        <Button variant="outline" onClick={addRubro}>
+          <PlusCircle className="w-4 h-4 mr-2" /> Nuevo rubro
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setStep(2)}>
+            ← Volver al paso 2
+          </Button>
+          <Button
+            onClick={async () => {
+              if (!folio) return alert("No hay folio del proceso anterior");
+              try {
+                for (const r of presupuestosRubro) {
+                  const partidaAsociada =
+                    r.p_id_partida_asociada ||
+                    (partidas.length === 1 ? partidas[0].e_id_partida : null);
+
+                  if (!partidaAsociada) {
+                    alert(
+                      `Selecciona una partida para el rubro ${r.rubro_descripcion || r.p_e_id_rubro}`
+                    );
+                    return;
+                  }
+
+                  const resp = await fetch(
+                    `${API_BASE}/procesos/seguimiento/presupuesto-rubro-ente/`,
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        p_accion: "NUEVO",
+                        p_id_proceso_seguimiento_presupuesto: folio,
+                        p_id: 0,
+                        p_e_id_rubro: r.p_e_id_rubro,
+                        p_e_id_partida_asociada: partidaAsociada,
+                        p_e_monto_presupuesto_suficiencia: parseFloat(
+                          (r.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "") || "0"
+                        ),
+                      }),
+                    }
+                  );
+                  const data = await resp.json();
+
+                  if (!resp.ok) throw new Error(data.detail || "Error al guardar rubro");
+                  // ⬇️ Sustituido por bloque corregido
+                  if (data.resultado) {
+                    console.log("✅ Rubro guardado correctamente:", {
+                      rubro: r.p_e_id_rubro,
+                      idGenerado: data.resultado,
+                    });
+
+                    setPresupuestosRubro((prev) =>
+                      prev.map((x) =>
+                        x.p_e_id_rubro === r.p_e_id_rubro
+                          ? {
+                              ...x,
+                              id: data.resultado, // ✅ ID real del rubro recién guardado
+                              p_id_proceso_seguimiento_presupuesto: folio, // guarda también el folio del proceso
+                              p_id_proceso_seguimiento_presupuesto_rubro: data.resultado,
+                              p_e_id_rubro_partida: data.resultado,
+                            }
+                          : x
+                      )
+                    );
+                  }
+                }
+
+                alert("✅ Rubros guardados correctamente");
+                setStep(4); // ⬅️ Avanzar al nuevo paso de Proveedores
+              } catch (err) {
+                console.error("❌ Error al guardar rubros:", err);
+                alert("Error al guardar rubros");
+              }
+            }}
+            style={{ backgroundColor: "#235391", color: "white" }}
+          >
+            Siguiente
+          </Button>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+)}
+
+      {/* Paso 4 */}
+      {step === 4 && (
+        <Card>
+          <CardContent className="space-y-5 mt-4">
+            <h1 className="text-2xl font-bold">Paso 4: Presupuesto Proveedor</h1>
+
+            {proveedores.map((prov, i) => (
+              <Card key={i} className="p-4 space-y-4 border border-gray-200 relative">
+                <div className="mb-2 flex justify-between items-center">
+                  <span className="inline-block rounded px-3 py-1 bg-blue-100 text-blue-800 font-semibold text-sm">
+                    {`Proveedor #${i + 1}`}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-red-600 hover:text-red-700"
+                    onClick={() => setProveedores(proveedores.filter((_, idx) => idx !== i))}
+                    title="Eliminar proveedor"
                   >
-                    Finalizar proceso
-                  </Button>
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
+
+                {/* Oficio de invitación bloqueado */}
+                <div>
+                  <Label>Oficio de invitación</Label>
+                  <Input
+                    value={form.oficio_invitacion ?? ""}
+                    disabled
+                    className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
+                </div>
+
+                {/* RFC del proveedor */}
+                <div>
+                  <Label>RFC del proveedor</Label>
+                  <Command>
+                    <CommandInput
+                      placeholder="Escribe RFC, razón social o nombre comercial…"
+                      value={prov.e_rfc_proveedor || ""}
+                      onValueChange={async (val) => {
+                        const updated = [...proveedores];
+                        updated[i].e_rfc_proveedor = val;
+                        setProveedores(updated);
+
+                        try {
+                          const resp = await fetch(`${API_BASE}/catalogos/proveedor/?p_rfc=-99`);
+                          const data = await resp.json();
+                          if (Array.isArray(data)) {
+                            const filtered = data.filter((p: any) => {
+                              const search = val.toLowerCase();
+                              return (
+                                p.rfc?.toLowerCase().includes(search) ||
+                                p.razon_social?.toLowerCase().includes(search) ||
+                                p.nombre_comercial?.toLowerCase().includes(search) ||
+                                p.correo_electronico?.toLowerCase().includes(search)
+                              );
+                            });
+                            setProveedores((prev) => {
+                              const copy = [...prev];
+                              copy[i].filtered = filtered;
+                              return copy;
+                            });
+                          }
+                        } catch (err) {
+                          console.error("Error cargando proveedores", err);
+                        }
+                      }}
+                    />
+                    {/* Solo mostrar CommandList si hay resultados filtrados */}
+                    {prov.filtered && prov.filtered.length > 0 && (
+                      <CommandList>
+                        {prov.filtered.map((p: any) => (
+                          <CommandItem
+                            key={p.rfc}
+                            onSelect={() => {
+                              const updated = [...proveedores];
+                              updated[i] = {
+                                ...prov,
+                                e_rfc_proveedor: p.rfc,
+                                razon_social: p.razon_social,
+                                nombre_comercial: p.nombre_comercial,
+                                persona_juridica: p.persona_juridica,
+                                correo_electronico: p.correo_electronico,
+                                entidad_federativa: p.entidad_federativa,
+                                filtered: null, // Evita mostrar “No se encontraron proveedores” después de seleccionar
+                              };
+                              setProveedores(updated);
+                            }}
+                          >
+                            {p.rfc} — {p.nombre_comercial || p.razon_social}
+                          </CommandItem>
+                        ))}
+                      </CommandList>
+                    )}
+                    {/* 
+                    {Boolean((prov.e_rfc_proveedor || "").trim()) && (
+                      <CommandList>...</CommandList>
+                    )}
+                    */}
+                  </Command>
+                </div>
+
+                {/* Datos del proveedor bloqueados */}
+                <div className="grid md:grid-cols-2 gap-2">
+                  <div>
+                    <Label>Razón social</Label>
+                    <Input value={prov.razon_social || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
+                  </div>
+                  <div>
+                    <Label>Nombre comercial</Label>
+                    <Input value={prov.nombre_comercial || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-2">
+                  <div>
+                    <Label>Persona jurídica</Label>
+                    <Input value={prov.persona_juridica || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
+                  </div>
+                  <div>
+                    <Label>Correo electrónico</Label>
+                    <Input value={prov.correo_electronico || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
+                  </div>
+                  <div>
+                    <Label>Entidad federativa</Label>
+                    <Input value={prov.entidad_federativa || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
+                  </div>
+                </div>
+
+                {/* Importe sin IVA */}
+                <div>
+                  <Label>Importe sin IVA</Label>
+                  <Input
+                    value={prov.e_importe_sin_iva || ""}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^\d]/g, "");
+                      const formatted = val ? "$" + parseInt(val).toLocaleString("es-MX") : "";
+                      const updated = [...proveedores];
+                      updated[i].e_importe_sin_iva = formatted;
+                      updated[i].e_importe_total = formatted
+                        ? "$" + (parseInt(val) * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2 })
+                        : "";
+                      setProveedores(updated);
+                    }}
+                    placeholder="$0.00"
+                  />
+                </div>
+
+                {/* Importe total con IVA bloqueado */}
+                <div>
+                  <Label>Importe total con IVA (16%)</Label>
+                  <Input value={prov.e_importe_total || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
+                </div>
+
+                {/* Select Rubro/Partida */}
+                <div>
+                  <Label>Seleccionar Rubro y Partida</Label>
+                  <select
+                    className="border rounded-md p-2 w-full"
+                    value={prov.p_e_id_rubro_partida || ""}
+                    onChange={(e) => {
+                      const updated = [...proveedores];
+                      updated[i].p_e_id_rubro_partida = e.target.value;
+                      setProveedores(updated);
+                    }}
+                  >
+                    <option value="">Seleccione rubro/partida…</option>
+                    {presupuestosRubro.map((r, idx) => {
+                      const idValido =
+                        r.id || r.p_id_proceso_seguimiento_presupuesto_rubro || 0;
+                      return (
+                        <option key={idx} value={idValido}>
+                          Rubro {r.p_e_id_rubro} — {r.rubro_descripcion}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </Card>
+            ))}
+
+            {/* Botón nuevo proveedor */}
+            <div className="flex justify-between mt-4">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setProveedores([
+                    ...proveedores,
+                    {
+                      e_rfc_proveedor: "",
+                      razon_social: "",
+                      nombre_comercial: "",
+                      persona_juridica: "",
+                      correo_electronico: "",
+                      entidad_federativa: "",
+                      e_importe_sin_iva: "",
+                      e_importe_total: "",
+                      p_e_id_rubro_partida: "",
+                    },
+                  ])
+                }
+              >
+                <PlusCircle className="w-4 h-4 mr-2" /> Nuevo proveedor
+              </Button>
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setStep(3)}>
+                  ← Volver al paso 3
+                </Button>
+                <Button
+                  style={{ backgroundColor: "#235391", color: "white" }}
+                  onClick={async () => {
+                    if (!folio) return alert("No hay folio de proceso");
+
+                    try {
+                      console.log("📊 Estado actual de presupuestosRubro:", presupuestosRubro);
+
+                      for (const prov of proveedores) {
+                        if (!prov.e_rfc_proveedor) continue;
+
+                        // Normaliza el ID del rubro-partida seleccionado
+                        const rubroRelacionado = presupuestosRubro.find((r) => {
+                          return (
+                            String(r.id) === String(prov.p_e_id_rubro_partida) ||
+                            String(r.p_id_proceso_seguimiento_presupuesto_rubro) ===
+                              String(prov.p_e_id_rubro_partida)
+                          );
+                        });
+
+                        const idRubroValido =
+                          rubroRelacionado?.id ||
+                          rubroRelacionado?.p_id_proceso_seguimiento_presupuesto_rubro ||
+                          Number(prov.p_e_id_rubro_partida) ||
+                          0;
+
+                        console.log("🧩 Proveedor:", prov.e_rfc_proveedor);
+                        console.log("➡️ ID de rubro válido:", idRubroValido);
+
+                        if (!idRubroValido || idRubroValido === 0) {
+                          alert(
+                            `⚠️ No se encontró un rubro válido para el proveedor ${prov.e_rfc_proveedor}.`
+                          );
+                          continue;
+                        }
+
+                        // Enviar datos al backend
+                        const resp = await fetch(
+                          `${API_BASE}/procesos/seguimiento/presupuesto-proveedor/`,
+                          {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              p_accion: "NUEVO",
+                              p_id_proceso_seguimiento_presupuesto: folio,
+                              p_id_proceso_seguimiento_presupuesto_rubro: idRubroValido,
+                              p_id: 0,
+                              p_e_rfc_proveedor: prov.e_rfc_proveedor,
+                              p_e_importe_sin_iva: parseFloat(
+                                (prov.e_importe_sin_iva || "").replace(/[^\d]/g, "") || "0"
+                              ),
+                              p_e_importe_total: parseFloat(
+                                (prov.e_importe_total || "").replace(/[^\d]/g, "") || "0"
+                              ),
+                              p_r_importe_ajustado_sin_iva: 0,
+                              p_r_importe_ajustado_total: 0,
+                            }),
+                          }
+                        );
+
+                        const data = await resp.json();
+
+                        if (!resp.ok) {
+                          const msg =
+                            typeof data.detail === "string"
+                              ? data.detail
+                              : JSON.stringify(data.detail || data) ||
+                                "Error al guardar proveedor";
+                          console.error("❌ Error guardando proveedor:", msg);
+                          throw new Error(msg);
+                        }
+
+                        console.log("✅ Proveedor guardado correctamente:", {
+                          proveedor: prov.e_rfc_proveedor,
+                          rubroUsado: idRubroValido,
+                          respuesta: data,
+                        });
+                      }
+
+                      alert("✅ Todos los proveedores guardados correctamente");
+                      router.push("/dashboard");
+                    } catch (err) {
+                      console.error("❌ Error al guardar proveedores:", err);
+                      alert("Error al guardar proveedores");
+                    }
+                  }}
+                >
+                  Guardar proveedores
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
-      </section>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </main>
   );
 }
