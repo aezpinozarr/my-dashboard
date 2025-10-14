@@ -42,8 +42,8 @@ export default function DetalleProcesoPage() {
 
   return (
     <main className="max-w-5xl mx-auto p-6 space-y-6">
-      {data.map((registro: any) => (
-        <div key={registro.id}>
+      {data.map((registro: any, index: number) => (
+  <div key={`${registro.id}-${index}`}>
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-800">
               Detalle del Proceso #{registro.id}
