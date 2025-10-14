@@ -105,7 +105,7 @@ export default function DetallePresupuestoPage() {
             asChild
             style={{ backgroundColor: "#235391", color: "white" }}
           >
-            <Link href="/procesos/new">Nuevo Proceso</Link>
+            <Link href="/procesos/new">Nuevo</Link>
           </Button>
 
           <Button
