@@ -136,11 +136,31 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
 /* ========================================
    🔹 Componente principal (Paso 1, 2 y 3)
 ======================================== */
+interface FormData {
+  oficio_invitacion: string;
+  servidor_publico_cargo: string;
+  tipo_evento: string;
+  tipo_licitacion: string;
+  tipo_licitacion_notas: string;
+  fecha: string;
+  hora: string;
+  e_rfc_proveedor: string;
+  razon_social: string;
+  nombre_comercial: string;
+  persona_juridica: string;
+  correo_electronico: string;
+  entidad_federativa: string;
+  e_importe_sin_iva: string;
+  e_importe_total: string;
+  p_e_id_rubro_partida: string;
+}
+
 export default function NuevoProcesoPage() {
   const { user } = useUser();
   const router = useRouter();
   const [step, setStep] = React.useState(1);
   const [loading, setLoading] = React.useState(false);
+  const [errores, setErrores] = React.useState<Record<string, string>>({});
 
   // Paso 1
   const [enteDescripcion, setEnteDescripcion] = React.useState("");
@@ -154,7 +174,7 @@ export default function NuevoProcesoPage() {
   const [busquedaSesion, setBusquedaSesion] = React.useState("");
   const [mostrarServidores, setMostrarServidores] = React.useState(true);
   const [mostrarSesiones, setMostrarSesiones] = React.useState(true);
-  const [form, setForm] = React.useState({
+  const [form, setForm] = React.useState<FormData>({
     oficio_invitacion: "",
     servidor_publico_cargo: "",
     tipo_evento: "",
@@ -249,13 +269,26 @@ export default function NuevoProcesoPage() {
      🔹 Guardar Paso 1
   ======================================== */
   const handleGuardarPaso1 = async () => {
-    if (!user) return alert("No hay usuario logeado");
-    if (!servidorSeleccionado) return alert("Selecciona un servidor público");
-    if (!form.tipo_evento) return alert("Selecciona un tipo de evento");
-    if (!form.tipo_licitacion) return alert("Selecciona un tipo de licitación");
-    if (!sesionSeleccionada) return alert("Selecciona un número de sesión");
-    if (!isValidDateDDMMYYYY(form.fecha)) return alert("Fecha inválida");
-    if (!isValidTimeHHMM(form.hora)) return alert("Hora inválida");
+    const requiredFields = ["oficio_invitacion", "tipo_evento", "tipo_licitacion", "fecha", "hora"];
+    const newErrors: any = {};
+
+    // Verificar campos vacíos
+    (requiredFields as Array<keyof FormData>).forEach((field) => {
+      if (!form[field]) newErrors[field as string] = "Campo obligatorio";
+    });
+
+    if (!servidorSeleccionado) newErrors.servidor_publico_cargo = "Selecciona un servidor público";
+    if (!sesionSeleccionada) newErrors.tipo_licitacion_notas = "Selecciona un número de sesión";
+    if (!isValidDateDDMMYYYY(form.fecha)) newErrors.fecha = "Fecha inválida";
+    if (!isValidTimeHHMM(form.hora)) newErrors.hora = "Hora inválida";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrores(newErrors);
+      return;
+    }
+
+    setErrores({});
+    if (!user) return;
 
     const fechaHora = toIsoLocalDateTime(form.fecha, form.hora);
     setLoading(true);
@@ -266,7 +299,7 @@ export default function NuevoProcesoPage() {
         body: JSON.stringify({
           p_accion: "NUEVO",
           p_id: 0,
-          p_e_id_ente: Number(user.id_ente),   // ✅ CORRECTO: lo manda como entero
+          p_e_id_ente: Number(user.id_ente),
           p_e_oficio_invitacion: form.oficio_invitacion,
           p_e_id_servidor_publico_emite: Number(servidorSeleccionado.id),
           p_e_servidor_publico_cargo: form.servidor_publico_cargo,
@@ -284,7 +317,6 @@ export default function NuevoProcesoPage() {
       setStep(2);
     } catch (err) {
       console.error(err);
-      alert("Error al guardar el paso 1");
     } finally {
       setLoading(false);
     }
@@ -386,24 +418,26 @@ export default function NuevoProcesoPage() {
     if (step !== 3 || !folio) return;
     (async () => {
       try {
-       // Trae todos los registros de presupuesto-ente del proceso
-const resp = await fetch(
-  `${API_BASE}/procesos/seguimiento/presupuesto-ente/?p_id_proceso_seguimiento=${folio}&p_e_id_partida=-99`,
-  { method: "GET" }
-);
-const data = await resp.json();
+        // Trae todos los registros de presupuesto-ente del proceso
+        const resp = await fetch(
+          `${API_BASE}/procesos/seguimiento/presupuesto-ente/?p_id_proceso_seguimiento=${folio}&p_e_id_partida=-99`,
+          { method: "GET" }
+        );
+        const data = await resp.json();
 
-if (Array.isArray(data) && data.length > 0) {
-  const mapped = data.map((d: any) => ({
-    p_e_id_rubro: d.e_id_partida?.toString() || "",
-    rubro_descripcion: d.partida_descripcion || d.e_id_partida?.toString() || "",
-    p_e_monto_presupuesto_suficiencia:
-      "$" + parseFloat(d.e_monto_presupuesto_suficiencia || 0).toLocaleString("es-MX"),
-  }));
-  setPresupuestosRubro(mapped);
-} else {
-  console.warn("⚠️ No se encontraron registros de presupuesto para el folio:", folio);
-}
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped = data.map((d: any) => ({
+            p_e_id_rubro: d.e_id_partida?.toString() || "",
+            rubro_descripcion: d.partida_descripcion || d.e_id_partida?.toString() || "",
+            p_e_monto_presupuesto_suficiencia:
+              "$" + parseFloat(d.e_monto_presupuesto_suficiencia || 0).toLocaleString("es-MX"),
+            // ✅ guardar el id de partida para usarlo en el Paso 4
+            p_id_partida_asociada: d.e_id_partida?.toString() || "",
+          }));
+          setPresupuestosRubro(mapped);
+        } else {
+          console.warn("⚠️ No se encontraron registros de presupuesto para el folio:", folio);
+        }
       } catch (err) {
         console.error("❌ Error al cargar montos del paso 2:", err);
       }
@@ -474,15 +508,13 @@ if (Array.isArray(data) && data.length > 0) {
 
             <Card>
               <CardContent className="space-y-5 mt-4">
-                <div className="grid md:grid-cols-2 gap-2">
-                  <div>
-                    <Label>Ente</Label>
-                    <Input value={enteDescripcion || "Cargando..."} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-                  </div>
-                  <div>
-                    <Label>Usuario</Label>
-                    <Input value={user?.nombre || "Cargando..."} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-                  </div>
+                <div>
+                  <Label>Ente</Label>
+                  <Input
+                    value={enteDescripcion || "Cargando..."}
+                    disabled
+                    className="bg-gray-100 text-gray-700 cursor-not-allowed w-full"
+                  />
                 </div>
 
                 <div>
@@ -491,47 +523,56 @@ if (Array.isArray(data) && data.length > 0) {
                     value={form.oficio_invitacion ?? ""}
                     onChange={(e) => setForm({ ...form, oficio_invitacion: e.target.value })}
                     placeholder="Ej. OF.123/2025"
+                    className={`${errores.oficio_invitacion ? "border-red-500" : ""}`}
                   />
+                  {errores.oficio_invitacion && (
+                    <p className="text-red-600 text-xs">{errores.oficio_invitacion}</p>
+                  )}
                 </div>
 
                 {/* Servidor público */}
                 <div>
                   <Label>Servidor público (emite)</Label>
-                  <Command>
-                    <CommandInput
-                      placeholder="Escribe para buscar…"
-                      value={busquedaServidor}
-                      onValueChange={(val) => {
-                        setBusquedaServidor(val);
-                        setMostrarServidores(true);
-                      }}
-                    />
-                    {mostrarServidores && (
-                      <CommandList>
-                        {busquedaServidor.trim() !== "" ? (
-                          servidores
-                            .filter((s) =>
-                              (s.nombre || "").toLowerCase().includes(busquedaServidor.toLowerCase())
-                            )
-                            .map((s) => (
-                              <CommandItem
-                                key={s.id}
-                                onSelect={() => {
-                                  setServidorSeleccionado(s);
-                                  setForm((prev) => ({ ...prev, servidor_publico_cargo: s.cargo || "" }));
-                                  setBusquedaServidor(s.nombre);
-                                  setMostrarServidores(false);
-                                }}
-                              >
-                                {s.nombre}
-                              </CommandItem>
-                            ))
-                        ) : (
-                          <CommandEmpty>Escribe para buscar un servidor</CommandEmpty>
-                        )}
-                      </CommandList>
-                    )}
-                  </Command>
+                  <div className={errores.servidor_publico_cargo ? "border border-red-500 rounded-md p-1" : ""}>
+                    <Command>
+                      <CommandInput
+                        placeholder="Escribe para buscar…"
+                        value={busquedaServidor}
+                        onValueChange={(val) => {
+                          setBusquedaServidor(val);
+                          setMostrarServidores(true);
+                        }}
+                      />
+                      {mostrarServidores && (
+                        <CommandList>
+                          {busquedaServidor.trim() !== "" ? (
+                            servidores
+                              .filter((s) =>
+                                (s.nombre || "").toLowerCase().includes(busquedaServidor.toLowerCase())
+                              )
+                              .map((s) => (
+                                <CommandItem
+                                  key={s.id}
+                                  onSelect={() => {
+                                    setServidorSeleccionado(s);
+                                    setForm((prev) => ({ ...prev, servidor_publico_cargo: s.cargo || "" }));
+                                    setBusquedaServidor(s.nombre);
+                                    setMostrarServidores(false);
+                                  }}
+                                >
+                                  {s.nombre}
+                                </CommandItem>
+                              ))
+                          ) : (
+                            <CommandEmpty>Escribe para buscar un servidor</CommandEmpty>
+                          )}
+                        </CommandList>
+                      )}
+                    </Command>
+                  </div>
+                  {errores.servidor_publico_cargo && (
+                    <p className="text-red-600 text-xs">{errores.servidor_publico_cargo}</p>
+                  )}
                 </div>
 
                 <div>
@@ -540,7 +581,9 @@ if (Array.isArray(data) && data.length > 0) {
                     value={form.servidor_publico_cargo ?? ""}
                     onChange={(e) => setForm({ ...form, servidor_publico_cargo: e.target.value })}
                     placeholder="Ej. Directora General"
+                    className={`${errores.servidor_publico_cargo ? "border-red-500" : ""}`}
                   />
+                  {/* No mensaje aquí porque el error es para el servidor público */}
                 </div>
 
                 {/* Tipo evento y licitación */}
@@ -548,7 +591,7 @@ if (Array.isArray(data) && data.length > 0) {
                   <div>
                     <Label>Tipo de evento</Label>
                     <select
-                      className="border rounded-md p-2 w-full"
+                      className={`border rounded-md p-2 w-full ${errores.tipo_evento ? "border-red-500" : ""}`}
                       value={form.tipo_evento}
                       onChange={(e) => setForm({ ...form, tipo_evento: e.target.value })}
                     >
@@ -559,12 +602,15 @@ if (Array.isArray(data) && data.length > 0) {
                         </option>
                       ))}
                     </select>
+                    {errores.tipo_evento && (
+                      <p className="text-red-600 text-xs">{errores.tipo_evento}</p>
+                    )}
                   </div>
 
                   <div>
                     <Label>Tipo de licitación</Label>
                     <select
-                      className="border rounded-md p-2 w-full"
+                      className={`border rounded-md p-2 w-full ${errores.tipo_licitacion ? "border-red-500" : ""}`}
                       value={form.tipo_licitacion}
                       onChange={(e) => setForm({ ...form, tipo_licitacion: e.target.value })}
                       disabled={!form.tipo_evento}
@@ -578,46 +624,54 @@ if (Array.isArray(data) && data.length > 0) {
                         </option>
                       ))}
                     </select>
+                    {errores.tipo_licitacion && (
+                      <p className="text-red-600 text-xs">{errores.tipo_licitacion}</p>
+                    )}
                   </div>
                 </div>
 
                 {/* Sesión */}
                 <div>
                   <Label>Número de sesión</Label>
-                  <Command>
-                    <CommandInput
-                      placeholder="Escribe para buscar…"
-                      value={busquedaSesion}
-                      onValueChange={(val) => {
-                        setBusquedaSesion(val);
-                        setMostrarSesiones(true);
-                      }}
-                    />
-                    {mostrarSesiones && (
-                      <CommandList>
-                        {busquedaSesion.trim() !== "" ? (
-                          numerosSesion
-                            .filter((n) =>
-                              (n.descripcion || "").toLowerCase().includes(busquedaSesion.toLowerCase())
-                            )
-                            .map((n) => (
-                              <CommandItem
-                                key={n.id}
-                                onSelect={() => {
-                                  setSesionSeleccionada(n);
-                                  setBusquedaSesion(n.descripcion);
-                                  setMostrarSesiones(false);
-                                }}
-                              >
-                                {n.descripcion}
-                              </CommandItem>
-                            ))
-                        ) : (
-                          <CommandEmpty>Escribe para buscar una sesión</CommandEmpty>
-                        )}
-                      </CommandList>
-                    )}
-                  </Command>
+                  <div className={errores.tipo_licitacion_notas ? "border border-red-500 rounded-md p-1" : ""}>
+                    <Command>
+                      <CommandInput
+                        placeholder="Escribe para buscar…"
+                        value={busquedaSesion}
+                        onValueChange={(val) => {
+                          setBusquedaSesion(val);
+                          setMostrarSesiones(true);
+                        }}
+                      />
+                      {mostrarSesiones && (
+                        <CommandList>
+                          {busquedaSesion.trim() !== "" ? (
+                            numerosSesion
+                              .filter((n) =>
+                                (n.descripcion || "").toLowerCase().includes(busquedaSesion.toLowerCase())
+                              )
+                              .map((n) => (
+                                <CommandItem
+                                  key={n.id}
+                                  onSelect={() => {
+                                    setSesionSeleccionada(n);
+                                    setBusquedaSesion(n.descripcion);
+                                    setMostrarSesiones(false);
+                                  }}
+                                >
+                                  {n.descripcion}
+                                </CommandItem>
+                              ))
+                          ) : (
+                            <CommandEmpty>Escribe para buscar una sesión</CommandEmpty>
+                          )}
+                        </CommandList>
+                      )}
+                    </Command>
+                  </div>
+                  {errores.tipo_licitacion_notas && (
+                    <p className="text-red-600 text-xs">{errores.tipo_licitacion_notas}</p>
+                  )}
                 </div>
 
                 {/* Fecha / hora */}
@@ -629,7 +683,11 @@ if (Array.isArray(data) && data.length > 0) {
                       onChange={(e) => setForm({ ...form, fecha: formatDateDDMMYYYY(e.target.value) })}
                       placeholder="dd/mm/aaaa"
                       maxLength={10}
+                      className={`${errores.fecha ? "border-red-500" : ""}`}
                     />
+                    {errores.fecha && (
+                      <p className="text-red-600 text-xs">{errores.fecha}</p>
+                    )}
                   </div>
                   <div>
                     <Label>Hora</Label>
@@ -638,8 +696,20 @@ if (Array.isArray(data) && data.length > 0) {
                       onChange={(e) => setForm({ ...form, hora: formatTimeHHMM(e.target.value) })}
                       placeholder="HH:MM"
                       maxLength={5}
+                      className={`${errores.hora ? "border-red-500" : ""}`}
                     />
+                    {errores.hora && (
+                      <p className="text-red-600 text-xs">{errores.hora}</p>
+                    )}
                   </div>
+                </div>
+                <div>
+                  <Label>Usuario</Label>
+                  <Input
+                    value={user?.nombre || "Cargando..."}
+                    disabled
+                    className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
                 </div>
 
                 <div className="flex justify-end">
@@ -822,6 +892,9 @@ if (Array.isArray(data) && data.length > 0) {
                                 }
                               >
                                 {f.id} — {f.descripcion}
+                                {f.fondo ? (
+                                  <span className="text-gray-500 text-xs ml-2">(Fondo: {f.fondo})</span>
+                                ) : null}
                               </CommandItem>
                             ))}
                           <CommandEmpty>No se encontraron fuentes</CommandEmpty>
@@ -864,7 +937,28 @@ if (Array.isArray(data) && data.length > 0) {
               })}
 
               <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setPartidas([...partidas, partidas[0]])}>
+                <Button
+                  variant="outline"
+                  style={{ backgroundColor: "#10c706", color: "white" }}
+                  onClick={() =>
+                    setPartidas([
+                      ...partidas,
+                      {
+                        id: null,
+                        e_no_requisicion: "",
+                        e_id_partida: "",
+                        partida_descripcion: "",
+                        clave_capitulo: "",
+                        capitulo: "",
+                        e_id_fuente_financiamiento: "",
+                        fuente_descripcion: "",
+                        fuente_etiquetado: "",
+                        fuente_fondo: "",
+                        e_monto_presupuesto_suficiencia: "",
+                      },
+                    ])
+                  }
+                >
                   <PlusCircle className="w-4 h-4 mr-2" /> Nueva partida
                 </Button>
                 <div className="flex gap-2">
@@ -934,21 +1028,24 @@ if (Array.isArray(data) && data.length > 0) {
                 <option value="">Seleccione la partida…</option>
                 {partidas.map((p, idx) => (
                   <option key={`${p.e_id_partida}-${idx}`} value={p.e_id_partida}>
-                    Partida #{idx + 1} — {p.partida_descripcion || p.e_id_partida}
+                    {p.e_id_partida} — {p.partida_descripcion} ({p.clave_capitulo || "Sin clave"})
                   </option>
                 ))}
               </select>
             </div>
           )}
 
-          {/* Si solo hay una partida, mostrar etiqueta informativa */}
+          {/* Si solo hay una partida, mostrar encabezado "Partida #1" y el campo informativo */}
           {partidas.length === 1 && (
             <div>
+              <div className="mb-2">
+                <span className="inline-block rounded px-3 py-1 bg-blue-100 text-blue-800 font-semibold text-sm">
+                  Partida #1
+                </span>
+              </div>
               <Label>Partida asociada</Label>
               <Input
-                value={`Partida #1 — ${
-                  partidas[0].partida_descripcion || partidas[0].e_id_partida
-                }`}
+                value={`Partida #1 — ${partidas[0].e_id_partida || ""} — ${partidas[0].partida_descripcion || ""}`}
                 disabled
                 className="bg-gray-100 text-gray-700 cursor-not-allowed"
               />
@@ -1037,7 +1134,7 @@ if (Array.isArray(data) && data.length > 0) {
       ))}
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={addRubro}>
+        <Button variant="outline" style={{ backgroundColor: "#10c706", color: "white" }} onClick={addRubro}>
           <PlusCircle className="w-4 h-4 mr-2" /> Nuevo rubro
         </Button>
         <div className="flex gap-2">
@@ -1096,6 +1193,8 @@ if (Array.isArray(data) && data.length > 0) {
                               p_id_proceso_seguimiento_presupuesto: folio,
                               p_id_proceso_seguimiento_presupuesto_rubro: data.resultado,
                               p_e_id_rubro_partida: data.resultado,
+                              // ✅ conservar el id de la partida asociada ya elegido/calculado
+                              p_id_partida_asociada: x.p_id_partida_asociada || (partidas.length === 1 ? partidas[0].e_id_partida?.toString() : x.p_id_partida_asociada),
                             }
                           : x
                       )
@@ -1152,6 +1251,46 @@ if (Array.isArray(data) && data.length > 0) {
                   />
                 </div>
 
+                {/* Select Rubro/Partida */}
+                <div>
+                  <Label>Seleccionar Rubro y Partida</Label>
+                  <select
+                    className="border rounded-md p-2 w-full"
+                    value={prov.p_e_id_rubro_partida || ""}
+                    onChange={(e) => {
+                      const updated = [...proveedores];
+                      updated[i].p_e_id_rubro_partida = e.target.value;
+                      setProveedores(updated);
+                    }}
+                  >
+                    <option value="">Seleccione rubro/partida…</option>
+                    {presupuestosRubro.map((r, idx) => {
+                      const idValido = r.id || r.p_id_proceso_seguimiento_presupuesto_rubro || 0;
+
+                      // ✅ Resolver la partida asociada: si solo hay una, úsala; si hay varias, busca por el id guardado en r.p_id_partida_asociada
+                      const partidaAsociada =
+                        partidas.length === 1
+                          ? partidas[0]
+                          : partidas.find((p) => String(p.e_id_partida) === String(r.p_id_partida_asociada));
+
+                      let textoPartida: string;
+                      if (partidaAsociada) {
+                        const idxPartida =
+                          partidas.length === 1 ? 0 : Math.max(0, partidas.findIndex((p) => p === partidaAsociada));
+                        textoPartida = `Partida #${idxPartida + 1} — ${partidaAsociada.e_id_partida} — ${partidaAsociada.partida_descripcion}`;
+                      } else {
+                        textoPartida = "Partida no encontrada";
+                      }
+
+                      return (
+                        <option key={`${r.p_e_id_rubro}-${idValido}`} value={idValido}>
+                          {textoPartida} | Rubro {r.p_e_id_rubro} — {r.rubro_descripcion}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
                 {/* RFC del proveedor */}
                 <div>
                   <Label>RFC del proveedor</Label>
@@ -1187,6 +1326,7 @@ if (Array.isArray(data) && data.length > 0) {
                           console.error("Error cargando proveedores", err);
                         }
                       }}
+                      className={`${prov.error ? "border border-red-500" : ""}`}
                     />
                     {/* Solo mostrar CommandList si hay resultados filtrados */}
                     {prov.filtered && prov.filtered.length > 0 && (
@@ -1214,11 +1354,6 @@ if (Array.isArray(data) && data.length > 0) {
                         ))}
                       </CommandList>
                     )}
-                    {/* 
-                    {Boolean((prov.e_rfc_proveedor || "").trim()) && (
-                      <CommandList>...</CommandList>
-                    )}
-                    */}
                   </Command>
                 </div>
 
@@ -1249,55 +1384,37 @@ if (Array.isArray(data) && data.length > 0) {
                   </div>
                 </div>
 
-                {/* Importe sin IVA */}
-                <div>
-                  <Label>Importe sin IVA</Label>
-                  <Input
-                    value={prov.e_importe_sin_iva || ""}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^\d]/g, "");
-                      const formatted = val ? "$" + parseInt(val).toLocaleString("es-MX") : "";
-                      const updated = [...proveedores];
-                      updated[i].e_importe_sin_iva = formatted;
-                      updated[i].e_importe_total = formatted
-                        ? "$" + (parseInt(val) * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2 })
-                        : "";
-                      setProveedores(updated);
-                    }}
-                    placeholder="$0.00"
-                  />
+                {/* Importe sin IVA y total con IVA lado a lado */}
+                <div className="grid md:grid-cols-2 gap-2">
+                  <div>
+                    <Label>Importe sin IVA</Label>
+                    <Input
+                      value={prov.e_importe_sin_iva || ""}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^\d]/g, "");
+                        const formatted = val ? "$" + parseInt(val).toLocaleString("es-MX") : "";
+                        const updated = [...proveedores];
+                        updated[i].e_importe_sin_iva = formatted;
+                        updated[i].e_importe_total = formatted
+                          ? "$" + (parseInt(val) * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2 })
+                          : "";
+                        setProveedores(updated);
+                      }}
+                      placeholder="$0.00"
+                      className={`${!prov.e_rfc_proveedor ? "border-red-500" : ""}`}
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Importe total con IVA (16%)</Label>
+                    <Input
+                      value={prov.e_importe_total || ""}
+                      disabled
+                      className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                    />
+                  </div>
                 </div>
 
-                {/* Importe total con IVA bloqueado */}
-                <div>
-                  <Label>Importe total con IVA (16%)</Label>
-                  <Input value={prov.e_importe_total || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-                </div>
-
-                {/* Select Rubro/Partida */}
-                <div>
-                  <Label>Seleccionar Rubro y Partida</Label>
-                  <select
-                    className="border rounded-md p-2 w-full"
-                    value={prov.p_e_id_rubro_partida || ""}
-                    onChange={(e) => {
-                      const updated = [...proveedores];
-                      updated[i].p_e_id_rubro_partida = e.target.value;
-                      setProveedores(updated);
-                    }}
-                  >
-                    <option value="">Seleccione rubro/partida…</option>
-                    {presupuestosRubro.map((r, idx) => {
-                      const idValido =
-                        r.id || r.p_id_proceso_seguimiento_presupuesto_rubro || 0;
-                      return (
-                        <option key={idx} value={idValido}>
-                          Rubro {r.p_e_id_rubro} — {r.rubro_descripcion}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
               </Card>
             ))}
 
@@ -1305,6 +1422,7 @@ if (Array.isArray(data) && data.length > 0) {
             <div className="flex justify-between mt-4">
               <Button
                 variant="outline"
+                style={{ backgroundColor: "#10c706", color: "white" }}
                 onClick={() =>
                   setProveedores([
                     ...proveedores,
@@ -1334,27 +1452,49 @@ if (Array.isArray(data) && data.length > 0) {
                   onClick={async () => {
                     if (!folio) return alert("No hay folio de proceso");
 
+                    // 🚫 Validación: verificar que todos los proveedores tengan RFC
+                    const proveedoresInvalidos = proveedores.filter(
+                      (p) => !p.e_rfc_proveedor?.trim()
+                    );
+                    if (proveedoresInvalidos.length > 0) {
+                      setProveedores((prev) =>
+                        prev.map((p) =>
+                          !p.e_rfc_proveedor?.trim()
+                            ? { ...p, error: true }
+                            : { ...p, error: false }
+                        )
+                      );
+                      return; // Evita guardar si hay proveedores sin RFC
+                    }
+
                     try {
                       console.log("📊 Estado actual de presupuestosRubro:", presupuestosRubro);
+
+                      // 🚫 Validar duplicados antes de guardar
+                      const duplicados = proveedores.filter(
+                        (p, idx, arr) =>
+                          arr.findIndex(
+                            (x) =>
+                              x.e_rfc_proveedor === p.e_rfc_proveedor &&
+                              x.p_e_id_rubro_partida === p.p_e_id_rubro_partida
+                          ) !== idx
+                      );
+
+                      if (duplicados.length > 0) {
+                        alert("⚠️ No se puede guardar. Hay proveedores duplicados con el mismo rubro.");
+                        return;
+                      }
 
                       for (const prov of proveedores) {
                         if (!prov.e_rfc_proveedor) continue;
 
-                        // Nueva lógica robusta para obtener el ID real del rubro-partida
-                        const rubroRelacionado = presupuestosRubro.find((r) => {
-                          return (
-                            String(r.p_id_proceso_seguimiento_presupuesto_rubro) ===
-                              String(prov.p_e_id_rubro_partida) ||
-                            String(r.id) === String(prov.p_e_id_rubro_partida)
-                          );
-                        });
-
-                        const idRubroValido = Number(
-                          rubroRelacionado?.p_id_proceso_seguimiento_presupuesto_rubro ||
-                            rubroRelacionado?.id ||
-                            prov.p_e_id_rubro_partida ||
-                            0
+                        // 🔹 Obtener el rubro vinculado al proceso actual
+                        const rubroRelacionado = presupuestosRubro.find(
+                          (r: any) => r.p_id_proceso_seguimiento_presupuesto === folio
                         );
+
+                        // Si no se encuentra, establecer a 0 para evitar inserciones incorrectas
+                        const idRubroValido = rubroRelacionado?.id || 0;
 
                         console.log("🧩 Proveedor:", prov.e_rfc_proveedor);
                         console.log("➡️ ID de rubro válido:", idRubroValido);
@@ -1433,7 +1573,7 @@ if (Array.isArray(data) && data.length > 0) {
                     }
                   }}
                 >
-                  Guardar proveedores
+                  Guardar
                 </Button>
               </div>
             </div>
