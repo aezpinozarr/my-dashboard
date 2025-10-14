@@ -1522,7 +1522,7 @@ export default function NuevoProcesoPage() {
                           p_r_importe_ajustado_sin_iva: 0,
                           p_r_importe_ajustado_total: 0,
                         });
-                        // Enviar datos al backend
+                        
                         const resp = await fetch(
                           `${API_BASE}/procesos/seguimiento/presupuesto-proveedor/`,
                           {
