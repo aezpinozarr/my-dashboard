@@ -1506,7 +1506,7 @@ export default function NuevoProcesoPage() {
                           continue;
                         }
 
-                        // Log de depuración del payload a enviar
+                        
                         console.log("📤 Enviando payload al backend:", {
                           p_accion: "NUEVO",
                           p_id_proceso_seguimiento_presupuesto: folio,
