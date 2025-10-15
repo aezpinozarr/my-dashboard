@@ -21,8 +21,12 @@ import { useUser } from "@/context/UserContext";
    🔹 Configuración del backend
 ======================================== */
 const API_BASE =
-  typeof window !== "undefined" && window.location.hostname.includes("railway")
-    ? "https://backend-licitacion-production.up.railway.app"
+  typeof window !== "undefined"
+    ? window.location.hostname.includes("railway")
+      ? "https://backend-licitacion-production.up.railway.app"
+      : window.location.hostname.includes("onrender")
+      ? "https://backend-licitacion-1.onrender.com"
+      : "http://127.0.0.1:8000"
     : "http://127.0.0.1:8000";
 
 /* ========================================

@@ -11,9 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://127.0.0.1:8000";
+  typeof window !== "undefined"
+    ? window.location.hostname.includes("railway")
+      ? "https://backend-licitacion-production.up.railway.app"
+      : window.location.hostname.includes("onrender")
+      ? "https://backend-licitacion-1.onrender.com"
+      : "http://127.0.0.1:8000"
+    : "http://127.0.0.1:8000";
 
 // ======================
 // 🔹 Validación con Zod

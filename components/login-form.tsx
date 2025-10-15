@@ -9,21 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useUser } from "@/context/UserContext"; // ✅ importa el contexto
+import { useUser } from "@/context/UserContext"; // ✅ Contexto global
 
-// Función para detectar el backend actual
-const getApiBase = (): string => {
-  if (typeof window === "undefined") return "";
-  if (window.location.hostname.includes("railway.app"))
-    return "https://backend-licitacion-production.up.railway.app";
-  if (window.location.protocol === "https:")
-    return "https://127.0.0.1:8000";
-  return "http://127.0.0.1:8000";
-};
+// 🔧 NUEVA función para detectar API base correctamente
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined"
+    ? window.location.hostname.includes("railway")
+      ? "https://backend-licitacion-production.up.railway.app"
+      : window.location.hostname.includes("onrender")
+      ? "https://backend-licitacion-1.onrender.com"
+      : "http://127.0.0.1:8000"
+    : "http://127.0.0.1:8000");
 
 export function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
   const router = useRouter();
-  const { setUser } = useUser(); // ✅ acceso al contexto global
+  const { setUser } = useUser();
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState("");
   const [form, setForm] = React.useState({
@@ -31,16 +32,13 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
     password: "",
   });
 
-  // Función principal de login
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
     setErrorMsg("");
 
     try {
-      const base = getApiBase();
-
-      const resp = await fetch(`${base}/seguridad/usuarios/login`, {
+      const resp = await fetch(`${API_BASE}/seguridad/usuarios/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -55,7 +53,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
         throw new Error(data.mensaje || "Error de autenticación");
       }
 
-      // ✅ Guardar en el contexto global
+      // ✅ Guardar sesión global
       setUser({
         id: data.id,
         username: data.username,
@@ -64,7 +62,6 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
         tipo: data.tipo,
       });
 
-      // 🔁 Redirigir al dashboard
       router.push("/dashboard");
     } catch (err: any) {
       console.error("❌ Error al autenticar usuario:", err);
@@ -78,10 +75,9 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="overflow-hidden p-0">
         <CardContent className="grid p-0 md:grid-cols-2">
-          {/* Formulario */}
+          {/* FORMULARIO */}
           <form className="p-6 md:p-12" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-8">
-              {/* Encabezado */}
               <div className="flex flex-col items-center text-center">
                 <h1 className="text-3xl font-bold">Bienvenidos de nuevo</h1>
                 <p className="text-muted-foreground text-balance text-lg">
@@ -89,7 +85,6 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                 </p>
               </div>
 
-              {/* Usuario */}
               <div className="grid gap-3">
                 <Label htmlFor="username">Usuario</Label>
                 <Input
@@ -105,7 +100,6 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                 />
               </div>
 
-              {/* Contraseña */}
               <div className="grid gap-3">
                 <div className="flex items-center">
                   <Label htmlFor="password">Contraseña</Label>
@@ -128,7 +122,6 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                 />
               </div>
 
-              {/* Botón principal */}
               <Button
                 type="submit"
                 className="w-full h-12 text-lg"
@@ -144,14 +137,13 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                 )}
               </Button>
 
-              {/* Mensaje de error */}
               {errorMsg && (
                 <p className="text-red-600 text-center text-sm">{errorMsg}</p>
               )}
             </div>
           </form>
 
-          {/* Imagen lateral */}
+          {/* IMAGEN LATERAL */}
           <div className="bg-muted relative hidden md:flex items-center justify-center">
             <img
               src="/Coat_of_arms_of_the_Tabasco_Congress.svg"
@@ -162,7 +154,6 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
         </CardContent>
       </Card>
 
-      {/* Footer */}
       <div className="text-muted-foreground text-center text-xs text-balance">
         By clicking continue, you agree to our{" "}
         <a href="#" className="underline underline-offset-4 hover:text-primary">

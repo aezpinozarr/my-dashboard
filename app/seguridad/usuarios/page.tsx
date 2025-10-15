@@ -29,26 +29,25 @@ type Usuario = {
   activo: boolean;
 };
 
-const getApiBase = (): string => {
-  if (typeof window === "undefined") return "";
-  if (window.location.hostname.includes("railway.app"))
-    return "https://backend-licitacion-production.up.railway.app";
-  if (window.location.protocol === "https:")
-    return "https://127.0.0.1:8000";
-  return "http://127.0.0.1:8000";
-};
+// ✅ Reemplazo de getApiBase() por constante global
+const API_BASE =
+  typeof window !== "undefined"
+    ? window.location.hostname.includes("railway")
+      ? "https://backend-licitacion-production.up.railway.app"
+      : window.location.hostname.includes("onrender")
+      ? "https://backend-licitacion-1.onrender.com"
+      : "http://127.0.0.1:8000"
+    : "http://127.0.0.1:8000";
 
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = React.useState<Usuario[]>([]);
   const [filtro, setFiltro] = React.useState<string>(""); // ✅ Nuevo estado para búsqueda
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState<"cards" | "table">("cards");
-  const [apiBase, setApiBase] = React.useState("");
   const [hoy, setHoy] = React.useState("");
 
-  // Inicializar base y fecha
+  // Inicializar fecha
   React.useEffect(() => {
-    setApiBase(getApiBase());
     setHoy(
       new Date().toLocaleDateString("es-MX", {
         weekday: "long",
@@ -61,11 +60,9 @@ export default function UsuariosPage() {
 
   // Cargar usuarios
   React.useEffect(() => {
-    if (!apiBase) return;
-
     const fetchUsuarios = async () => {
       try {
-        const res = await fetch(`${apiBase}/seguridad/usuarios/`);
+        const res = await fetch(`${API_BASE}/seguridad/usuarios/`);
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
         setUsuarios(Array.isArray(data) ? data.filter((u) => u.activo) : []);
@@ -77,13 +74,13 @@ export default function UsuariosPage() {
     };
 
     fetchUsuarios();
-  }, [apiBase]);
+  }, []);
 
   // Eliminar usuario
   const eliminarUsuario = async (id: number) => {
     if (!confirm(`¿Eliminar usuario con ID ${id}?`)) return;
     try {
-      const resp = await fetch(`${apiBase}/seguridad/usuarios/${id}/`, {
+      const resp = await fetch(`${API_BASE}/seguridad/usuarios/${id}/`, {
         method: "DELETE",
       });
       if (!resp.ok) throw new Error(await resp.text());

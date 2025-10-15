@@ -7,8 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const API_BASE =
-  typeof window !== "undefined" && window.location.hostname.includes("railway")
-    ? "https://backend-licitacion-production.up.railway.app"
+  typeof window !== "undefined"
+    ? window.location.hostname.includes("railway")
+      ? "https://backend-licitacion-production.up.railway.app"
+      : window.location.hostname.includes("onrender")
+      ? "https://backend-licitacion-1.onrender.com"
+      : "http://127.0.0.1:8000"
     : "http://127.0.0.1:8000";
 
 export default function DetalleProcesoPage() {

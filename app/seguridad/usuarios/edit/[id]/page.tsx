@@ -12,19 +12,19 @@ import {
   CommandItem,
   CommandList,
   CommandGroup,
-  CommandEmpty,
 } from "@/components/ui/command";
 
 type Ente = { id: string; descripcion: string };
 
-const getApiBase = (): string => {
-  if (typeof window === "undefined") return "";
-  if (window.location.hostname.includes("railway.app"))
-    return "https://backend-licitacion-production.up.railway.app";
-  if (window.location.protocol === "https:")
-    return "https://127.0.0.1:8000";
-  return "http://127.0.0.1:8000";
-};
+// ✅ Reemplazo global de getApiBase()
+const API_BASE =
+  typeof window !== "undefined"
+    ? window.location.hostname.includes("railway")
+      ? "https://backend-licitacion-production.up.railway.app"
+      : window.location.hostname.includes("onrender")
+      ? "https://backend-licitacion-1.onrender.com"
+      : "http://127.0.0.1:8000"
+    : "http://127.0.0.1:8000";
 
 export default function EditarUsuarioPage() {
   const params = useParams();
@@ -32,7 +32,6 @@ export default function EditarUsuarioPage() {
   const idParam = Array.isArray(params?.id) ? params.id[0] : (params?.id as string);
   const idNum = Number(idParam);
 
-  const [apiBase, setApiBase] = React.useState("");
   const [hoy, setHoy] = React.useState("");
   const [entes, setEntes] = React.useState<Ente[]>([]);
   const [entesFiltrados, setEntesFiltrados] = React.useState<Ente[]>([]);
@@ -48,10 +47,8 @@ export default function EditarUsuarioPage() {
     p_tipo: "",
   });
 
-  // Inicializa API base y fecha
+  // Inicializa fecha y carga datos
   React.useEffect(() => {
-    const base = getApiBase();
-    setApiBase(base);
     setHoy(
       new Date().toLocaleDateString("es-MX", {
         weekday: "long",
@@ -64,8 +61,8 @@ export default function EditarUsuarioPage() {
     const fetchData = async () => {
       try {
         const [resUser, resEntes] = await Promise.all([
-          fetch(`${base}/seguridad/usuarios/${idNum}/`),
-          fetch(`${base}/catalogos/entes?p_id=-99`),
+          fetch(`${API_BASE}/seguridad/usuarios/${idNum}/`),
+          fetch(`${API_BASE}/catalogos/entes?p_id=-99`),
         ]);
 
         if (!resUser.ok) throw new Error("Error al obtener usuario");
@@ -76,7 +73,7 @@ export default function EditarUsuarioPage() {
 
         setEntes(Array.isArray(dataEntes) ? dataEntes : []);
 
-        // Inicializar valores del formulario
+        // Inicializar formulario con datos del usuario
         setForm({
           p_id: dataUser?.id || idNum,
           p_username: dataUser?.username || "",
@@ -99,7 +96,7 @@ export default function EditarUsuarioPage() {
     fetchData();
   }, [idNum]);
 
-  // Filtro dinámico para entes
+  // Filtro dinámico de entes
   const handleBuscarEnte = (valor: string) => {
     if (!valor.trim()) {
       setEntesFiltrados([]);
@@ -121,7 +118,7 @@ export default function EditarUsuarioPage() {
     }
 
     try {
-      const resp = await fetch(`${apiBase}/seguridad/usuarios/`, {
+      const resp = await fetch(`${API_BASE}/seguridad/usuarios/`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -26,58 +26,30 @@ type Rubro = {
   activo: boolean;
 };
 
-// ======================
-// 🔧 Determinar API base
-// ======================
-const getSecureApiBase = (): string => {
-  if (typeof window === "undefined") return "";
-
-  let base =
-    process.env.NEXT_PUBLIC_API_URL ||
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    "http://127.0.0.1:8000";
-
-  if (window.location.hostname.includes("railway.app")) {
-    base = base.replace(/^http:\/\//i, "https://");
-  }
-  if (window.location.protocol === "https:") {
-    base = base.replace(/^http:\/\//i, "https://");
-  }
-  return base;
-};
+// ✅ Constante global para API base — uniforme con tus demás páginas
+const API_BASE =
+  typeof window !== "undefined"
+    ? window.location.hostname.includes("railway")
+      ? "https://backend-licitacion-production.up.railway.app"
+      : window.location.hostname.includes("onrender")
+      ? "https://backend-licitacion-1.onrender.com"
+      : "http://127.0.0.1:8000"
+    : "http://127.0.0.1:8000";
 
 export default function RubrosPage() {
   const [rubros, setRubros] = React.useState<Rubro[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState<"cards" | "table">("cards");
-  const [apiBase, setApiBase] = React.useState("");
   const [search, setSearch] = React.useState(""); // ✅ Estado para búsqueda
-
-  // ======================
-  // ⚙️ Inicializar API base
-  // ======================
-  React.useEffect(() => {
-    const base = getSecureApiBase();
-    console.log("🌐 API_BASE:", base);
-    setApiBase(base);
-  }, []);
 
   // ======================
   // 🔄 Cargar rubros
   // ======================
   React.useEffect(() => {
-    if (!apiBase) return;
-
     const fetchRubros = async () => {
       try {
-        let url = `${apiBase}/catalogos/rubro?p_id=-99`;
-        if (url.startsWith("http://backend-licitacion-production.up.railway.app")) {
-          url = url.replace("http://", "https://");
-        }
-
-        const resp = await fetch(url);
+        const resp = await fetch(`${API_BASE}/catalogos/rubro?p_id=-99`);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-
         const data = await resp.json();
         setRubros(Array.isArray(data) ? data.filter((r) => r.activo) : []);
       } catch (err) {
@@ -88,17 +60,16 @@ export default function RubrosPage() {
     };
 
     fetchRubros();
-  }, [apiBase]);
+  }, []);
 
   // ======================
   // 🗑️ Eliminar rubro
   // ======================
   const eliminarRubro = async (id: string) => {
-    if (!apiBase) return;
     if (!confirm(`¿Seguro que deseas eliminar el rubro ${id}?`)) return;
 
     try {
-      const resp = await fetch(`${apiBase}/catalogos/rubro`, {
+      const resp = await fetch(`${API_BASE}/catalogos/rubro`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
@@ -107,7 +78,7 @@ export default function RubrosPage() {
       if (!resp.ok) throw new Error(await resp.text());
       alert("🗑️ Rubro eliminado correctamente");
 
-      const resp2 = await fetch(`${apiBase}/catalogos/rubro?p_id=-99`);
+      const resp2 = await fetch(`${API_BASE}/catalogos/rubro?p_id=-99`);
       const data = await resp2.json();
       setRubros(Array.isArray(data) ? data.filter((r) => r.activo) : []);
     } catch (err) {
@@ -171,7 +142,11 @@ export default function RubrosPage() {
             <Link href="/catalogos/rubros/new">Nuevo</Link>
           </Button>
 
-          <Button asChild variant="outline" className="cursor-pointer hover:shadow-sm">
+          <Button
+            asChild
+            variant="outline"
+            className="cursor-pointer hover:shadow-sm"
+          >
             <Link href="/catalogos/rubros/delete">Eliminados</Link>
           </Button>
 

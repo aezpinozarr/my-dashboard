@@ -13,22 +13,22 @@ type Usuario = {
   activo: boolean;
 };
 
-const getApiBase = (): string => {
-  if (typeof window === "undefined") return "";
-  if (window.location.hostname.includes("railway.app"))
-    return "https://backend-licitacion-production.up.railway.app";
-  if (window.location.protocol === "https:")
-    return "https://127.0.0.1:8000";
-  return "http://127.0.0.1:8000";
-};
+// ✅ Definimos la constante global con soporte para Render, Railway y Local
+const API_BASE =
+  typeof window !== "undefined"
+    ? window.location.hostname.includes("railway")
+      ? "https://backend-licitacion-production.up.railway.app"
+      : window.location.hostname.includes("onrender")
+      ? "https://backend-licitacion-1.onrender.com"
+      : "http://127.0.0.1:8000"
+    : "http://127.0.0.1:8000";
 
 export default function UsuariosEliminadosPage() {
   const [usuarios, setUsuarios] = React.useState<Usuario[]>([]);
-  const [apiBase, setApiBase] = React.useState("");
   const [hoy, setHoy] = React.useState("");
 
+  // 🕒 Fecha legible
   React.useEffect(() => {
-    setApiBase(getApiBase());
     setHoy(
       new Date().toLocaleDateString("es-MX", {
         weekday: "long",
@@ -39,19 +39,24 @@ export default function UsuariosEliminadosPage() {
     );
   }, []);
 
+  // 📡 Cargar usuarios eliminados
   React.useEffect(() => {
-    if (!apiBase) return;
     const fetchUsuarios = async () => {
-      const res = await fetch(`${apiBase}/seguridad/usuarios`);
-      const data = await res.json();
-      setUsuarios((Array.isArray(data) ? data : []).filter((u) => !u.activo));
+      try {
+        const res = await fetch(`${API_BASE}/seguridad/usuarios`);
+        const data = await res.json();
+        setUsuarios((Array.isArray(data) ? data : []).filter((u) => !u.activo));
+      } catch (error) {
+        console.error("Error al obtener usuarios:", error);
+      }
     };
     fetchUsuarios();
-  }, [apiBase]);
+  }, []);
 
+  // 🔁 Recuperar usuario
   const recuperarUsuario = async (id: number) => {
     try {
-      await fetch(`${apiBase}/seguridad/usuarios/gestionar`, {
+      await fetch(`${API_BASE}/seguridad/usuarios/gestionar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ p_accion: "RECUPERAR", p_id: id }),
@@ -59,7 +64,7 @@ export default function UsuariosEliminadosPage() {
       alert("✅ Usuario recuperado");
       setUsuarios((prev) => prev.filter((u) => u.id !== id));
     } catch {
-      alert("Error al recuperar usuario");
+      alert("❌ Error al recuperar usuario");
     }
   };
 
@@ -68,17 +73,22 @@ export default function UsuariosEliminadosPage() {
       {/* ENCABEZADO */}
       <div className="flex items-center gap-3">
         <Link href="/dashboard">
-          <Button variant="outline" className="cursor-pointer">←</Button>
+          <Button variant="outline" className="cursor-pointer">
+            ←
+          </Button>
         </Link>
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">Usuarios Eliminados</h1>
             <span className="text-xs text-gray-500 capitalize">{hoy}</span>
           </div>
-          <p className="text-gray-600 text-sm">Recupera usuarios desactivados.</p>
+          <p className="text-gray-600 text-sm">
+            Recupera usuarios desactivados.
+          </p>
         </div>
       </div>
 
+      {/* LISTADO DE USUARIOS */}
       {usuarios.length === 0 ? (
         <p>No hay usuarios eliminados</p>
       ) : (

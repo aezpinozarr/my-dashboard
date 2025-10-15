@@ -19,19 +19,18 @@ type Ente = {
   descripcion: string;
 };
 
-const getApiBase = (): string => {
-  if (typeof window === "undefined") return "";
-  const host = window.location.hostname;
-  if (host.includes("railway.app")) {
-    return "https://backend-licitacion-production.up.railway.app";
-  } else {
-    return "http://127.0.0.1:8000";
-  }
-};
+// ✅ Sustitución de getApiBase() por constante global con soporte para Render, Railway y local
+const API_BASE =
+  typeof window !== "undefined"
+    ? window.location.hostname.includes("railway")
+      ? "https://backend-licitacion-production.up.railway.app"
+      : window.location.hostname.includes("onrender")
+      ? "https://backend-licitacion-1.onrender.com"
+      : "http://127.0.0.1:8000"
+    : "http://127.0.0.1:8000";
 
 export default function NuevoUsuarioPage() {
   const router = useRouter();
-  const [apiBase, setApiBase] = React.useState("");
   const [hoy, setHoy] = React.useState("");
   const [entes, setEntes] = React.useState<Ente[]>([]);
   const [entesFiltrados, setEntesFiltrados] = React.useState<Ente[]>([]);
@@ -45,9 +44,8 @@ export default function NuevoUsuarioPage() {
     p_tipo: "",
   });
 
+  // 📆 Fecha y carga inicial
   React.useEffect(() => {
-    const base = getApiBase();
-    setApiBase(base);
     setHoy(
       new Date().toLocaleDateString("es-MX", {
         weekday: "long",
@@ -57,10 +55,10 @@ export default function NuevoUsuarioPage() {
       })
     );
 
-    // Cargar entes al inicio
+    // Cargar entes
     const fetchEntes = async () => {
       try {
-        const res = await fetch(`${base}/catalogos/entes?p_id=-99`);
+        const res = await fetch(`${API_BASE}/catalogos/entes?p_id=-99`);
         const data = await res.json();
         setEntes(Array.isArray(data) ? data : []);
       } catch (err) {
@@ -71,6 +69,7 @@ export default function NuevoUsuarioPage() {
     fetchEntes();
   }, []);
 
+  // 🔍 Filtro dinámico de entes
   const handleBuscarEnte = (valor: string) => {
     if (!valor.trim()) {
       setEntesFiltrados([]);
@@ -82,6 +81,7 @@ export default function NuevoUsuarioPage() {
     setEntesFiltrados(filtrados);
   };
 
+  // 💾 Envío de formulario
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -91,17 +91,17 @@ export default function NuevoUsuarioPage() {
     }
 
     try {
-      const resp = await fetch(`${apiBase}/seguridad/usuarios`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    p_username: form.p_username,
-    p_nombre: form.p_nombre,
-    p_pass_hash: form.p_pass_hash,
-    p_id_ente: form.p_id_ente,
-    p_tipo: form.p_tipo,
-  }),
-});
+      const resp = await fetch(`${API_BASE}/seguridad/usuarios`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          p_username: form.p_username,
+          p_nombre: form.p_nombre,
+          p_pass_hash: form.p_pass_hash,
+          p_id_ente: form.p_id_ente,
+          p_tipo: form.p_tipo,
+        }),
+      });
 
       if (!resp.ok) throw new Error(await resp.text());
       alert("✅ Usuario creado correctamente");
@@ -117,14 +117,18 @@ export default function NuevoUsuarioPage() {
       {/* ENCABEZADO */}
       <div className="flex items-center gap-3">
         <Link href="/dashboard">
-          <Button variant="outline" className="cursor-pointer">←</Button>
+          <Button variant="outline" className="cursor-pointer">
+            ←
+          </Button>
         </Link>
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">Nuevo Usuario</h1>
             <span className="text-xs text-gray-500 capitalize">{hoy}</span>
           </div>
-          <p className="text-gray-600 text-sm">Registra un nuevo usuario del sistema.</p>
+          <p className="text-gray-600 text-sm">
+            Registra un nuevo usuario del sistema.
+          </p>
         </div>
       </div>
 
@@ -196,13 +200,15 @@ export default function NuevoUsuarioPage() {
           )}
         </div>
 
-        {/* TIPO USUARIO MANUAL */}
+        {/* TIPO USUARIO */}
         <div>
           <Label>Tipo de usuario</Label>
           <Input
             placeholder="Ejemplo: ENTE o RECTOR"
             value={form.p_tipo}
-            onChange={(e) => setForm({ ...form, p_tipo: e.target.value.toUpperCase() })}
+            onChange={(e) =>
+              setForm({ ...form, p_tipo: e.target.value.toUpperCase() })
+            }
             required
           />
         </div>
