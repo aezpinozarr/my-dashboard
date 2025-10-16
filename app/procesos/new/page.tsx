@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/command";
 import { Loader2, PlusCircle, Trash2 } from "lucide-react";
 import { useUser } from "@/context/UserContext";
+import { toast } from "sonner";
 
 /* ========================================
    🔹 Configuración del backend
@@ -157,6 +158,8 @@ interface FormData {
   e_importe_sin_iva: string;
   e_importe_total: string;
   p_e_id_rubro_partida: string;
+  error?: boolean;
+  filteredProvs?: any[];
 }
 
 export default function NuevoProcesoPage() {
@@ -221,8 +224,19 @@ export default function NuevoProcesoPage() {
 
   // Paso 3
   const [rubros, setRubros] = React.useState<any[]>([]);
+  const [nuevoRubro, setNuevoRubro] = React.useState({
+    p_e_id_rubro: "",
+    rubro_descripcion: "",
+    p_e_monto_presupuesto_suficiencia: "",
+    p_id_partida_asociada: "",
+  });
   const [presupuestosRubro, setPresupuestosRubro] = React.useState<any[]>([
-    { p_e_id_rubro: "", rubro_descripcion: "", p_e_monto_presupuesto_suficiencia: "" },
+    {
+      p_e_id_rubro: "",
+      rubro_descripcion: "",
+      p_e_monto_presupuesto_suficiencia: "",
+      p_id_partida_asociada: "",
+    },
   ]);
 
   // Paso 4: Proveedores
@@ -371,7 +385,7 @@ export default function NuevoProcesoPage() {
       ]);
       setPresupuestosRubro([]);
       setProveedores([]);
-      alert("✅ Paso 1 guardado correctamente");
+      toast.success("Paso 1 guardado correctamente");
       setStep(2);
     } catch (err) {
       console.error(err);
@@ -433,7 +447,7 @@ export default function NuevoProcesoPage() {
 
       if (!folioGuardado) {
         console.error("⚠️ No hay folio de seguimiento disponible");
-        alert("Primero debes completar el Paso 1 antes de continuar.");
+        toast.info("Primero debes completar el Paso 1 antes de continuar.");
         return;
       }
 
@@ -499,11 +513,11 @@ export default function NuevoProcesoPage() {
         }
       }
 
-      alert("✅ Presupuesto guardado correctamente");
+      toast.success("Presupuesto guardado correctamente");
       setStep(3);
     } catch (err) {
       console.error("❌ Error al guardar presupuesto:", err);
-      alert("Error al guardar presupuesto");
+      toast.error("Error al guardar presupuesto");
     }
   };
 
@@ -565,34 +579,7 @@ export default function NuevoProcesoPage() {
      🔹 Guardar Paso 3
   ======================================== */
   const handleGuardarRubros = async () => {
-    if (!folio) return alert("No hay folio del proceso anterior");
-    try {
-      for (const r of presupuestosRubro) {
-        // Detectar si ya existe el rubro para ese p_e_id_rubro
-        const accion =
-          presupuestosRubro.find((x) => x.p_e_id_rubro === r.p_e_id_rubro) ? "EDITAR" : "NUEVO";
-        // No se tiene id local en este contexto, por lo que se deja 0 para NUEVO
-        const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-ente/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            p_accion: accion,
-            p_id_proceso_seguimiento_presupuesto: folio,
-            p_id: r.id || 0,
-            p_e_id_rubro: r.p_e_id_rubro,
-            p_e_monto_presupuesto_suficiencia: parseFloat(
-              (r.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "") || "0"
-            ),
-          }),
-        });
-        await resp.json();
-      }
-      alert("✅ Rubros guardados correctamente");
-      router.push("/dashboard");
-    } catch (err) {
-      console.error("❌ Error al guardar rubros:", err);
-      alert("Error al guardar rubros");
-    }
+    setStep(4);
   };
 
   const addRubro = () => {
@@ -1101,258 +1088,281 @@ export default function NuevoProcesoPage() {
         />
       </div>
 
-      {presupuestosRubro.map((r, i) => (
-        <Card key={i} className="p-4 space-y-4 border border-gray-200 relative">
-          {/* Identificador visual */}
-          <div className="mb-2 flex justify-between items-center">
-            <span className="inline-block rounded px-3 py-1 bg-green-100 text-green-800 font-semibold text-sm">
-              {`Rubro #${i + 1}`}
-            </span>
-            <button
-              type="button"
-              className="text-red-600 hover:text-red-700"
-              onClick={() => removeRubro(i)}
-              title="Eliminar rubro"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
-          </div>
+      {/* Formulario de añadir rubro */}
+      <div className="p-4 rounded border border-gray-200 bg-gray-50 mb-4">
+        <form
+          className="space-y-4"
+          onSubmit={async (e) => {
+            e.preventDefault();
 
-          {/* Si hay más de una partida, mostrar selector */}
-          {partidas.length > 1 && (
-            <div>
-              <Label>Partida asociada</Label>
-              <select
-                className="border rounded-md p-2 w-full"
-                value={r.p_id_partida_asociada || ""}
-                onChange={(e) =>
-                  setPresupuestosRubro((prev) =>
-                    prev.map((x, idx) =>
-                      idx === i
-                        ? { ...x, p_id_partida_asociada: e.target.value }
-                        : x
-                    )
-                  )
+            if (!nuevoRubro.p_e_id_rubro || !nuevoRubro.p_e_monto_presupuesto_suficiencia || !nuevoRubro.p_id_partida_asociada) {
+              toast.warning("Completa los campos antes de añadir el rubro.");
+              return;
+            }
+
+            // 🚫 Validar rubros duplicados
+            const existeRubro = presupuestosRubro.some(
+              (r) =>
+                r.p_e_id_rubro === nuevoRubro.p_e_id_rubro &&
+                r.p_id_partida_asociada === nuevoRubro.p_id_partida_asociada
+            );
+            if (existeRubro) {
+              toast.warning("Este rubro ya fue añadido a la partida seleccionada.");
+              return;
+            }
+
+            try {
+              // Buscar la partida asociada
+              const partidaAsociada = partidas.find(
+                (p) => String(p.e_id_partida) === String(nuevoRubro.p_id_partida_asociada)
+              );
+              if (!partidaAsociada || !partidaAsociada.id) {
+                toast.warning("La partida asociada no tiene un ID válido.");
+                return;
+              }
+
+              // Crear payload para el SP v2
+              const payload = {
+                p_accion: "NUEVO",
+                p_id_seguimiento_partida: Number(partidaAsociada.id),
+                p_id: 0,
+                p_e_id_rubro: nuevoRubro.p_e_id_rubro,
+                p_e_monto_presupuesto_suficiencia: parseFloat(
+                  (nuevoRubro.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "") || "0"
+                ),
+              };
+
+              console.log("📦 Enviando nuevo rubro al backend v2:", payload);
+
+              const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-ente-v2/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              });
+
+              const data = await resp.json();
+              if (!resp.ok) throw new Error(JSON.stringify(data));
+
+              console.log("✅ Rubro guardado en BD:", data);
+
+              // Refrescar localmente la tabla
+              setPresupuestosRubro((prev) => [
+                ...prev,
+                {
+                  ...nuevoRubro,
+                  id: data.resultado,
+                },
+              ]);
+
+              // Mantener la partida seleccionada (no reiniciar)
+              setNuevoRubro((prev) => ({
+                ...prev,
+                p_e_id_rubro: "",
+                rubro_descripcion: "",
+                p_e_monto_presupuesto_suficiencia: "",
+              }));
+
+              toast.success("Rubro añadido correctamente");
+            } catch (err) {
+              console.error("❌ Error al añadir rubro:", err);
+              toast.error("Error al añadir rubro");
+            }
+          }}
+        >
+          {/* Partida asociada */}
+          <div className="w-full md:col-span-3">
+            <Label>Partida asociada</Label>
+            <select
+              className="border rounded-md p-2 w-full"
+              value={nuevoRubro.p_id_partida_asociada}
+              onChange={(e) =>
+                setNuevoRubro((prev) => ({
+                  ...prev,
+                  p_id_partida_asociada: e.target.value,
+                }))
+              }
+            >
+              <option value="">Seleccione partida...</option>
+              {partidas.map((p, idx) => (
+                <option key={p.e_id_partida || idx} value={p.e_id_partida}>
+                  {`Partida #${idx + 1} — ${p.e_id_partida} — ${p.partida_descripcion}`}
+                </option>
+              ))}
+            </select>
+          </div>
+{/* 🔹 Rubro y Monto en la misma fila con proporciones 70/30 */}
+<div className="flex gap-4">
+  {/* Campo de Rubro (70%) */}
+  <div className="w-[70%]">
+    <Label>Rubro</Label>
+    <Command>
+      <CommandInput
+        placeholder="Escribe ID o nombre…"
+        value={nuevoRubro.p_e_id_rubro}
+        onValueChange={val => {
+          setNuevoRubro(prev => ({
+            ...prev,
+            p_e_id_rubro: val,
+            rubro_descripcion: "",
+          }));
+        }}
+      />
+      {Boolean((nuevoRubro.p_e_id_rubro || "").trim()) && (
+        <CommandList>
+          {rubros
+            .filter((rb) => {
+              const q = (nuevoRubro.p_e_id_rubro || "").toLowerCase();
+              return (
+                rb.id?.toString().toLowerCase().includes(q) ||
+                rb.descripcion?.toLowerCase().includes(q)
+              );
+            })
+            .map((rb) => (
+              <CommandItem
+                key={rb.id}
+                onSelect={() =>
+                  setNuevoRubro(prev => ({
+                    ...prev,
+                    p_e_id_rubro: rb.id,
+                    rubro_descripcion: rb.descripcion,
+                  }))
                 }
               >
-                <option value="">Seleccione la partida…</option>
-                {partidas.map((p, idx) => (
-                  <option key={`${p.e_id_partida}-${idx}`} value={p.e_id_partida}>
-                    {p.e_id_partida} — {p.partida_descripcion} ({p.clave_capitulo || "Sin clave"})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+                {rb.id} — {rb.descripcion}
+              </CommandItem>
+            ))}
+          <CommandEmpty>No se encontraron rubros</CommandEmpty>
+        </CommandList>
+      )}
+    </Command>
+  </div>
 
-          {/* Si solo hay una partida, mostrar encabezado "Partida #1" y el campo informativo */}
-          {partidas.length === 1 && (
-            <div>
-              <div className="mb-2">
-                <span className="inline-block rounded px-3 py-1 bg-blue-100 text-blue-800 font-semibold text-sm">
-                  Partida #1
-                </span>
-              </div>
-              <Label>Partida asociada</Label>
-              <Input
-                value={`Partida #1 — ${partidas[0].e_id_partida || ""} — ${partidas[0].partida_descripcion || ""}`}
-                disabled
-                className="bg-gray-100 text-gray-700 cursor-not-allowed"
-              />
-            </div>
-          )}
+  {/* Campo de Monto (30%) */}
+  <div className="w-[30%]">
+    <Label>Monto presupuesto suficiencia</Label>
+    <Input
+      value={nuevoRubro.p_e_monto_presupuesto_suficiencia}
+      onChange={e =>
+        setNuevoRubro(prev => ({
+          ...prev,
+          p_e_monto_presupuesto_suficiencia: formatMoney(e.target.value),
+        }))
+      }
+      placeholder="$0.00"
+      className="w-full"
+    />
+  </div>
+</div>
+          <div className="md:col-span-3 flex justify-end">
+            <Button
+              type="submit"
+              style={{ backgroundColor: "#10c706", color: "white" }}
+            >
+              Añadir rubro
+            </Button>
+          </div>
+        </form>
+      </div>
 
-          {/* Campo de selección del rubro */}
-          <div>
-            <Label>Rubro</Label>
-            <Command>
-              <CommandInput
-                placeholder="Escribe ID o nombre…"
-                value={r.p_e_id_rubro ?? ""}
-                onValueChange={(val) =>
-                  setPresupuestosRubro((prev) =>
-                    prev.map((x, idx) =>
-                      idx === i ? { ...x, p_e_id_rubro: val } : x
-                    )
-                  )
-                }
-              />
-              {Boolean((r.p_e_id_rubro || "").trim()) && (
-                <CommandList>
-                  {rubros
-                    .filter((rb) => {
-                      const q = (r.p_e_id_rubro || "").toLowerCase();
-                      return (
-                        rb.id?.toString().toLowerCase().includes(q) ||
-                        rb.descripcion?.toLowerCase().includes(q)
-                      );
-                    })
-                    .map((rb) => (
-                      <CommandItem
-                        key={rb.id}
-                        onSelect={() =>
-                          setPresupuestosRubro((prev) =>
-                            prev.map((x, idx) =>
-                              idx === i
-                                ? {
-                                    ...x,
-                                    p_e_id_rubro: rb.id,
-                                    rubro_descripcion: rb.descripcion,
-                                  }
-                                : x
-                            )
-                          )
+      {/* Lista de rubros añadidos */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white border border-gray-200 rounded">
+          <thead>
+            <tr>
+              <th className="py-2 px-4 border-b text-center">Clave</th>
+              <th className="py-2 px-4 border-b text-center">Rubro</th>
+              <th className="py-2 px-4 border-b text-left">Monto</th>
+              <th className="py-2 px-4 border-b text-center">Partida asociada</th>
+              <th className="py-2 px-4 border-b"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {presupuestosRubro.length === 0 && (
+              <tr>
+                <td colSpan={5} className="text-center text-gray-400 py-3">No hay rubros añadidos.</td>
+              </tr>
+            )}
+            {presupuestosRubro.map((r, i) => (
+              <tr key={i}>
+                <td className="py-2 px-4 border-b">{r.p_e_id_rubro}</td>
+                <td className="py-2 px-4 border-b">{r.rubro_descripcion}</td>
+                <td className="py-2 px-4 border-b">{r.p_e_monto_presupuesto_suficiencia}</td>
+                <td className="py-2 px-4 border-b">
+                  {(() => {
+                    const partida = partidas.find(
+                      (p) => String(p.e_id_partida) === String(r.p_id_partida_asociada)
+                    );
+                    return partida
+                      ? `Partida #${partidas.indexOf(partida) + 1} — ${partida.e_id_partida} — ${partida.partida_descripcion}`
+                      : "Sin asignar";
+                  })()}
+                </td>
+                <td className="py-2 px-4 border-b text-right">
+                  <Button
+                    variant="ghost"
+                    className="text-red-600 hover:text-white hover:bg-red-600 p-2"
+                    onClick={async () => {
+                      const rubro = presupuestosRubro[i];
+                      if (!rubro || !rubro.id) {
+                        toast.warning("Este rubro aún no tiene ID en la base de datos.");
+                        setPresupuestosRubro((prev) => prev.filter((_, idx) => idx !== i));
+                        return;
+                      }
+
+                      if (!confirm("¿Seguro que deseas eliminar este rubro?")) return;
+
+                      try {
+                        const partidaAsociada = partidas.find(
+                          (p) => String(p.e_id_partida) === String(rubro.p_id_partida_asociada)
+                        );
+                        if (!partidaAsociada || !partidaAsociada.id) {
+                          toast.warning("La partida asociada no tiene un ID válido.");
+                          return;
                         }
-                      >
-                        {rb.id} — {rb.descripcion}
-                      </CommandItem>
-                    ))}
-                  <CommandEmpty>No se encontraron rubros</CommandEmpty>
-                </CommandList>
-              )}
-            </Command>
-          </div>
 
-          {/* Descripción bloqueada */}
-          <div>
-            <Label>Descripción</Label>
-            <Input
-              value={r.rubro_descripcion ?? ""}
-              disabled
-              className="bg-gray-100 text-gray-700 cursor-not-allowed"
-            />
-          </div>
+                        const payload = {
+                          p_accion: "ELIMINAR",
+                          p_id_seguimiento_partida: Number(partidaAsociada.id),
+                          p_id: Number(rubro.id),
+                        };
 
-          {/* Monto */}
-          <div>
-            <Label>Monto presupuesto suficiencia</Label>
-            <Input
-              value={r.p_e_monto_presupuesto_suficiencia ?? ""}
-              onChange={(e) => {
-                const val = formatMoney(e.target.value);
-                setPresupuestosRubro((prev) =>
-                  prev.map((x, idx) =>
-                    idx === i
-                      ? { ...x, p_e_monto_presupuesto_suficiencia: val }
-                      : x
-                  )
-                );
-              }}
-            />
-          </div>
-        </Card>
-      ))}
+                        console.log("🗑️ Eliminando rubro en backend:", payload);
 
-      <div className="flex justify-between">
-        <Button variant="outline" style={{ backgroundColor: "#10c706", color: "white" }} onClick={addRubro}>
-          <PlusCircle className="w-4 h-4 mr-2" /> Nuevo rubro
-        </Button>
+                        const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-ente-v2/`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(payload),
+                        });
+
+                        const data = await resp.json();
+                        if (!resp.ok) throw new Error(JSON.stringify(data));
+
+                        toast.success("Rubro eliminado correctamente.");
+                        setPresupuestosRubro((prev) => prev.filter((_, idx) => idx !== i));
+                      } catch (err) {
+                        console.error("❌ Error al eliminar rubro:", err);
+                        toast.error("Error al eliminar rubro");
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex justify-between mt-6">
+        {/* No "Nuevo rubro" aquí, el formulario está arriba */}
+        <span />
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setStep(2)}>
             ← Volver al paso 2
           </Button>
           <Button
-            onClick={async () => {
-              if (!folio) return alert("No hay folio del proceso anterior");
-              try {
-                for (const r of presupuestosRubro) {
-                  const partidaAsociada =
-                    r.p_id_partida_asociada ||
-                    (partidas.length === 1 ? partidas[0].e_id_partida : null);
-
-                  if (!partidaAsociada) {
-                    alert(
-                      `Selecciona una partida para el rubro ${r.rubro_descripcion || r.p_e_id_rubro}`
-                    );
-                    return;
-                  }
-
-                  // --- Nueva lógica: verificar si existe el rubro para la partida/rubro antes de guardar
-                  const checkResp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-ente/`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      p_accion: "CONSULTAR",
-                      p_id_proceso_seguimiento_presupuesto: folio,
-                      p_id_seguimiento_partida:
-                        partidas.find((p) =>
-                          String(p.e_id_partida) === String(r.p_id_partida_asociada)
-                        )?.id || partidas[0]?.id,
-                      p_e_id_rubro: r.p_e_id_rubro,
-                    }),
-                  });
-                  const existente = await checkResp.json();
-                  const idExistente =
-                    Array.isArray(existente) && existente.length > 0 ? existente[0].id : null;
-                  const accion = idExistente ? "EDITAR" : "NUEVO";
-                  const idRegistro = idExistente || 0;
-
-                  // 🧩 Log datos a enviar (sin p_id_proceso_seguimiento_presupuesto)
-                  console.log("🧩 Enviando rubro con datos:", {
-                    p_accion: accion,
-                    p_id_seguimiento_partida:
-                      partidas.find((p) =>
-                        String(p.e_id_partida) === String(r.p_id_partida_asociada)
-                      )?.id || partidas[0]?.id,
-                    p_id: idRegistro,
-                    p_e_id_rubro: String(r.p_e_id_rubro || ""),
-                    p_e_monto_presupuesto_suficiencia: parseFloat(
-                      (r.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "") || "0"
-                    ),
-                  });
-
-                  const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-ente/`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      p_accion: accion,
-                      p_id_seguimiento_partida:
-                        partidas.find((p) =>
-                          String(p.e_id_partida) === String(r.p_id_partida_asociada)
-                        )?.id || partidas[0]?.id,
-                      p_id: idRegistro,
-                      p_e_id_rubro: String(r.p_e_id_rubro || ""),
-                      p_e_monto_presupuesto_suficiencia: parseFloat(
-                        (r.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "") || "0"
-                      ),
-                    }),
-                  });
-
-                  const data = await resp.json();
-
-                  if (!resp.ok) throw new Error(data.detail || "Error al guardar rubro");
-
-                  // Si se guardó correctamente
-                  if (data.resultado) {
-                    console.log("✅ Rubro guardado con éxito:", data);
-                    setPresupuestosRubro((prev) =>
-                      prev.map((x) =>
-                        x.p_e_id_rubro === r.p_e_id_rubro
-                          ? {
-                              ...x,
-                              id: data.resultado,
-                              p_id_proceso_seguimiento_presupuesto: folio,
-                              p_id_proceso_seguimiento_presupuesto_rubro: data.resultado,
-                              p_e_id_rubro_partida: data.resultado,
-                              p_id_partida_asociada:
-                                x.p_id_partida_asociada ||
-                                (partidas.length === 1
-                                  ? partidas[0].e_id_partida?.toString()
-                                  : x.p_id_partida_asociada),
-                            }
-                          : x
-                      )
-                    );
-                  }
-                }
-
-                alert("✅ Rubros guardados correctamente");
-                setStep(4); // ⬅️ Avanzar al nuevo paso de Proveedores
-              } catch (err) {
-                console.error("❌ Error al guardar rubros:", err);
-                alert("Error al guardar rubros");
-              }
-            }}
+            onClick={handleGuardarRubros}
             style={{ backgroundColor: "#235391", color: "white" }}
           >
             Siguiente
@@ -1368,55 +1378,111 @@ export default function NuevoProcesoPage() {
         <Card>
           <CardContent className="space-y-5 mt-4">
             <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
-
-            {proveedores.map((prov, i) => (
-              <Card key={i} className="p-4 space-y-4 border border-gray-200 relative">
-                <div className="mb-2 flex justify-between items-center">
-                  <span className="inline-block rounded px-3 py-1 bg-blue-100 text-blue-800 font-semibold text-sm">
-                    {`Proveedor #${i + 1}`}
-                  </span>
-                  <button
-                    type="button"
-                    className="text-red-600 hover:text-red-700"
-                    onClick={() => setProveedores(proveedores.filter((_, idx) => idx !== i))}
-                    title="Eliminar proveedor"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Oficio de invitación bloqueado */}
-                <div>
-                  <Label>Oficio de invitación</Label>
-                  <Input
-                    value={form.oficio_invitacion ?? ""}
-                    disabled
-                    className="bg-gray-100 text-gray-700 cursor-not-allowed"
-                  />
-                </div>
-
-                {/* Select Rubro/Partida */}
-                <div>
+            {/* Formulario para añadir proveedor */}
+            <div className="p-4 rounded border border-gray-200 bg-gray-50 mb-4">
+              <form
+                className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"
+                onSubmit={async e => {
+                  e.preventDefault();
+                  // Validar que los campos requeridos estén completos
+                  if (
+                    !form.e_rfc_proveedor ||
+                    !form.e_importe_sin_iva ||
+                    !form.p_e_id_rubro_partida
+                  ) return;
+                  try {
+                    // Buscar el proveedor en la tabla (para evitar duplicados locales)
+                    const existe = proveedores.some(
+                      (p) =>
+                        p.e_rfc_proveedor === form.e_rfc_proveedor &&
+                        p.p_e_id_rubro_partida === form.p_e_id_rubro_partida
+                    );
+                    if (existe) {
+                      toast.warning("Este proveedor ya fue añadido para ese rubro/partida.");
+                      return;
+                    }
+                    // Determinar el id de seguimiento_partida a usar
+                    const idRubroSeleccionado = Number(form.p_e_id_rubro_partida);
+                    if (!idRubroSeleccionado || Number.isNaN(idRubroSeleccionado)) {
+                      toast.warning("Selecciona un rubro/partida válido.");
+                      return;
+                    }
+                    // Preparar payload para SP v2
+                    const payloadProveedor = {
+                      p_accion: "NUEVO",
+                      p_id_seguimiento_partida_rubro: idRubroSeleccionado,
+                      p_id: 0,
+                      p_e_rfc_proveedor: form.e_rfc_proveedor,
+                      p_e_importe_sin_iva: parseFloat((form.e_importe_sin_iva || "").replace(/[^\d]/g, "") || "0"),
+                      p_e_importe_total: parseFloat((form.e_importe_total || "").replace(/[^\d]/g, "") || "0"),
+                    };
+                    // Llamar endpoint SP v2
+                    const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(payloadProveedor),
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) {
+                      const msg =
+                        typeof data.detail === "string"
+                          ? data.detail
+                          : JSON.stringify(data.detail || data) || "Error al guardar proveedor";
+                      throw new Error(msg);
+                    }
+                    // Añadir al estado local
+                    setProveedores(prev => [
+                      ...prev,
+                      {
+                        e_rfc_proveedor: form.e_rfc_proveedor,
+                        razon_social: form.razon_social,
+                        nombre_comercial: form.nombre_comercial,
+                        persona_juridica: form.persona_juridica,
+                        correo_electronico: form.correo_electronico,
+                        entidad_federativa: form.entidad_federativa,
+                        e_importe_sin_iva: form.e_importe_sin_iva,
+                        e_importe_total: form.e_importe_total,
+                        p_e_id_rubro_partida: form.p_e_id_rubro_partida,
+                        id: data.resultado,
+                      },
+                    ]);
+                    setForm(prev => ({
+                      ...prev,
+                      e_rfc_proveedor: "",
+                      razon_social: "",
+                      nombre_comercial: "",
+                      persona_juridica: "",
+                      correo_electronico: "",
+                      entidad_federativa: "",
+                      e_importe_sin_iva: "",
+                      e_importe_total: "",
+                      // ✅ mantener la selección del rubro/partida actual
+                      p_e_id_rubro_partida: prev.p_e_id_rubro_partida,
+                    }));
+                  } catch (err) {
+                    console.error("❌ Error al añadir proveedor:", err);
+                    toast.error("Error al añadir proveedor");
+                  }
+                }}
+              >
+                {/* Rubro/Partida */}
+                <div className="md:col-span-3">
                   <Label>Seleccionar Rubro y Partida</Label>
                   <select
                     className="border rounded-md p-2 w-full"
-                    value={prov.p_e_id_rubro_partida || ""}
-                    onChange={(e) => {
-                      const updated = [...proveedores];
-                      updated[i].p_e_id_rubro_partida = e.target.value;
-                      setProveedores(updated);
-                    }}
+                    value={form.p_e_id_rubro_partida || ""}
+                    onChange={e => setForm(prev => ({
+                      ...prev,
+                      p_e_id_rubro_partida: e.target.value,
+                    }))}
                   >
                     <option value="">Seleccione rubro/partida…</option>
                     {presupuestosRubro.map((r, idx) => {
-                      const idValido = r.id || r.p_id_proceso_seguimiento_presupuesto_rubro || 0;
-
-                      // ✅ Resolver la partida asociada: si solo hay una, úsala; si hay varias, busca por el id guardado en r.p_id_partida_asociada
+                      const idValido = r.id || Number(sessionStorage.getItem("idRubroCreado")) || 0;
                       const partidaAsociada =
                         partidas.length === 1
                           ? partidas[0]
                           : partidas.find((p) => String(p.e_id_partida) === String(r.p_id_partida_asociada));
-
                       let textoPartida: string;
                       if (partidaAsociada) {
                         const idxPartida =
@@ -1425,7 +1491,6 @@ export default function NuevoProcesoPage() {
                       } else {
                         textoPartida = "Partida no encontrada";
                       }
-
                       return (
                         <option key={`${r.p_e_id_rubro}-${idValido}`} value={idValido}>
                           {textoPartida} | Rubro {r.p_e_id_rubro} — {r.rubro_descripcion}
@@ -1434,19 +1499,18 @@ export default function NuevoProcesoPage() {
                     })}
                   </select>
                 </div>
-
                 {/* RFC del proveedor */}
                 <div>
                   <Label>RFC del proveedor</Label>
                   <Command>
                     <CommandInput
                       placeholder="Escribe RFC, razón social o nombre comercial…"
-                      value={prov.e_rfc_proveedor || ""}
+                      value={form.e_rfc_proveedor || ""}
                       onValueChange={async (val) => {
-                        const updated = [...proveedores];
-                        updated[i].e_rfc_proveedor = val;
-                        setProveedores(updated);
-
+                        setForm(prev => ({
+                          ...prev,
+                          e_rfc_proveedor: val,
+                        }));
                         try {
                           const resp = await fetch(`${API_BASE}/catalogos/proveedor/?p_rfc=-99`);
                           const data = await resp.json();
@@ -1460,37 +1524,36 @@ export default function NuevoProcesoPage() {
                                 p.correo_electronico?.toLowerCase().includes(search)
                               );
                             });
-                            setProveedores((prev) => {
-                              const copy = [...prev];
-                              copy[i].filtered = filtered;
-                              return copy;
-                            });
+                            setForm(prev => ({
+                              ...prev,
+                              filteredProvs: filtered,
+                            }));
                           }
                         } catch (err) {
                           console.error("Error cargando proveedores", err);
                         }
                       }}
-                      className={`${prov.error ? "border border-red-500" : ""}`}
+                      className={`${form.error ? "border border-red-500" : ""}`}
                     />
                     {/* Solo mostrar CommandList si hay resultados filtrados */}
-                    {prov.filtered && prov.filtered.length > 0 && (
+                    {form.filteredProvs && form.filteredProvs.length > 0 && (
                       <CommandList>
-                        {prov.filtered.map((p: any) => (
+                        {form.filteredProvs.map((p: any) => (
                           <CommandItem
                             key={p.rfc}
                             onSelect={() => {
-                              const updated = [...proveedores];
-                              updated[i] = {
-                                ...prov,
+                              setForm(prev => ({
+                                ...prev,
                                 e_rfc_proveedor: p.rfc,
                                 razon_social: p.razon_social,
                                 nombre_comercial: p.nombre_comercial,
                                 persona_juridica: p.persona_juridica,
                                 correo_electronico: p.correo_electronico,
                                 entidad_federativa: p.entidad_federativa,
-                                filtered: null, // Evita mostrar “No se encontraron proveedores” después de seleccionar
-                              };
-                              setProveedores(updated);
+                                filteredProvs: [],
+                                // ✅ Mantener selección actual de rubro/partida
+                                p_e_id_rubro_partida: prev.p_e_id_rubro_partida,
+                              }));
                             }}
                           >
                             {p.rfc} — {p.nombre_comercial || p.razon_social}
@@ -1500,217 +1563,166 @@ export default function NuevoProcesoPage() {
                     )}
                   </Command>
                 </div>
-
-                {/* Datos del proveedor bloqueados */}
-                <div className="grid md:grid-cols-2 gap-2">
-                  <div>
-                    <Label>Razón social</Label>
-                    <Input value={prov.razon_social || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-                  </div>
-                  <div>
-                    <Label>Nombre comercial</Label>
-                    <Input value={prov.nombre_comercial || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-                  </div>
+                {/* Razón social */}
+                <div>
+                  <Label>Razón social</Label>
+                  <Input value={form.razon_social || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
                 </div>
-
-                {/* Importe sin IVA y total con IVA lado a lado */}
-                <div className="grid md:grid-cols-2 gap-2">
-                  <div>
-                    <Label>Importe sin IVA</Label>
-                    <Input
-                      value={prov.e_importe_sin_iva || ""}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/[^\d]/g, "");
-                        const formatted = val ? "$" + parseInt(val).toLocaleString("es-MX") : "";
-                        const updated = [...proveedores];
-                        updated[i].e_importe_sin_iva = formatted;
-                        updated[i].e_importe_total = formatted
+                {/* Nombre comercial */}
+                <div>
+                  <Label>Nombre comercial</Label>
+                  <Input value={form.nombre_comercial || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
+                </div>
+                {/* Importe sin IVA */}
+                <div>
+                  <Label>Importe sin IVA</Label>
+                  <Input
+                    value={form.e_importe_sin_iva || ""}
+                    onChange={e => {
+                      const val = e.target.value.replace(/[^\d]/g, "");
+                      const formatted = val ? "$" + parseInt(val).toLocaleString("es-MX") : "";
+                      setForm(prev => ({
+                        ...prev,
+                        e_importe_sin_iva: formatted,
+                        e_importe_total: formatted
                           ? "$" + (parseInt(val) * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2 })
-                          : "";
-                        setProveedores(updated);
-                      }}
-                      placeholder="$0.00"
-                      className={`${!prov.e_rfc_proveedor ? "border-red-500" : ""}`}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Importe total con IVA (16%)</Label>
-                    <Input
-                      value={prov.e_importe_total || ""}
-                      disabled
-                      className="bg-gray-100 text-gray-700 cursor-not-allowed"
-                    />
-                  </div>
+                          : "",
+                      }));
+                    }}
+                    placeholder="$0.00"
+                    className={`${!form.e_rfc_proveedor ? "border-red-500" : ""}`}
+                  />
                 </div>
-
-              </Card>
-            ))}
-
-            {/* Botón nuevo proveedor */}
+                {/* Importe total con IVA */}
+                <div>
+                  <Label>Importe total con IVA (16%)</Label>
+                  <Input
+                    value={form.e_importe_total || ""}
+                    disabled
+                    className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
+                </div>
+                <div className="md:col-span-3 flex justify-end">
+                  <Button
+                    type="submit"
+                    style={{ backgroundColor: "#10c706", color: "white" }}
+                  >
+                    Añadir proveedor
+                  </Button>
+                </div>
+              </form>
+            </div>
+            {/* Tabla de proveedores añadidos */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white border border-gray-200 rounded">
+                <thead>
+                  <tr>
+                    <th className="py-2 px-4 border-b text-left">RFC</th>
+                    <th className="py-2 px-4 border-b text-left">Razón social</th>
+                    <th className="py-2 px-4 border-b text-left">Nombre comercial</th>
+                    <th className="py-2 px-4 border-b text-left">Importe sin IVA</th>
+                    <th className="py-2 px-4 border-b text-left">Importe total</th>
+                    <th className="py-2 px-4 border-b text-left">Rubro / Partida</th>
+                    <th className="py-2 px-4 border-b text-left">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {proveedores.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-center text-gray-400 py-3">No hay proveedores añadidos.</td>
+                    </tr>
+                  )}
+                  {proveedores.map((prov, i) => (
+                    <tr key={i}>
+                      <td className="py-2 px-4 border-b">{prov.e_rfc_proveedor}</td>
+                      <td className="py-2 px-4 border-b">{prov.razon_social}</td>
+                      <td className="py-2 px-4 border-b">{prov.nombre_comercial}</td>
+                      <td className="py-2 px-4 border-b">{prov.e_importe_sin_iva}</td>
+                      <td className="py-2 px-4 border-b">{prov.e_importe_total}</td>
+                      <td className="py-2 px-4 border-b">
+                        {(() => {
+                          // Buscar texto de rubro/partida
+                          const rubro = presupuestosRubro.find(
+                            r => String(r.id || Number(sessionStorage.getItem("idRubroCreado")) || 0) === String(prov.p_e_id_rubro_partida)
+                          );
+                          if (!rubro) return "No asignado";
+                          const partidaAsociada =
+                            partidas.length === 1
+                              ? partidas[0]
+                              : partidas.find((p) => String(p.e_id_partida) === String(rubro.p_id_partida_asociada));
+                          let textoPartida: string;
+                          if (partidaAsociada) {
+                            const idxPartida =
+                              partidas.length === 1 ? 0 : Math.max(0, partidas.findIndex((p) => p === partidaAsociada));
+                            textoPartida = `Partida #${idxPartida + 1} — ${partidaAsociada.e_id_partida} — ${partidaAsociada.partida_descripcion}`;
+                          } else {
+                            textoPartida = "Partida no encontrada";
+                          }
+                          return `${textoPartida} | Rubro ${rubro.p_e_id_rubro} — ${rubro.rubro_descripcion}`;
+                        })()}
+                      </td>
+                      <td className="py-2 px-4 border-b">
+                        <Button
+                          variant="ghost"
+                          className="text-red-600 hover:text-white hover:bg-red-600 p-2"
+                          onClick={async () => {
+                            const prov = proveedores[i];
+                            if (!prov || !prov.id) {
+                              setProveedores(prev => prev.filter((_, idx) => idx !== i));
+                              return;
+                            }
+                            if (!confirm("¿Seguro que deseas eliminar este proveedor?")) return;
+                            try {
+                              // Llamar endpoint SP v2 con acción ELIMINAR
+                              const idRubroSeleccionado = Number(prov.p_e_id_rubro_partida);
+                              if (!idRubroSeleccionado || Number.isNaN(idRubroSeleccionado)) {
+                                toast.warning("No se encontró un rubro/partida válido para eliminar.");
+                                return;
+                              }
+                              const payloadEliminar = {
+                                p_accion: "ELIMINAR",
+                                p_id_seguimiento_partida_rubro: idRubroSeleccionado,
+                                p_id: prov.id,
+                              };
+                              const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payloadEliminar),
+                              });
+                              const data = await resp.json();
+                              if (!resp.ok) {
+                                const msg =
+                                  typeof data.detail === "string"
+                                    ? data.detail
+                                    : JSON.stringify(data.detail || data) || "Error al eliminar proveedor";
+                                throw new Error(msg);
+                              }
+                              setProveedores(prev => prev.filter((_, idx) => idx !== i));
+                              toast.success("Proveedor eliminado correctamente.");
+                            } catch (err) {
+                              console.error("❌ Error al eliminar proveedor:", err);
+                              toast.error("Error al eliminar proveedor");
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <div className="flex justify-between mt-4">
-              <Button
-                variant="outline"
-                style={{ backgroundColor: "#10c706", color: "white" }}
-                onClick={() =>
-                  setProveedores([
-                    ...proveedores,
-                    {
-                      e_rfc_proveedor: "",
-                      razon_social: "",
-                      nombre_comercial: "",
-                      persona_juridica: "",
-                      correo_electronico: "",
-                      entidad_federativa: "",
-                      e_importe_sin_iva: "",
-                      e_importe_total: "",
-                      p_e_id_rubro_partida: "",
-                    },
-                  ])
-                }
-              >
-                <PlusCircle className="w-4 h-4 mr-2" /> Nuevo proveedor
-              </Button>
-
+              <span />
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setStep(3)}>
                   ← Volver al paso 3
                 </Button>
                 <Button
-                  style={{ backgroundColor: "#235391", color: "white" }}
-                  onClick={async () => {
-                    if (!folio) return alert("No hay folio de proceso");
-
-                    // 🚫 Validación: verificar que todos los proveedores tengan RFC
-                    const proveedoresInvalidos = proveedores.filter(
-                      (p) => !p.e_rfc_proveedor?.trim()
-                    );
-                    if (proveedoresInvalidos.length > 0) {
-                      setProveedores((prev) =>
-                        prev.map((p) =>
-                          !p.e_rfc_proveedor?.trim()
-                            ? { ...p, error: true }
-                            : { ...p, error: false }
-                        )
-                      );
-                      return; // Evita guardar si hay proveedores sin RFC
-                    }
-
-                    try {
-                      console.log("📊 Estado actual de presupuestosRubro:", presupuestosRubro);
-
-                      // 🚫 Validar duplicados antes de guardar
-                      const duplicados = proveedores.filter(
-                        (p, idx, arr) =>
-                          arr.findIndex(
-                            (x) =>
-                              x.e_rfc_proveedor === p.e_rfc_proveedor &&
-                              x.p_e_id_rubro_partida === p.p_e_id_rubro_partida
-                          ) !== idx
-                      );
-
-                      if (duplicados.length > 0) {
-                        alert("⚠️ No se puede guardar. Hay proveedores duplicados con el mismo rubro.");
-                        return;
-                      }
-
-                      for (const prov of proveedores) {
-                        if (!prov.e_rfc_proveedor) continue;
-
-                        // 🔹 Obtener el rubro vinculado al proceso actual
-                        const rubroRelacionado = presupuestosRubro.find(
-                          (r: any) => r.p_id_proceso_seguimiento_presupuesto === folio
-                        );
-
-                        // Buscar el id del rubro/partida seleccionado en el proveedor
-                        const rubroPartidaSeleccionada = presupuestosRubro.find(
-                          (r: any) =>
-                            (prov.p_e_id_rubro_partida
-                              ? (r.id === prov.p_e_id_rubro_partida || r.p_id_proceso_seguimiento_presupuesto_rubro === prov.p_e_id_rubro_partida)
-                              : false)
-                        );
-                        const idRubroValido =
-                          rubroPartidaSeleccionada?.id ||
-                          rubroPartidaSeleccionada?.p_id_proceso_seguimiento_presupuesto_rubro ||
-                          rubroRelacionado?.id ||
-                          0;
-
-                        // Detectar si es edición o nuevo para el proveedor
-                        const accion = prov.id ? "EDITAR" : "NUEVO";
-                        const idProveedor = prov.id || 0;
-
-                        console.log("🧩 Proveedor:", prov.e_rfc_proveedor);
-                        console.log("➡️ ID de rubro válido:", idRubroValido);
-
-                        if (!idRubroValido || idRubroValido === 0) {
-                          alert(
-                            `⚠️ No se encontró un rubro válido para el proveedor ${prov.e_rfc_proveedor}.`
-                          );
-                          continue;
-                        }
-
-                        console.log("📤 Enviando payload al backend:", {
-                          p_accion: accion,
-                          p_id_seguimiento_partida: idRubroValido, // 👈 nombre corregido
-                          p_id: idProveedor,
-                          p_e_rfc_proveedor: prov.e_rfc_proveedor,
-                          p_e_importe_sin_iva: parseFloat(
-                            (prov.e_importe_sin_iva || "").replace(/[^\d]/g, "") || "0"
-                          ),
-                          p_e_importe_total: parseFloat(
-                            (prov.e_importe_total || "").replace(/[^\d]/g, "") || "0"
-                          ),
-                          p_r_importe_ajustado_sin_iva: 0,
-                          p_r_importe_ajustado_total: 0,
-                        });
-
-                        const resp = await fetch(
-                          `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente/`,
-                          {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              p_accion: accion,
-                              p_id_seguimiento_partida: idRubroValido, // 👈 nombre corregido
-                              p_id: idProveedor,
-                              p_e_rfc_proveedor: prov.e_rfc_proveedor,
-                              p_e_importe_sin_iva: parseFloat(
-                                (prov.e_importe_sin_iva || "").replace(/[^\d]/g, "") || "0"
-                              ),
-                              p_e_importe_total: parseFloat(
-                                (prov.e_importe_total || "").replace(/[^\d]/g, "") || "0"
-                              ),
-                              p_r_importe_ajustado_sin_iva: 0,
-                              p_r_importe_ajustado_total: 0,
-                            }),
-                          }
-                        );
-
-                        const data = await resp.json();
-
-                        if (!resp.ok) {
-                          const msg =
-                            typeof data.detail === "string"
-                              ? data.detail
-                              : JSON.stringify(data.detail || data) ||
-                                "Error al guardar proveedor";
-                          console.error("❌ Error guardando proveedor:", msg);
-                          throw new Error(msg);
-                        }
-
-                        console.log("✅ Proveedor guardado correctamente:", {
-                          proveedor: prov.e_rfc_proveedor,
-                          rubroUsado: idRubroValido,
-                          respuesta: data,
-                        });
-                      }
-
-                      alert("✅ Todos los proveedores guardados correctamente");
-                      router.push("/procesos");
-                    } catch (err) {
-                      console.error("❌ Error al guardar proveedores:", err);
-                      alert("Error al guardar proveedores");
-                    }
+                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  onClick={() => {
+                    router.push("/procesos");
                   }}
                 >
                   Finalizar
