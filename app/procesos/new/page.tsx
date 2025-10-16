@@ -1430,6 +1430,8 @@ export default function NuevoProcesoPage() {
                           : JSON.stringify(data.detail || data) || "Error al guardar proveedor";
                       throw new Error(msg);
                     }
+                    // Mostrar toast de éxito antes de actualizar el estado
+                    toast.success("Proveedor añadido correctamente.");
                     // Añadir al estado local
                     setProveedores(prev => [
                       ...prev,
