@@ -57,11 +57,10 @@ export default function DetallePresupuestoPage() {
     try {
       if (!user) return;
 
-      let url = `${API_BASE}/procesos/seguimiento/presupuesto-proveedor/all`;
+      let url = `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente/all`;
 
-      // ✅ Si es ENTE, usa el nuevo endpoint by-ente
       if ((user.tipo || user.tipo_usuario)?.toUpperCase() === "ENTE" && user.id_ente) {
-        url = `${API_BASE}/procesos/seguimiento/presupuesto-proveedor/by-ente?p_id_ente=${Number(user.id_ente)}`;
+        url = `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente/by-ente?p_id_ente=${Number(user.id_ente)}`;
       }
 
       const res = await fetch(url);

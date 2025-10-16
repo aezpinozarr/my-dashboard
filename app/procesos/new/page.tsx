@@ -198,6 +198,7 @@ export default function NuevoProcesoPage() {
     p_e_id_rubro_partida: "",
   });
   const [folio, setFolio] = React.useState<number | null>(null);
+  const [folioSeguimiento, setFolioSeguimiento] = React.useState<number | null>(null);
 
   // Paso 2
   const [fuentes, setFuentes] = React.useState<any[]>([]);
@@ -226,6 +227,22 @@ export default function NuevoProcesoPage() {
 
   // Paso 4: Proveedores
   const [proveedores, setProveedores] = React.useState<any[]>([]);
+
+  // Paso 4: Inicializar proveedor vacío si es necesario
+  React.useEffect(() => {
+    if (step === 4 && proveedores.length === 0) {
+      setProveedores([
+        {
+          e_rfc_proveedor: "",
+          razon_social: "",
+          nombre_comercial: "",
+          e_importe_sin_iva: "",
+          e_importe_total: "",
+          p_e_id_rubro_partida: "",
+        },
+      ]);
+    }
+  }, [step, proveedores.length]);
 
   /* ========================================
      🔹 Cargar catálogos paso 1
@@ -294,6 +311,10 @@ export default function NuevoProcesoPage() {
     setErrores({});
     if (!user) return;
 
+    // Detectar si es edición o nuevo
+    const accion = folio ? "EDITAR" : "NUEVO";
+    const idProceso = folio || 0;
+
     const fechaHora = toIsoLocalDateTime(form.fecha, form.hora);
     setLoading(true);
     try {
@@ -301,9 +322,9 @@ export default function NuevoProcesoPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          p_accion: "NUEVO",
-          p_id: 0,
-          p_e_id_ente: Number(user.id_ente),
+          p_accion: accion,
+          p_id: idProceso,
+          p_e_id_ente: String(user.id_ente),
           p_e_oficio_invitacion: form.oficio_invitacion,
           p_e_id_servidor_publico_emite: Number(servidorSeleccionado.id),
           p_e_servidor_publico_cargo: form.servidor_publico_cargo,
@@ -315,8 +336,41 @@ export default function NuevoProcesoPage() {
         }),
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.detail || "Error al guardar");
+      console.log("📘 Resultado backend Paso 1 (guardar oficio):", data);
+      if (data?.resultado) {
+        setFolioSeguimiento(data.resultado);
+        console.log("✅ ID de seguimiento asignado:", data.resultado);
+      } else {
+        console.warn("⚠️ El backend no devolvió un resultado válido:", data);
+      }
+      if (!resp.ok) {
+        console.error("⚠️ Backend error:", data);
+        throw new Error(
+          typeof data.detail === "string"
+            ? data.detail
+            : JSON.stringify(data.detail || data)
+        );
+      }
+
       setFolio(data.resultado);
+      // ✅ Reiniciar pasos dependientes al actualizar el folio
+      setPartidas([
+        {
+          id: null,
+          e_no_requisicion: "",
+          e_id_partida: "",
+          partida_descripcion: "",
+          clave_capitulo: "",
+          capitulo: "",
+          e_id_fuente_financiamiento: "",
+          fuente_descripcion: "",
+          fuente_etiquetado: "",
+          fuente_fondo: "",
+          e_monto_presupuesto_suficiencia: "",
+        },
+      ]);
+      setPresupuestosRubro([]);
+      setProveedores([]);
       alert("✅ Paso 1 guardado correctamente");
       setStep(2);
     } catch (err) {
@@ -339,6 +393,26 @@ export default function NuevoProcesoPage() {
         ]);
         setFuentes(Array.isArray(fResp) ? fResp : []);
         setCatalogoPartidas(Array.isArray(pResp) ? pResp : []);
+        // ✅ Si ya existe un folio, consultar las partidas registradas previamente
+        if (folio) {
+          try {
+            const res = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                p_accion: "CONSULTAR",
+                p_id_seguimiento: folio,
+                p_e_id_partida: -99,
+              }),
+            });
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+              setPartidas(data);
+            }
+          } catch (err) {
+            console.error("❌ Error al recargar partidas existentes:", err);
+          }
+        }
       } catch (err) {
         console.error("❌ Error al cargar catálogos del paso 2:", err);
       }
@@ -348,56 +422,90 @@ export default function NuevoProcesoPage() {
   /* ========================================
      🔹 Guardar Paso 2 (envía montos al paso 3)
   ======================================== */
+  /* ========================================
+     🔹 Guardar Paso 2 (envía montos al paso 3)
+  ======================================== */
   const handleGuardarPartidas = async () => {
-  if (!folio) return alert("No hay folio del proceso anterior");
-  try {
-    for (const p of partidas) {
-      // 🔍 Verificar si la partida ya existe en BD
-      const checkResp = await fetch(
-        `${API_BASE}/procesos/seguimiento/presupuesto-ente?p_id_proceso_seguimiento=${folio}&p_e_id_partida=${p.e_id_partida}`
-      );
-      const existente = await checkResp.json();
+    try {
+      // ✅ Forzar obtención del folio desde sessionStorage si aún no está en el estado
+      const folioGuardado =
+        folioSeguimiento || Number(sessionStorage.getItem("folioSeguimiento"));
 
-      // Si el backend devuelve un registro existente, usar su id
-      const idExistente = Array.isArray(existente) && existente.length > 0 ? existente[0].id : null;
-
-      // Enviar al SP con la acción correcta
-      const resp = await fetch(`${API_BASE}/procesos/seguimiento/presupuesto-ente/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          p_accion: idExistente ? "EDITAR" : "NUEVO",
-          p_id_proceso_seguimiento: folio,
-          p_id: idExistente || 0,
-          p_e_no_requisicion: p.e_no_requisicion,
-          p_e_id_partida: p.e_id_partida,
-          p_e_id_fuente_financiamiento: p.e_id_fuente_financiamiento,
-          p_e_monto_presupuesto_suficiencia: parseFloat(
-            (p.e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "") || "0"
-          ),
-        }),
-      });
-
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.detail || "Error al guardar presupuesto");
-
-      // Si fue nuevo o editado correctamente, guarda el id en el estado
-      if (data.resultado) {
-        setPartidas((prev) =>
-          prev.map((x) =>
-            x.e_id_partida === p.e_id_partida ? { ...x, id: data.resultado } : x
-          )
-        );
+      if (!folioGuardado) {
+        console.error("⚠️ No hay folio de seguimiento disponible");
+        alert("Primero debes completar el Paso 1 antes de continuar.");
+        return;
       }
-    }
 
-    alert("✅ Presupuesto guardado correctamente");
-    setStep(3);
-  } catch (err) {
-    console.error("❌ Error al guardar presupuesto:", err);
-    alert("Error al guardar presupuesto");
-  }
-};
+      console.log("📘 Usando folio de seguimiento para guardar partidas:", folioGuardado);
+
+      for (const p of partidas) {
+        // 🔍 Verificar si la partida ya existe en BD usando POST CONSULTAR
+        const checkResp = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            p_accion: "CONSULTAR",
+            p_id_seguimiento: folioGuardado,
+            p_e_id_partida: p.e_id_partida,
+          }),
+        });
+        const existente = await checkResp.json();
+
+        // Si el backend devuelve un registro existente, usar su id
+        const idExistente = Array.isArray(existente) && existente.length > 0 ? existente[0].id : null;
+
+        // Decidir acción y id
+        const accion = idExistente ? "EDITAR" : "NUEVO";
+        const idRegistro = idExistente || 0;
+
+        // 🧹 Limpiar y formatear los datos a enviar antes del fetch
+        const payload = {
+          p_accion: String(accion).toUpperCase(),
+          p_id_seguimiento: folioGuardado,
+          p_id: Number(idRegistro) || 0,
+          p_e_no_requisicion: String(p.e_no_requisicion ?? "").trim(),
+          p_e_id_partida: String(p.e_id_partida ?? "").trim(),
+          p_e_id_fuente_financiamiento: String(p.e_id_fuente_financiamiento ?? "").trim(),
+        };
+
+        // Log de los datos a enviar
+        console.log("📦 Enviando payload a backend (partida-ente):", payload);
+
+        // Enviar al SP con la acción correcta
+        const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) {
+          console.error("❌ Error detallado del backend:", data);
+          const mensajeError =
+            Array.isArray(data.detail)
+              ? data.detail.map((d: any) => `${d.loc?.join(".")}: ${d.msg}`).join(" | ")
+              : data.detail || "Error al guardar presupuesto";
+          throw new Error(mensajeError);
+        }
+
+        // Si fue nuevo o editado correctamente, guarda el id en el estado
+        if (data.resultado) {
+          setPartidas((prev) =>
+            prev.map((x) =>
+              x.e_id_partida === p.e_id_partida ? { ...x, id: data.resultado } : x
+            )
+          );
+        }
+      }
+
+      alert("✅ Presupuesto guardado correctamente");
+      setStep(3);
+    } catch (err) {
+      console.error("❌ Error al guardar presupuesto:", err);
+      alert("Error al guardar presupuesto");
+    }
+  };
 
   /* ========================================
      🔹 Cargar catálogos paso 3
@@ -422,11 +530,16 @@ export default function NuevoProcesoPage() {
     if (step !== 3 || !folio) return;
     (async () => {
       try {
-        // Trae todos los registros de presupuesto-ente del proceso
-        const resp = await fetch(
-          `${API_BASE}/procesos/seguimiento/presupuesto-ente/?p_id_proceso_seguimiento=${folio}&p_e_id_partida=-99`,
-          { method: "GET" }
-        );
+        // Trae todos los registros de partida-ente del proceso usando POST CONSULTAR
+        const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            p_accion: "CONSULTAR",
+            p_id_seguimiento: folio,
+            p_e_id_partida: -99,
+          }),
+        });
         const data = await resp.json();
 
         if (Array.isArray(data) && data.length > 0) {
@@ -455,13 +568,17 @@ export default function NuevoProcesoPage() {
     if (!folio) return alert("No hay folio del proceso anterior");
     try {
       for (const r of presupuestosRubro) {
-        const resp = await fetch(`${API_BASE}/procesos/seguimiento/presupuesto-rubro-proveedor-ente/`, {
+        // Detectar si ya existe el rubro para ese p_e_id_rubro
+        const accion =
+          presupuestosRubro.find((x) => x.p_e_id_rubro === r.p_e_id_rubro) ? "EDITAR" : "NUEVO";
+        // No se tiene id local en este contexto, por lo que se deja 0 para NUEVO
+        const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-ente/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            p_accion: "NUEVO",
+            p_accion: accion,
             p_id_proceso_seguimiento_presupuesto: folio,
-            p_id: 0,
+            p_id: r.id || 0,
             p_e_id_rubro: r.p_e_id_rubro,
             p_e_monto_presupuesto_suficiencia: parseFloat(
               (r.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "") || "0"
@@ -873,7 +990,9 @@ export default function NuevoProcesoPage() {
                               const q = (p.e_id_fuente_financiamiento || "").toLowerCase();
                               return (
                                 f.id?.toString().toLowerCase().includes(q) ||
-                                f.descripcion?.toLowerCase().includes(q)
+                                f.descripcion?.toLowerCase().includes(q) ||
+                                f.ramo?.toLowerCase().includes(q) ||
+                                f.fondo?.toLowerCase().includes(q)
                               );
                             })
                             .map((f: any) => (
@@ -922,20 +1041,7 @@ export default function NuevoProcesoPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <Label>Monto presupuesto suficiencia</Label>
-                    <Input
-                      value={p.e_monto_presupuesto_suficiencia ?? ""}
-                      onChange={(e) => {
-                        const val = formatMoney(e.target.value);
-                        setPartidas((prev) =>
-                          prev.map((x, idx) =>
-                            idx === i ? { ...x, e_monto_presupuesto_suficiencia: val } : x
-                          )
-                        );
-                      }}
-                    />
-                  </div>
+                 
                   </Card>
                 );
               })}
@@ -1161,33 +1267,64 @@ export default function NuevoProcesoPage() {
                     return;
                   }
 
-                  const resp = await fetch(
-                    `${API_BASE}/procesos/seguimiento/presupuesto-rubro-ente/`,
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        p_accion: "NUEVO",
-                        p_id_proceso_seguimiento_presupuesto: folio,
-                        p_id: 0,
-                        p_e_id_rubro: r.p_e_id_rubro,
-                        p_e_id_partida_asociada: partidaAsociada,
-                        p_e_monto_presupuesto_suficiencia: parseFloat(
-                          (r.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "") || "0"
-                        ),
-                      }),
-                    }
-                  );
+                  // --- Nueva lógica: verificar si existe el rubro para la partida/rubro antes de guardar
+                  const checkResp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-ente/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      p_accion: "CONSULTAR",
+                      p_id_proceso_seguimiento_presupuesto: folio,
+                      p_id_seguimiento_partida:
+                        partidas.find((p) =>
+                          String(p.e_id_partida) === String(r.p_id_partida_asociada)
+                        )?.id || partidas[0]?.id,
+                      p_e_id_rubro: r.p_e_id_rubro,
+                    }),
+                  });
+                  const existente = await checkResp.json();
+                  const idExistente =
+                    Array.isArray(existente) && existente.length > 0 ? existente[0].id : null;
+                  const accion = idExistente ? "EDITAR" : "NUEVO";
+                  const idRegistro = idExistente || 0;
+
+                  // 🧩 Log datos a enviar (sin p_id_proceso_seguimiento_presupuesto)
+                  console.log("🧩 Enviando rubro con datos:", {
+                    p_accion: accion,
+                    p_id_seguimiento_partida:
+                      partidas.find((p) =>
+                        String(p.e_id_partida) === String(r.p_id_partida_asociada)
+                      )?.id || partidas[0]?.id,
+                    p_id: idRegistro,
+                    p_e_id_rubro: String(r.p_e_id_rubro || ""),
+                    p_e_monto_presupuesto_suficiencia: parseFloat(
+                      (r.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "") || "0"
+                    ),
+                  });
+
+                  const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-ente/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      p_accion: accion,
+                      p_id_seguimiento_partida:
+                        partidas.find((p) =>
+                          String(p.e_id_partida) === String(r.p_id_partida_asociada)
+                        )?.id || partidas[0]?.id,
+                      p_id: idRegistro,
+                      p_e_id_rubro: String(r.p_e_id_rubro || ""),
+                      p_e_monto_presupuesto_suficiencia: parseFloat(
+                        (r.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "") || "0"
+                      ),
+                    }),
+                  });
+
                   const data = await resp.json();
 
                   if (!resp.ok) throw new Error(data.detail || "Error al guardar rubro");
-                  // Bloque corregido: agrega todos los campos requeridos cuando data.resultado tiene valor
-                  if (data.resultado) {
-                    console.log("✅ Rubro guardado correctamente:", {
-                      rubro: r.p_e_id_rubro,
-                      idGenerado: data.resultado,
-                    });
 
+                  // Si se guardó correctamente
+                  if (data.resultado) {
+                    console.log("✅ Rubro guardado con éxito:", data);
                     setPresupuestosRubro((prev) =>
                       prev.map((x) =>
                         x.p_e_id_rubro === r.p_e_id_rubro
@@ -1197,8 +1334,11 @@ export default function NuevoProcesoPage() {
                               p_id_proceso_seguimiento_presupuesto: folio,
                               p_id_proceso_seguimiento_presupuesto_rubro: data.resultado,
                               p_e_id_rubro_partida: data.resultado,
-                              // ✅ conservar el id de la partida asociada ya elegido/calculado
-                              p_id_partida_asociada: x.p_id_partida_asociada || (partidas.length === 1 ? partidas[0].e_id_partida?.toString() : x.p_id_partida_asociada),
+                              p_id_partida_asociada:
+                                x.p_id_partida_asociada ||
+                                (partidas.length === 1
+                                  ? partidas[0].e_id_partida?.toString()
+                                  : x.p_id_partida_asociada),
                             }
                           : x
                       )
@@ -1227,7 +1367,7 @@ export default function NuevoProcesoPage() {
       {step === 4 && (
         <Card>
           <CardContent className="space-y-5 mt-4">
-            <h1 className="text-2xl font-bold">Paso 4: Presupuesto Proveedor</h1>
+            <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
 
             {proveedores.map((prov, i) => (
               <Card key={i} className="p-4 space-y-4 border border-gray-200 relative">
@@ -1373,21 +1513,6 @@ export default function NuevoProcesoPage() {
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-2">
-                  <div>
-                    <Label>Persona jurídica</Label>
-                    <Input value={prov.persona_juridica || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-                  </div>
-                  <div>
-                    <Label>Correo electrónico</Label>
-                    <Input value={prov.correo_electronico || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-                  </div>
-                  <div>
-                    <Label>Entidad federativa</Label>
-                    <Input value={prov.entidad_federativa || ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-                  </div>
-                </div>
-
                 {/* Importe sin IVA y total con IVA lado a lado */}
                 <div className="grid md:grid-cols-2 gap-2">
                   <div>
@@ -1497,8 +1622,22 @@ export default function NuevoProcesoPage() {
                           (r: any) => r.p_id_proceso_seguimiento_presupuesto === folio
                         );
 
-                        
-                        const idRubroValido = rubroRelacionado?.id || 0;
+                        // Buscar el id del rubro/partida seleccionado en el proveedor
+                        const rubroPartidaSeleccionada = presupuestosRubro.find(
+                          (r: any) =>
+                            (prov.p_e_id_rubro_partida
+                              ? (r.id === prov.p_e_id_rubro_partida || r.p_id_proceso_seguimiento_presupuesto_rubro === prov.p_e_id_rubro_partida)
+                              : false)
+                        );
+                        const idRubroValido =
+                          rubroPartidaSeleccionada?.id ||
+                          rubroPartidaSeleccionada?.p_id_proceso_seguimiento_presupuesto_rubro ||
+                          rubroRelacionado?.id ||
+                          0;
+
+                        // Detectar si es edición o nuevo para el proveedor
+                        const accion = prov.id ? "EDITAR" : "NUEVO";
+                        const idProveedor = prov.id || 0;
 
                         console.log("🧩 Proveedor:", prov.e_rfc_proveedor);
                         console.log("➡️ ID de rubro válido:", idRubroValido);
@@ -1510,12 +1649,10 @@ export default function NuevoProcesoPage() {
                           continue;
                         }
 
-                        
                         console.log("📤 Enviando payload al backend:", {
-                          p_accion: "NUEVO",
-                          p_id_proceso_seguimiento_presupuesto: folio,
-                          p_id_proceso_seguimiento_presupuesto_rubro: idRubroValido,
-                          p_id: 0,
+                          p_accion: accion,
+                          p_id_seguimiento_partida: idRubroValido, // 👈 nombre corregido
+                          p_id: idProveedor,
                           p_e_rfc_proveedor: prov.e_rfc_proveedor,
                           p_e_importe_sin_iva: parseFloat(
                             (prov.e_importe_sin_iva || "").replace(/[^\d]/g, "") || "0"
@@ -1526,17 +1663,16 @@ export default function NuevoProcesoPage() {
                           p_r_importe_ajustado_sin_iva: 0,
                           p_r_importe_ajustado_total: 0,
                         });
-                        
+
                         const resp = await fetch(
-                          `${API_BASE}/procesos/seguimiento/presupuesto-proveedor/`,
+                          `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente/`,
                           {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
-                              p_accion: "NUEVO",
-                              p_id_proceso_seguimiento_presupuesto: folio,
-                              p_id_proceso_seguimiento_presupuesto_rubro: idRubroValido,
-                              p_id: 0,
+                              p_accion: accion,
+                              p_id_seguimiento_partida: idRubroValido, // 👈 nombre corregido
+                              p_id: idProveedor,
                               p_e_rfc_proveedor: prov.e_rfc_proveedor,
                               p_e_importe_sin_iva: parseFloat(
                                 (prov.e_importe_sin_iva || "").replace(/[^\d]/g, "") || "0"
@@ -1570,14 +1706,14 @@ export default function NuevoProcesoPage() {
                       }
 
                       alert("✅ Todos los proveedores guardados correctamente");
-                      router.push("/dashboard");
+                      router.push("/procesos");
                     } catch (err) {
                       console.error("❌ Error al guardar proveedores:", err);
                       alert("Error al guardar proveedores");
                     }
                   }}
                 >
-                  Guardar
+                  Finalizar
                 </Button>
               </div>
             </div>
