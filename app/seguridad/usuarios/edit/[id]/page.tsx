@@ -13,6 +13,7 @@ import {
   CommandList,
   CommandGroup,
 } from "@/components/ui/command";
+import { toast } from "sonner";
 
 type Ente = { id: string; descripcion: string };
 
@@ -87,7 +88,7 @@ export default function EditarUsuarioPage() {
         if (enteEncontrado) setEnteSeleccionado(enteEncontrado);
       } catch (err) {
         console.error("❌ Error cargando datos:", err);
-        alert("Error al cargar datos del usuario");
+        toast.error("❌ Error al cargar datos del usuario");
       } finally {
         setLoading(false);
       }
@@ -113,7 +114,7 @@ export default function EditarUsuarioPage() {
     e.preventDefault();
 
     if (!form.p_id_ente || !form.p_tipo) {
-      alert("Selecciona un ente válido y define el tipo de usuario.");
+      toast.warning("⚠️ Selecciona un ente válido y define el tipo de usuario.");
       return;
     }
 
@@ -127,11 +128,11 @@ export default function EditarUsuarioPage() {
       });
 
       if (!resp.ok) throw new Error(await resp.text());
-      alert("✅ Usuario actualizado correctamente");
+      toast.success("✅ Usuario actualizado correctamente");
       router.push("/seguridad/usuarios");
     } catch (err) {
       console.error("❌ Error al actualizar usuario:", err);
-      alert("Error al actualizar usuario");
+      toast.error("❌ Error al actualizar usuario");
     }
   };
 

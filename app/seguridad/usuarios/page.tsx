@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input"; // ✅ Campo de búsqueda
+import { toast } from "sonner";
 
 type Usuario = {
   id: number;
@@ -84,11 +85,11 @@ export default function UsuariosPage() {
         method: "DELETE",
       });
       if (!resp.ok) throw new Error(await resp.text());
-      alert("🗑️ Usuario eliminado correctamente");
+      toast.success("🗑️ Usuario eliminado correctamente");
       setUsuarios((prev) => prev.filter((u) => u.id !== id));
     } catch (err) {
       console.error("❌ Error al eliminar usuario:", err);
-      alert("Error al eliminar usuario");
+      toast.error("❌ Error al eliminar usuario");
     }
   };
 

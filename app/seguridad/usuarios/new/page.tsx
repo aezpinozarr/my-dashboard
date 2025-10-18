@@ -13,6 +13,7 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
+import { toast } from "sonner";
 
 type Ente = {
   id: string;
@@ -86,7 +87,7 @@ export default function NuevoUsuarioPage() {
     e.preventDefault();
 
     if (!form.p_id_ente || !form.p_tipo) {
-      alert("Selecciona un ente válido y define el tipo de usuario.");
+      toast.warning("⚠️ Selecciona un ente válido y define el tipo de usuario.");
       return;
     }
 
@@ -104,11 +105,11 @@ export default function NuevoUsuarioPage() {
       });
 
       if (!resp.ok) throw new Error(await resp.text());
-      alert("✅ Usuario creado correctamente");
+      toast.success("✅ Usuario creado correctamente");
       router.push("/seguridad/usuarios");
     } catch (err) {
       console.error("❌ Error al crear usuario:", err);
-      alert("Error al crear usuario");
+      toast.error("❌ Error al crear usuario");
     }
   };
 

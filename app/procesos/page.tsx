@@ -65,7 +65,11 @@ export default function DetallePresupuestoPage() {
 
       const res = await fetch(url);
       const data = await res.json();
-      setRegistros(data.resultado || []);
+      // Ordenar los registros de forma descendente por id_proceso_seguimiento
+      const registrosOrdenados = (data.resultado || []).sort(
+        (a: Registro, b: Registro) => b.id_proceso_seguimiento - a.id_proceso_seguimiento
+      );
+      setRegistros(registrosOrdenados);
     } catch (err) {
       console.error("❌ Error cargando datos:", err);
     } finally {

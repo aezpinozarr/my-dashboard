@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
 
 type Usuario = {
   id: number;
@@ -61,10 +62,10 @@ export default function UsuariosEliminadosPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ p_accion: "RECUPERAR", p_id: id }),
       });
-      alert("✅ Usuario recuperado");
+      toast.success("✅ Usuario recuperado");
       setUsuarios((prev) => prev.filter((u) => u.id !== id));
     } catch {
-      alert("❌ Error al recuperar usuario");
+      toast.error("❌ Error al recuperar usuario");
     }
   };
 
