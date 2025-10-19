@@ -21,7 +21,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const userData = user
     ? {
         name: user.nombre || user.username,
-        email: `${user.username}@correo.com`,
+        email: `${user.username}`,
         avatar: "/avatars/default.jpg",
       }
     : {
@@ -113,6 +113,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         { title: "Nuevo seguimiento", url: "/procesos/new" },
       ],
     },
+
+  
+// ✅ Solo visible para usuarios tipo RECTOR
+...(user?.tipo?.toLowerCase() === "rector"
+  ? [
+      {
+        title: "Rector",
+        url: "#",
+        icon: SquareTerminal,
+        isActive: openMenus.includes("Rector"),
+        items: [
+          { title: "Seguimiento de rector", url: "/seguimiento-rector" },
+        ],
+      },
+    ]
+  : []),
+
   ];
 
   const teams = [
