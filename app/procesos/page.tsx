@@ -65,10 +65,34 @@ export default function DetallePresupuestoPage() {
 
       const res = await fetch(url);
       const data = await res.json();
-      // Ordenar los registros de forma descendente por id_proceso_seguimiento
-      const registrosOrdenados = (data.resultado || []).sort(
-        (a: Registro, b: Registro) => b.id_proceso_seguimiento - a.id_proceso_seguimiento
-      );
+      console.log("👤 Usuario:", user);
+      console.log("🌐 URL final:", url);
+      console.log("📦 Datos recibidos del backend:", data);
+
+      // Adaptar estructura según respuesta del backend
+      let registrosOrdenados: Registro[] = [];
+      if (Array.isArray(data)) {
+        registrosOrdenados = data.sort(
+          (a: any, b: any) =>
+            (b.id ?? b.id_seguimiento_partida ?? 0) -
+            (a.id ?? a.id_seguimiento_partida ?? 0)
+        );
+      } else if (data.resultado && Array.isArray(data.resultado)) {
+        registrosOrdenados = data.resultado.sort(
+          (a: any, b: any) =>
+            (b.id ?? b.id_proceso_seguimiento ?? 0) -
+            (a.id ?? a.id_proceso_seguimiento ?? 0)
+        );
+      } else if (data.data && Array.isArray(data.data)) {
+        registrosOrdenados = data.data.sort(
+          (a: any, b: any) =>
+            (b.id ?? b.id_proceso_seguimiento ?? 0) -
+            (a.id ?? a.id_proceso_seguimiento ?? 0)
+        );
+      } else {
+        console.warn("⚠️ Estructura inesperada de respuesta:", data);
+      }
+
       setRegistros(registrosOrdenados);
     } catch (err) {
       console.error("❌ Error cargando datos:", err);
@@ -152,10 +176,10 @@ export default function DetallePresupuestoPage() {
           </TableHeader>
           <TableBody>
             {registros.map((r, index) => (
-              <TableRow key={`${r.id}-${r.id_proceso_seguimiento}-${r.e_rfc_proveedor || "NA"}-${index}`}>
+              <TableRow key={`${r.id}-${r.e_rfc_proveedor || "NA"}-${index}`}>
                 <TableCell>
-                  <Link className="text-blue-700 underline" href={`/procesos/view/${r.id_proceso_seguimiento}`}>
-                    {r.id_proceso_seguimiento}
+                  <Link className="text-blue-700 underline" href={`/procesos/view/${r.id}`}>
+                    {r.id}
                   </Link>
                 </TableCell>
                 <TableCell>{r.ente}</TableCell>
@@ -181,7 +205,7 @@ export default function DetallePresupuestoPage() {
                 </TableCell>
                 <TableCell>{r.estatus}</TableCell>
                 <TableCell>
-                  <Link href={`/procesos/view/${r.id_proceso_seguimiento}`}>
+                  <Link href={`/procesos/view/${r.id}`}>
                     <Button variant="outline" style={{ cursor: "pointer" }}>Ver detalle</Button>
                   </Link>
                 </TableCell>
@@ -196,7 +220,7 @@ export default function DetallePresupuestoPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {registros.map((r, index) => (
             <Card
-              key={`${r.id}-${r.id_proceso_seguimiento}-${r.e_rfc_proveedor || "NA"}-${index}`}
+              key={`${r.id}-${r.e_rfc_proveedor || "NA"}-${index}`}
               className="shadow-md border border-gray-200 hover:shadow-lg transition-all duration-200"
             >
               <CardHeader className="pb-2">
@@ -208,7 +232,7 @@ export default function DetallePresupuestoPage() {
 
               <CardContent className="text-sm space-y-1">
                 <p>
-                  <strong>ID Proceso:</strong> {r.id_proceso_seguimiento}
+                  <strong>ID Proceso:</strong> {r.id}
                 </p>
                 <p>
                   <strong>Tipo Ente:</strong> {r.id_ente_tipo}
@@ -243,7 +267,7 @@ export default function DetallePresupuestoPage() {
                   <strong>Estatus:</strong> {r.estatus}
                 </p>
                 <div className="pt-2">
-                  <Link href={`/procesos/view/${r.id_proceso_seguimiento}`}>
+                  <Link href={`/procesos/view/${r.id}`}>
                     <Button variant="outline" style={{ cursor: "pointer" }}>Ver detalle</Button>
                   </Link>
                 </div>
