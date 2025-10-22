@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -53,7 +53,15 @@ const formatTimeHHMM = (value: string) => {
     .slice(0, 5);
 };
 
-export default function RectorForm() {
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="p-6 text-center">Cargando página...</div>}>
+      <RectorForm />
+    </Suspense>
+  );
+}
+
+function RectorForm() {
   const { user } = useUser();
 
   const searchParams = useSearchParams();
