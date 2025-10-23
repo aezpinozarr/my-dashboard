@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
+import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui/input";
 
 const API_BASE =
   typeof window !== "undefined"
@@ -39,6 +41,8 @@ export default function SeguimientoRectorPage() {
   const [registros, setRegistros] = useState<Preregistro[]>([]);
   const [view, setView] = useState<"cards" | "table">("cards");
   const [loading, setLoading] = useState(true);
+  const [filtro, setFiltro] = useState("");
+  const router = useRouter();
 
   // ===============================
   // 🔹 Cargar preregistrados
@@ -67,6 +71,34 @@ export default function SeguimientoRectorPage() {
     cargarRegistros();
   }, []);
 
+  // 🔎 Normalizador para búsqueda (quita acentos y homogeneiza a minúsculas)
+  const normalize = (v: any) =>
+    (v ?? "")
+      .toString()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "");
+
+  const term = normalize(filtro);
+
+  const registrosFiltrados = registros.filter((r) => {
+    const haystack = [
+      r.id, // ✅ permite buscar por ID
+      r.ente,
+      r.ente_clasificacion,
+      r.id_ente_tipo,
+      r.e_oficio_invitacion,
+      r.e_tipo_licitacion,
+      r.tipo_licitacion_no_veces_descripcion,
+      r.servidor_publico_emite,
+      r.r_estatus,
+    ]
+      .map(normalize)
+      .join(" ");
+
+    return haystack.includes(term);
+  });
+
   // ===============================
   // 🔹 Render
   // ===============================
@@ -74,10 +106,47 @@ export default function SeguimientoRectorPage() {
     <main className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Seguimiento Rector — Preregistrados</h1>
-          <p className="text-gray-600 text-sm">Listado de procesos preregistrados concluidos por los entes.</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="flex items-center justify-center w-10 h-10 rounded-lg shadow-md bg-white hover:bg-gray-100 transition cursor-pointer"
+            aria-label="Volver al dashboard"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-5 h-5 text-black"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Seguimiento Rector — Preregistrados</h1>
+            <p className="text-gray-600 text-sm">
+              Listado de procesos preregistrados concluidos por los entes.
+            </p>
+            {registros.length > 0 && (
+              <p className="text-sm text-gray-500 mt-1">
+                Mostrando {registros.length} {registros.length === 1 ? "registro" : "registros"}.
+              </p>
+            )}
+          </div>
         </div>
+
+        {/* 🔍 Barra de búsqueda */}
+        <div className="mt-2 w-full sm:w-1/2 lg:w-2/5">
+          <Input
+            type="text"
+            placeholder="Buscar por ID, ente, servidor, licitación o estatus..."
+            value={filtro}
+            onChange={(e) => setFiltro(e.target.value)}
+            className="w-full"
+          />
+        </div>
+
         <Tabs value={view} onValueChange={(v) => setView(v as any)}>
           <TabsList>
             <TabsTrigger value="cards">🏛️ Tarjetas</TabsTrigger>
@@ -88,7 +157,7 @@ export default function SeguimientoRectorPage() {
 
       {loading ? (
         <p className="text-center text-gray-500">Cargando registros...</p>
-      ) : registros.length === 0 ? (
+      ) : registrosFiltrados.length === 0 ? (
         <p className="text-center text-gray-600">No hay registros preregistrados.</p>
       ) : view === "table" ? (
         // =======================
@@ -109,7 +178,7 @@ export default function SeguimientoRectorPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {registros.map((r) => (
+            {registrosFiltrados.map((r) => (
               <TableRow key={r.id}>
                 <TableCell>{r.id}</TableCell>
                 <TableCell>{r.ente}</TableCell>
@@ -138,7 +207,7 @@ export default function SeguimientoRectorPage() {
                 </TableCell>
                 <TableCell>
                   <Link href={`/seguimiento-rector/new?id=${r.id}`}>
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">Captura</Button>
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Captura</Button>
                   </Link>
                 </TableCell>
               </TableRow>
@@ -150,7 +219,7 @@ export default function SeguimientoRectorPage() {
         // 🏛️ VISTA TARJETAS
         // =======================
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {registros.map((r) => (
+          {registrosFiltrados.map((r) => (
             <Card key={r.id} className="border shadow-sm hover:shadow-md transition-all duration-200">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-semibold text-gray-800">
@@ -186,7 +255,7 @@ export default function SeguimientoRectorPage() {
 
                 <div className="pt-3">
                   <Link href={`/seguimiento-rector/new?id=${r.id}`}>
-                    <Button className="w-full bg-blue-600 text-white hover:bg-blue-700">Captura</Button>
+                    <Button className="w-full bg-blue-600 text-white hover:bg-blue-700 cursor-pointer">Captura</Button>
                   </Link>
                 </div>
               </CardContent>

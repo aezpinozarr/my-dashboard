@@ -3,6 +3,14 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -85,6 +93,7 @@ function RectorForm() {
         rubro: string;
         monto: number;
         id_seguimiento_partida_rubro: number;
+        id_seguimiento_partida_rubro_proveedor_adjudicado?: number | null;
         proveedores: { id: number; rfc: string; nombre: string }[];
       }[];
     }[]
@@ -96,6 +105,13 @@ function RectorForm() {
   const [selectedFundamento, setSelectedFundamento] = useState<{ [key: number]: string }>({});
   // Estado para importes ajustados
   const [importes, setImportes] = useState<{ [key: number]: { sinIva: number; total: number } }>({});
+  // Estado para las filas agregadas manualmente
+  const [rubroProveedorRows, setRubroProveedorRows] = useState<any[]>([]);
+  // --- Estado local para el nuevo card (UI controlado)
+  const [selectedPartidaId, setSelectedPartidaId] = useState<number | null>(null);
+  const [selectedRubroId, setSelectedRubroId] = useState<number | null>(null);
+  const [selectedProveedorLocal, setSelectedProveedorLocal] = useState<string>("");
+  const [estatusLocal, setEstatusLocal] = useState<string>("");
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -158,6 +174,9 @@ function RectorForm() {
       // ✅ Mapa que agrupa partidas y rubros sin perder registros
       const partidaMap = new Map<number, any>();
 
+      // Array para filas adjudicadas automáticamente
+      const adjudicadosRows: any[] = [];
+
       data.forEach((d: any) => {
         const idPartida = Number(d.e_id_partida || d.id_partida);
         const idRubro = d.id_rubro || d.e_id_rubro;
@@ -177,12 +196,13 @@ function RectorForm() {
         let rubroObj = partidaObj.rubros.find((r: any) => r.id_rubro === idRubro);
         if (!rubroObj) {
           rubroObj = {
-          id_rubro: idRubro,
-          rubro: d.rubro,
-          monto: Number(d.e_monto_presupuesto_suficiencia) || 0,
-          id_seguimiento_partida_rubro: d.id_seguimiento_partida_rubro, // ✅ agregado
-          proveedores: [],
-        };
+            id_rubro: idRubro,
+            rubro: d.rubro,
+            monto: Number(d.e_monto_presupuesto_suficiencia) || 0,
+            id_seguimiento_partida_rubro: d.id_seguimiento_partida_rubro, // ✅ agregado
+            id_seguimiento_partida_rubro_proveedor: d.id_seguimiento_partida_rubro_proveedor,
+            proveedores: [],
+          };
           partidaObj.rubros.push(rubroObj);
         }
 
@@ -193,16 +213,59 @@ function RectorForm() {
             .map((p: string) => p.trim())
             .filter((p: string) => p.length > 0)
             .forEach((p: string) => {
+              // Extraer RFC y nombre con expresión regular
               const match = p.match(/^\d+\)([A-Z0-9]+)\s(.+)$/);
-              const provObj = match
-                ? { id: d.id_seguimiento_partida_rubro_proveedor, rfc: match[1], nombre: match[2] }
-                : { id: d.id_seguimiento_partida_rubro_proveedor || 0, rfc: "", nombre: p };
 
+              // Buscar si el proveedor ya existe en rubroObj
+              const rfc = match ? match[1] : "";
+              const nombre = match ? match[2] : p;
+
+              // Intentar obtener el id del proveedor desde la base de datos si viene nulo
+              const idProveedor =
+                d.id_seguimiento_partida_rubro_proveedor && d.id_seguimiento_partida_rubro_proveedor !== 0
+                  ? d.id_seguimiento_partida_rubro_proveedor
+                  : d.e_id_seguimiento_partida_rubro_proveedor || d.id_proveedor || 0;
+
+              // Estructura completa compatible con el SP
+              const provObj = {
+                id: idProveedor, // puede ser null si aún no está adjudicado
+                rfc,
+                nombre,
+              };
+
+              // Evitar duplicados por RFC
               if (!rubroObj.proveedores.some((pr: any) => pr.rfc === provObj.rfc)) {
                 rubroObj.proveedores.push(provObj);
               }
             });
         }
+
+        // Generar fila adjudicada automáticamente si el registro está adjudicado
+        if (
+          d.estatus === "ADJUDICADO" &&
+          d.id_seguimiento_partida_rubro_proveedor_adjudicado &&
+          d.id_seguimiento_partida_rubro_proveedor_adjudicado !== 0
+        ) {
+          adjudicadosRows.push({
+            partida: idPartida,
+            rubro: idRubro,
+            proveedor: d.proveedor_nombre || d.proveedor || d.proveedores || "",
+            estatus: d.estatus,
+            fundamento: d.id_fundamento,
+            importeSinIva: d.importe_ajustado_sin_iva,
+            importeTotal: d.importe_ajustado_total,
+            id_seguimiento_partida_rubro_proveedor_adjudicado: d.id_seguimiento_partida_rubro_proveedor_adjudicado,
+          });
+        }
+      });
+
+      // ✅ Si hay adjudicados existentes, mostrarlos automáticamente en la grilla
+      setRubroProveedorRows(() => {
+        const adjudicadosUnicos = adjudicadosRows.filter(
+          (row, index, self) =>
+            index === self.findIndex(r => r.id_seguimiento_partida_rubro_proveedor_adjudicado === row.id_seguimiento_partida_rubro_proveedor_adjudicado)
+        );
+        return adjudicadosUnicos;
       });
 
       setDetalleGeneral(data[0]);
@@ -278,55 +341,96 @@ function RectorForm() {
     }
   };
 
-  // ======================================================
+// ======================================================
 // 4️⃣.b Adjudicar proveedor (SP: sp_rector_seguimiento_gestion_proveedor_adjudicado)
 // ======================================================
 const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
   const proveedorId = selectedProveedor[idRubro];
   const fundamentoId = selectedFundamento[idRubro];
   const importe = importes[idRubro];
+  const estatus = selectedEstatus[idRubro];
 
-  if (!proveedorId || !fundamentoId) {
-    toast.error("❌ Selecciona proveedor y fundamento");
+  if (!proveedorId) {
+    toast.error("❌ Selecciona un proveedor antes de adjudicar");
     return;
   }
   if (!selectedId) {
     toast.error("❌ ID de seguimiento no definido");
     return;
   }
-  if (!importe || isNaN(importe.sinIva) || isNaN(importe.total)) {
-    toast.error("❌ Ingresa los importes ajustados");
+  if (!estatus) {
+    toast.error("❌ Selecciona un estatus antes de adjudicar");
     return;
   }
 
-  // Buscar el objeto del proveedor correcto
+  const requiereFundamento = ["ADJUDICADO", "DIFERIMIENTO"].includes(estatus);
+
+  if (requiereFundamento && !fundamentoId) {
+    toast.error("❌ Selecciona fundamento legal antes de adjudicar");
+    return;
+  }
+
+  if (
+    requiereFundamento &&
+    (!importe || isNaN(importe.sinIva) || isNaN(importe.total) || importe.sinIva <= 0)
+  ) {
+    toast.error("❌ Ingresa los importes ajustados correctamente");
+    return;
+  }
+
+  // Buscar datos en detalle
+  const partidaObj = detalle.find((p) => p.id_partida === idPartida);
+  if (!partidaObj) {
+    toast.error("❌ No se encontró la partida seleccionada");
+    return;
+  }
+
+  console.log("🧩 Buscando rubro:", idRubro, "en", partidaObj.rubros);
+  const rubroObj = partidaObj.rubros.find(
+    (r) => Number(r.id_rubro) === Number(idRubro)
+  );
+  if (!rubroObj) {
+    toast.error("❌ No se encontró el rubro seleccionado");
+    return;
+  }
+
+  const idSeguimientoPartidaRubro = rubroObj.id_seguimiento_partida_rubro;
+  if (!idSeguimientoPartidaRubro) {
+    toast.error("❌ No se encontró el id_seguimiento_partida_rubro");
+    return;
+  }
+
+  // 🚫 Validación: No permitir adjudicar si ya hay un registro adjudicado en este rubro
+  // Buscamos en rubroProveedorRows si hay un registro adjudicado para este rubro
+  const yaAdjudicado = rubroProveedorRows.some(
+    (row) =>
+      Number(row.rubro) === Number(idRubro) &&
+      (row.estatus === "ADJUDICADO" || row.estatus === "DIFERIMIENTO")
+  );
+  if (yaAdjudicado) {
+    toast.error("❌ Ya existe un registro adjudicado para este rubro. No puedes adjudicar dos veces.");
+    return;
+  }
+
+  // Buscar proveedor real
   let proveedorDbId: number | null = null;
   let proveedorRfc: string | null = null;
 
-  const partidaObj = detalle.find((p) => p.id_partida === idPartida);
-  if (partidaObj) {
-    const rubroObj = partidaObj.rubros.find((r) => r.id_rubro === idRubro);
-    if (rubroObj && rubroObj.proveedores && rubroObj.proveedores.length > 0) {
-      const prov = rubroObj.proveedores.find(
-        (p) => p.id?.toString() === proveedorId || p.rfc === proveedorId
-      );
-      if (prov) {
-        proveedorDbId = prov.id;
-        proveedorRfc = prov.rfc;
-      }
-    }
-  }
+  const prov = rubroObj.proveedores.find(
+    (p: { id: number; rfc: string; nombre: string }) =>
+      p.id?.toString() === proveedorId || p.rfc === proveedorId
+  );
 
-  if (!proveedorDbId) {
-    console.warn("⚠️ No se encontró ID real, se buscará por RFC en el detalle completo");
-
-    // Buscar globalmente si no se encontró por id local
+  if (prov) {
+    proveedorDbId = prov.id;
+    proveedorRfc = prov.rfc;
+  } else {
     detalle.forEach((partida) => {
       partida.rubros.forEach((rubro) => {
-        rubro.proveedores.forEach((prov: any) => {
-          if (prov.rfc === proveedorId || prov.rfc === proveedorRfc) {
-            proveedorDbId = prov.id;
-            proveedorRfc = prov.rfc;
+        rubro.proveedores.forEach((p: any) => {
+          if (p.rfc === proveedorId) {
+            proveedorDbId = p.id;
+            proveedorRfc = p.rfc;
           }
         });
       });
@@ -338,35 +442,99 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
     return;
   }
 
+  // 🔍 Verificar si ya existe adjudicado en backend (para obtener p_id existente)
+  let pIdExistente: number | null = null;
   try {
-    const payload = {
-      p_estatus: selectedEstatus[idRubro],
-      p_id_seguimiento_partida_rubro: Number(idRubro),
-      p_id_seguimiento_partida_rubro_proveedor: proveedorDbId,
-      p_id: null,
-      p_importe_ajustado_sin_iva: importe.sinIva,
-      p_importe_ajustado_total: importe.total,
-      p_id_fundamento: Number(fundamentoId),
-    };
+    const checkRes = await fetch(
+      `${API_BASE}/rector/verificar-adjudicado?p_id_rubro_proveedor=${proveedorDbId}`
+    );
+    const checkData = await checkRes.json();
+    if (checkRes.ok && checkData?.id) {
+      pIdExistente = checkData.id;
+      console.log("🔎 ID adjudicado existente encontrado:", pIdExistente);
+    } else {
+      console.log("ℹ️ No existe adjudicado previo, se insertará uno nuevo");
+    }
+  } catch (err) {
+    console.warn("⚠️ Error verificando adjudicado:", err);
+    pIdExistente = null;
+  }
 
-    console.log("📦 Payload adjudicarProveedor (corregido):", payload);
+  // Construir payload
+  const payload = {
+    p_estatus: estatus,
+    p_id_seguimiento_partida_rubro: idSeguimientoPartidaRubro,
+    p_id_seguimiento_partida_rubro_proveedor: proveedorDbId,
+    p_id: pIdExistente, // ← aquí se envía el ID correcto (o null si es nuevo)
+    p_importe_ajustado_sin_iva: requiereFundamento ? importe.sinIva : 0,
+    p_importe_ajustado_total: requiereFundamento ? importe.total : 0,
+    p_id_fundamento: requiereFundamento ? Number(fundamentoId) : 0,
+  };
 
-    const res = await fetch(`${API_BASE}/rector/seguimiento-gestion-proveedor-adjudicado`, {
+  try {
+    console.log("📤 Enviando payload al backend:", payload);
+
+    const res = await fetch(`${API_BASE}/rector/seguimiento-gestion-proveedor-adjudicado/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
+    const data = await res.json().catch(() => null);
+    console.log("🛰️ Respuesta del backend:", data);
+
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.detail || "Error al adjudicar proveedor");
+      throw new Error(data?.detail || "Error al adjudicar proveedor");
     }
 
-    toast.success("✅ Proveedor adjudicado correctamente");
+    if (typeof data === "number" && data > 0) {
+      toast.success(`✅ Proveedor adjudicado correctamente (ID generado: ${data})`);
+    } else if (data?.id) {
+      toast.success(`✅ Proveedor adjudicado correctamente (ID generado: ${data.id})`);
+    } else {
+      toast.warning("⚠️ Guardado correcto pero sin ID devuelto por el backend");
+    }
+
+    // 🧾 Agregar registro a la grilla inferior
+    setRubroProveedorRows((prev) => [
+      ...prev,
+      {
+        partida: selectedPartidaId,
+        rubro: idRubro,
+        proveedor: prov?.nombre || proveedorRfc || selectedProveedorLocal || "No especificado",
+        estatus,
+        fundamento: fundamentoId,
+        importeSinIva: importe?.sinIva ?? 0,
+        importeTotal: importe?.total ?? 0,
+      },
+    ]);
+
+    // 🧹 Limpiar campos del formulario de "Seleccionar estatus proveedor"
+    setSelectedPartidaId(null);
+    setSelectedRubroId(null);
+    setSelectedProveedorLocal("");
+    setEstatusLocal("");
+    setSelectedEstatus((prev) => {
+      const newState = { ...prev };
+      delete newState[idRubro];
+      return newState;
+    });
+    setSelectedFundamento((prev) => {
+      const newState = { ...prev };
+      delete newState[idRubro];
+      return newState;
+    });
+    setImportes((prev) => {
+      const newState = { ...prev };
+      delete newState[idRubro];
+      return newState;
+    });
+
+    // Recargar detalle visual
     cargarDetalle(selectedId);
   } catch (err: any) {
     console.error("❌ Error adjudicando proveedor:", err);
-    toast.error("❌ Error al adjudicar proveedor");
+    toast.error(`❌ Error al adjudicar: ${err.message || "Revisa consola o backend"}`);
   }
 };
 
@@ -381,6 +549,20 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
       cargarDetalle(procesoId);
     }
   }, [searchParams]);
+
+  // Nueva función para guardar fila en la tabla inferior
+  const handleGuardar = () => {
+    const newRow = {
+      partida: "Partida seleccionada",
+      rubro: "Rubro seleccionado",
+      proveedor: "Proveedor seleccionado",
+      estatus: estatusGeneral,
+      fundamento: selectedFundamento[selectedId ?? 0],
+      importeSinIva: importes[selectedId ?? 0]?.sinIva,
+      importeTotal: importes[selectedId ?? 0]?.total,
+    };
+    setRubroProveedorRows((prev) => [...prev, newRow]);
+  };
 
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-8">
@@ -409,6 +591,12 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
             </div>
             <div>
               <strong>Tipo de Licitación:</strong> {detalleGeneral.e_tipo_licitacion}
+            </div>
+            <div>
+              <strong>No. de veces:</strong>{" "}
+              {detalleGeneral.e_tipo_licitacion_no_veces
+                ? `${detalleGeneral.tipo_licitacion_no_veces_descripcion || ""}`
+                : "—"}
             </div>
             <div>
               <strong>Tipo de Evento:</strong> {detalleGeneral.e_tipo_evento}
@@ -613,231 +801,340 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                 </div>
               )}
             </div>
-            <Button
-              type="submit"
-              className="w-full bg-green-600 text-white hover:bg-green-700 cursor-pointer"
-              disabled={isSaving}
-            >
-              {isSaving ? "Guardando..." : "Guardar Captura"}
-            </Button>
+            {/* Botón Guardar Captura eliminado */}
           </form>
         </CardContent>
       </Card>
 
-      {/* ================= CARD 2: DETALLE ================= */}
+      {/* ================= CARD 2: DETALLE NUEVO DISEÑO ================= */}
       {estatusGeneral !== "CANCELADO" && (
         <Card className="shadow-md border">
           <CardHeader>
-            {/* Eliminado el CardTitle duplicado de "Detalle del Seguimiento" */}
+            <CardTitle>Seleccionar estatus proveedor</CardTitle>
           </CardHeader>
-          <CardContent>
-            {detalle.length === 0 ? (
-              <p className="text-gray-500">No hay datos del seguimiento.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Partida asociada</TableHead>
-                    <TableHead>Clave</TableHead>
-                    <TableHead>Rubro</TableHead>
-                    <TableHead>Estatus</TableHead>
-                    {detalle.some((partida) =>
-                      partida.rubros.some((rubro) =>
-                        ["ADJUDICADO", "DIFERIMIENTO"].includes(selectedEstatus[rubro.id_rubro])
-                      )
-                    ) && (
-                      <>
-                        <TableHead>Proveedor</TableHead>
-                        <TableHead>Monto</TableHead>
-                        <TableHead>Fundamento</TableHead>
-                        <TableHead>Importe s/IVA</TableHead>
-                        <TableHead>Importe total</TableHead>
-                      </>
-                    )}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detalle.map((partida) => (
-                    <React.Fragment key={partida.id_partida}>
-                      <TableRow className="bg-gray-100">
-                        <TableCell colSpan={7} className="font-semibold text-gray-800">
-                          Partida #{partida.id_partida} — {partida.partida}
-                        </TableCell>
-                      </TableRow>
-                      {partida.rubros.map((rubro) => (
-                        <TableRow key={rubro.id_rubro}>
-                          <TableCell></TableCell>
-                          <TableCell>{rubro.id_rubro || "—"}</TableCell>
-                          <TableCell>{rubro.rubro}</TableCell>
-                          <TableCell>
-                            <Select
-                              value={selectedEstatus[rubro.id_rubro] || ""}
-                              onValueChange={(val) =>
-                                setSelectedEstatus({
-                                  ...selectedEstatus,
-                                  [rubro.id_rubro]: val,
-                                })
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecciona estatus" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {estatusOptions.map((e) => (
-                                  <SelectItem key={e} value={e}>
-                                    {e}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-
-                          {["ADJUDICADO", "DIFERIMIENTO"].includes(selectedEstatus[rubro.id_rubro]) ? (
-                            <>
-                              <TableCell>
-                                {rubro.proveedores && rubro.proveedores.length > 0 ? (
-                                  rubro.proveedores.map((prov: any) => (
-                                    <div
-                                      key={`${rubro.id_rubro}-${prov.id || prov.rfc}`}
-                                      className="flex items-center space-x-2"
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={
-                                          selectedProveedor[rubro.id_rubro] === (prov.id ? prov.id.toString() : prov.rfc)
-                                        }
-                                        onChange={() => {
-                                          const valor = prov.id ? prov.id.toString() : prov.rfc;
-                                          setSelectedProveedor({
-                                            ...selectedProveedor,
-                                            [rubro.id_rubro]: valor,
-                                          });
-                                          console.log("✅ Proveedor seleccionado:", valor);
-                                        }}
-                                      />
-                                      <span>
-                                        {prov.rfc} — {prov.nombre}
-                                      </span>
-                                    </div>
-                                  ))
-                                ) : (
-                                  <p className="text-gray-500 italic text-sm">Sin proveedores registrados</p>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {rubro.monto !== undefined && rubro.monto !== null
-                                  ? `$${Number(rubro.monto).toLocaleString()}`
-                                  : "—"}
-                              </TableCell>
-                              <TableCell>
-                                <Select
-                                  onValueChange={(val) =>
-                                    setSelectedFundamento({
-                                      ...selectedFundamento,
-                                      [rubro.id_rubro]: val,
-                                    })
-                                  }
-                                  value={selectedFundamento[rubro.id_rubro]}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Selecciona fundamento" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {fundamentos.length > 0 ? (
-                                      fundamentos.map((f) => (
-                                        <SelectItem key={f.id} value={f.id.toString()}>
-                                          {f.descripcion}
-                                        </SelectItem>
-                                      ))
-                                    ) : (
-                                      <SelectItem disabled value="">
-                                        No hay fundamentos disponibles
-                                      </SelectItem>
-                                    )}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-                              <TableCell className="align-middle">
-                                <div className="flex items-center gap-3">
-                                  {/* Importe sin IVA */}
-                                  <div className="flex flex-col w-[180px]">
-                                    <Label className="block mb-1 text-sm text-center"></Label>
-                                    <Input
-                                      value={
-                                        importes[rubro.id_rubro]?.sinIva
-                                          ? `$${Number(importes[rubro.id_rubro].sinIva).toLocaleString("es-MX")}`
-                                          : ""
-                                      }
-                                      onChange={(e) => {
-                                        const digits = e.target.value.replace(/\D/g, "");
-                                        const amount = digits ? parseInt(digits, 10) : 0;
-
-                                        setImportes((prev) => ({
-                                          ...prev,
-                                          [rubro.id_rubro]: {
-                                            sinIva: digits ? amount : 0,
-                                            total: digits ? parseFloat((amount * 1.16).toFixed(2)) : 0,
-                                          },
-                                        }));
-                                      }}
-                                      placeholder="$0.00"
-                                      inputMode="numeric"
-                                      className="text-right"
-                                    />
-                                  </div>
-
-                                  {/* Importe total con IVA */}
-                                  <div className="flex flex-col w-[200px]">
-                                    <Label className="block mb-1 text-sm text-center"></Label>
-                                    <Input
-                                      disabled
-                                      className="text-right bg-gray-100 text-gray-700 cursor-not-allowed"
-                                      value={
-                                        importes[rubro.id_rubro]?.total
-                                          ? `$${Number(importes[rubro.id_rubro].total).toLocaleString("es-MX", {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
-                                            })}`
-                                          : ""
-                                      }
-                                      placeholder="$0.00"
-                                    />
-                                  </div>
-
-                                  {/* Botón adjudicar */}
-                                  <Button
-                                    size="sm"
-                                    className="bg-blue-600 text-white hover:bg-blue-700 cursor-pointer self-end mb-1"
-                                    type="button"
-                                    onClick={() => adjudicarProveedor(rubro.id_rubro, partida.id_partida)}
-                                  >
-                                    Adjudicar
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </>
-                          ) : (
-                            <TableCell colSpan={5} className="text-center">
-                              <Button
-                                size="sm"
-                                className="bg-green-600 text-white hover:bg-green-700 cursor-pointer"
-                                type="button"
-                                onClick={() => toast.success(`Guardado para rubro ${rubro.id_rubro}`)}
-                              >
-                                Guardar
-                              </Button>
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      ))}
-                    </React.Fragment>
+          <CardContent className="space-y-6">
+            {/* Select Partida */}
+            <div>
+              <Label>Partida</Label>
+              <Select
+                value={selectedPartidaId?.toString() ?? ""}
+                onValueChange={(val) => {
+                  const id = parseInt(val, 10);
+                  setSelectedPartidaId(id);
+                  // reset dependientes
+                  setSelectedRubroId(null);
+                  setSelectedProveedorLocal("");
+                  setEstatusLocal("");
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecciona partida" /></SelectTrigger>
+                <SelectContent>
+                  {detalle.map((p) => (
+                    <SelectItem key={p.id_partida} value={p.id_partida.toString()}>
+                      {`#${p.id_partida} — ${p.partida}`}
+                    </SelectItem>
                   ))}
-                </TableBody>
-              </Table>
-            )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Select Rubro + Proveedor (filtrado por partida) */}
+            <div>
+              <Label>Rubro y Proveedor</Label>
+              <Select
+                value={selectedRubroId && selectedProveedorLocal ? `${selectedRubroId}|${selectedProveedorLocal}` : ""}
+                onValueChange={(val) => {
+                  const [rubroStr, provStr] = val.split("|");
+                  const rubroId = parseInt(rubroStr, 10);
+                  setSelectedRubroId(rubroId);
+                  setSelectedProveedorLocal(provStr);
+                  // Para que adjudicarProveedor use los mapas existentes
+                  setSelectedProveedor((prev) => ({ ...prev, [rubroId]: provStr }));
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecciona rubro y proveedor" /></SelectTrigger>
+                <SelectContent>
+                  {detalle
+                    .filter((p) => (selectedPartidaId ? p.id_partida === selectedPartidaId : false))
+                    .flatMap((p) =>
+                      p.rubros.flatMap((r) =>
+                        r.proveedores.map((prov) => (
+                          <SelectItem
+                          key={`${r.id_rubro}-${prov.id || prov.rfc}`}
+                          value={`${Number(r.id_rubro)}|${prov.id || prov.rfc}`}
+                        >
+                          {`${p.partida} | Rubro ${r.id_rubro} — ${r.rubro} | ${prov.rfc} — ${prov.nombre}`}
+                        </SelectItem>
+                        ))
+                      )
+                    )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Estatus, Fundamento y Monto del rubro */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>Estatus</Label>
+                <Select
+                  value={estatusLocal}
+                  onValueChange={(val) => {
+                    setEstatusLocal(val);
+                    if (selectedRubroId != null) {
+                      setSelectedEstatus((prev) => ({ ...prev, [selectedRubroId]: val }));
+                    }
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecciona estatus" /></SelectTrigger>
+                  <SelectContent>
+                    {estatusOptions.map((e) => (
+                      <SelectItem key={e} value={e}>{e}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Fundamento</Label>
+                <Select
+                  value={selectedRubroId != null ? (selectedFundamento[selectedRubroId] ?? "") : ""}
+                  onValueChange={(val) => {
+                    if (selectedRubroId != null) {
+                      setSelectedFundamento((prev) => ({ ...prev, [selectedRubroId]: val }));
+                    }
+                  }}
+                  disabled={!["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecciona fundamento" /></SelectTrigger>
+                  <SelectContent>
+                    {fundamentos.length > 0 ? (
+                      fundamentos.map((f: any) => (
+                        <SelectItem key={f.id} value={f.id.toString()}>
+                          {f.descripcion}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem disabled value="no_fundamentos">No hay fundamentos</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Campo nuevo: monto del rubro */}
+              <div>
+                <Label>Monto del rubro</Label>
+                <Input
+                  disabled
+                  value={
+                    selectedRubroId
+                      ? (() => {
+                          const rubro = detalle
+                            .flatMap((p) => p.rubros)
+                            .find(
+                              (r) => Number(r.id_rubro) === Number(selectedRubroId)
+                            );
+                          return rubro
+                            ? `$${rubro.monto.toLocaleString("es-MX", {
+                                minimumFractionDigits: 2,
+                              })}`
+                            : "$—";
+                        })()
+                      : ""
+                  }
+                  className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            {/* Importe sin IVA y total (habilitados solo si estatus permite) */}
+            <div className="md:col-span-3 flex items-end gap-2">
+              <div className="flex-1">
+                <Label>Importe sin IVA</Label>
+                <Input
+                  disabled={!["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)}
+                  value={
+                    selectedRubroId != null && importes[selectedRubroId]?.sinIva
+                      ? `$${importes[selectedRubroId].sinIva.toLocaleString("es-MX")}`
+                      : ""
+                  }
+                  onChange={(e) => {
+                    if (selectedRubroId == null) return;
+                    const digits = e.target.value.replace(/\D/g, "");
+                    const amount = digits ? parseInt(digits, 10) : 0;
+                    setImportes((prev) => ({
+                      ...prev,
+                      [selectedRubroId]: {
+                        sinIva: amount,
+                        total: Number((amount * 1.16).toFixed(2)),
+                      },
+                    }));
+                  }}
+                  placeholder="$0.00"
+                />
+              </div>
+
+              <div className="flex-1">
+                <Label>Importe total con IVA (16%)</Label>
+                <Input
+                  disabled
+                  className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                  value={
+                    selectedRubroId != null && importes[selectedRubroId]?.total
+                      ? `$${importes[selectedRubroId].total.toLocaleString("es-MX", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}`
+                      : ""
+                  }
+                  placeholder="$0.00"
+                />
+              </div>
+            </div>
+
+            {/* Botón dinámico con condicionales */}
+            <Button
+              className="w-full text-white cursor-pointer"
+              style={{ backgroundColor: ["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal) ? '#2563eb' : '#2563eb' }}
+              onClick={async () => {
+                if (!selectedPartidaId || !selectedRubroId || !selectedProveedorLocal) {
+                  toast.error("Selecciona partida y rubro/proveedor");
+                  return;
+                }
+
+                const esAdjudicable = ["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal);
+
+                if (esAdjudicable) {
+                  await adjudicarProveedor(selectedRubroId, selectedPartidaId);
+                } else {
+                  // Guardado simple (mostrar en grilla y feedback). Persistencia simple/local.
+                  setRubroProveedorRows((prev) => [
+                    ...prev,
+                    {
+                      rubro: selectedRubroId,
+                      proveedor: selectedProveedorLocal,
+                      estatus: estatusLocal,
+                    },
+                  ]);
+                  toast.success("Estatus guardado.");
+                }
+              }}
+            >
+              {["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal) ? "Adjudicar" : "Guardar"}
+            </Button>
+
+            {/* Tabla inferior */}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Rubro / Proveedor</TableHead>
+                  <TableHead>Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rubroProveedorRows.map((row, index) => (
+                  <TableRow key={index}>
+                    <TableCell>
+                      {`Rubro #${row.rubro} — ${row.proveedor || "Proveedor no especificado"}`}
+                    </TableCell>
+                    <TableCell className="space-x-2">
+                      <Button size="sm" className="bg-green-600 text-white hover:bg-green-700" disabled={row.aprobado || row.rechazado}>
+                        Aprobar
+                      </Button>
+                      <Button size="sm" variant="destructive" disabled={row.aprobado || row.rechazado}>
+                        Rechazar
+                      </Button>
+
+                      {/* ✅ Nuevo diálogo Detalles con textos descriptivos */}
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="outline">
+                            Detalles
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-lg">
+                          <DialogHeader>
+                            <DialogTitle>Detalles del registro</DialogTitle>
+                            <DialogDescription>
+                              Información adjudicada por el rector.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-2 text-sm">
+                            <p>
+                              <strong>Partida:</strong>{" "}
+                              {(() => {
+                                const partidaObj = detalle.find((p) => p.id_partida === Number(row.partida));
+                                return partidaObj ? `#${partidaObj.id_partida} — ${partidaObj.partida}` : row.partida || "—";
+                              })()}
+                            </p>
+                            <p>
+                              <strong>Rubro:</strong>{" "}
+                              {(() => {
+                                const rubroObj = detalle
+                                  .flatMap((p) => p.rubros)
+                                  .find((r) => Number(r.id_rubro) === Number(row.rubro));
+                                return rubroObj ? `#${rubroObj.id_rubro} — ${rubroObj.rubro}` : row.rubro || "—";
+                              })()}
+                            </p>
+                            <p>
+                              <strong>Proveedor:</strong> {row.proveedor || "No especificado"}
+                            </p>
+                            <p>
+                              <strong>Estatus:</strong> {row.estatus}
+                            </p>
+                            <p>
+                              <strong>Fundamento:</strong>{" "}
+                              {(() => {
+                                const f = fundamentos.find(
+                                  (fun: any) => Number(fun.id) === Number(row.fundamento)
+                                );
+                                return f ? f.descripcion : row.fundamento || "N/A";
+                              })()}
+                            </p>
+                            <p>
+                              <strong>Importe sin IVA:</strong>{" "}
+                              ${row.importeSinIva?.toLocaleString("es-MX") || "0.00"}
+                            </p>
+                            <p>
+                              <strong>Importe total:</strong>{" "}
+                              ${row.importeTotal?.toLocaleString("es-MX") || "0.00"}
+                            </p>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}
+      {/* ================= BOTÓN FINALIZAR ================= */}
+      <div className="mt-6">
+        <Button
+          onClick={(e) => {
+            // Ejecutar handleSubmit y redirigir al finalizar
+            // Creamos un evento falso para llamar handleSubmit
+            // Si el form está referenciado, podemos hacer submit programático
+            // Pero aquí reutilizamos la lógica
+            // handleSubmit espera un evento de formulario, así que creamos uno
+            // Pero como handleSubmit ya hace el push, solo lo llamamos
+            // 
+            // Simulamos un evento de formulario: buscamos el form del Card principal
+            const formEl = document.querySelector('form');
+            if (formEl) {
+              // @ts-ignore
+              formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+            }
+          }}
+          className="w-full text-white cursor-pointer"
+          style={{ backgroundColor: '#db200b' }}
+          onMouseOver={e => (e.currentTarget.style.backgroundColor='#b81a09')}
+          onMouseOut={e => (e.currentTarget.style.backgroundColor='#db200b')}
+        >
+          Finalizar
+        </Button>
+      </div>
     </main>
   );
 }
