@@ -8,6 +8,14 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetTrigger,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 
 const API_BASE =
   typeof window !== "undefined"
@@ -35,6 +43,7 @@ type Preregistro = {
   r_estatus: string;
   servidor_publico_emite: string;
   e_servidor_publico_cargo: string;
+  e_tipo_evento?: string | null;
 };
 
 export default function SeguimientoRectorPage() {
@@ -43,6 +52,19 @@ export default function SeguimientoRectorPage() {
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
   const router = useRouter();
+
+  const [detalle, setDetalle] = useState<any[]>([]);
+
+  const cargarDetalle = async (id: number) => {
+    try {
+      const res = await fetch(`${API_BASE}/rector/seguimiento-detalle?p_id=${id}`);
+      const data = await res.json();
+      setDetalle(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ Error al cargar detalle:", err);
+      setDetalle([]);
+    }
+  };
 
   // ===============================
   // 🔹 Cargar preregistrados
@@ -99,6 +121,18 @@ export default function SeguimientoRectorPage() {
     return haystack.includes(term);
   });
 
+  // Formatea cualquier valor a moneda MXN de manera segura
+  const formatMXN = (v: any) => {
+    const n = Number(v);
+    if (!isFinite(n)) return "—";
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n);
+  };
+
   // ===============================
   // 🔹 Render
   // ===============================
@@ -128,23 +162,14 @@ export default function SeguimientoRectorPage() {
             <p className="text-gray-600 text-sm">
               Listado de procesos preregistrados concluidos por los entes.
             </p>
+
             {registros.length > 0 && (
               <p className="text-sm text-gray-500 mt-1">
                 Mostrando {registros.length} {registros.length === 1 ? "registro" : "registros"}.
               </p>
             )}
-          </div>
-        </div>
 
-        {/* 🔍 Barra de búsqueda */}
-        <div className="mt-2 w-full sm:w-1/2 lg:w-2/5">
-          <Input
-            type="text"
-            placeholder="Buscar por ID, ente, servidor, licitación o estatus..."
-            value={filtro}
-            onChange={(e) => setFiltro(e.target.value)}
-            className="w-full"
-          />
+          </div>
         </div>
 
         <Tabs value={view} onValueChange={(v) => setView(v as any)}>
@@ -153,6 +178,17 @@ export default function SeguimientoRectorPage() {
             <TabsTrigger value="table">📋 Tabla</TabsTrigger>
           </TabsList>
         </Tabs>
+      </div>
+
+      {/* 🔍 Barra de búsqueda */}
+      <div className="w-full">
+        <Input
+          type="text"
+          placeholder="Buscar por nombre, usuario o tipo..."
+          value={filtro}
+          onChange={(e) => setFiltro(e.target.value)}
+          className="w-full h-11 text-base"
+        />
       </div>
 
       {loading ? (
@@ -207,7 +243,7 @@ export default function SeguimientoRectorPage() {
                 </TableCell>
                 <TableCell>
                   <Link href={`/seguimiento-rector/new?id=${r.id}`}>
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Captura</Button>
+                    <Button className="bg-[#235391] hover:bg-[#1e487d] text-white cursor-pointer">Captura</Button>
                   </Link>
                 </TableCell>
               </TableRow>
@@ -255,14 +291,71 @@ export default function SeguimientoRectorPage() {
 
                 <div className="pt-3">
                   <Link href={`/seguimiento-rector/new?id=${r.id}`}>
-                    <Button className="w-full bg-blue-600 text-white hover:bg-blue-700 cursor-pointer">Captura</Button>
+                    <Button className="w-full bg-[#235391] text-white hover:bg-[#1e487d] cursor-pointer">Captura</Button>
                   </Link>
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button
+                        onClick={() => cargarDetalle(r.id)}
+                        className="w-full bg-gray-200 text-gray-900 hover:bg-gray-300 cursor-pointer mt-2"
+                      >
+                        Ver detalles
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="right" className="max-w-[900px] overflow-x-hidden overflow-y-auto">
+                      <SheetHeader>
+                        <SheetTitle>ID del seguimiento: {detalle[0]?.id || "—"}</SheetTitle>
+                      </SheetHeader>
+                      <div className="mt-4 space-y-4 text-sm text-gray-800">
+
+
+                        <div className="mt-6 border-t pt-4 space-y-6">
+                          <h3 className="font-semibold text-gray-700">Partidas y Rubros registrados</h3>
+                          {detalle.length > 0 ? (
+                            <div className="flex flex-col space-y-4">
+                              {detalle.map((d, i) => (
+                                <div
+                                  key={i}
+                                  className="border border-gray-200 rounded-md p-4 bg-gray-50 hover:bg-gray-100 transition"
+                                >
+                                  <p>
+                                    <strong>Partida:</strong>{" "}
+                                    {d.e_id_partida ? `${d.e_id_partida} — ${d.partida || "Sin descripción"}` : "—"}
+                                  </p>
+                                  <p>
+                                    <strong>Rubro:</strong>{" "}
+                                    {d.e_id_rubro ? `${d.e_id_rubro} — ${d.rubro || "Sin nombre"}` : "—"}
+                                  </p>
+                                  <p>
+                                    <strong>Monto sin IVA:</strong>{" "}
+                                    {formatMXN(d.e_importe_sin_iva)}
+                                  </p>
+                                  <p>
+                                    <strong>Monto Total:</strong>{" "}
+                                    {formatMXN(d.e_importe_total)}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-gray-500 mt-2">No hay partidas registradas.</p>
+                          )}
+                        </div>
+                      </div>
+                    </SheetContent>
+                  </Sheet>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+    {/* Regla global para el cursor pointer en el botón de cierre del Sheet */}
+    <style jsx global>{`
+      .fixed[data-state="open"] > button {
+        cursor: pointer !important;
+      }
+    `}</style>
     </main>
   );
 }
