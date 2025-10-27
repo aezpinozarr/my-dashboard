@@ -12,6 +12,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -824,398 +825,376 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
         </CardContent>
       </Card>
 
-      {/* ================= CARD 2: DETALLE NUEVO DISEÑO ================= */}
+      {/* ================= CARD 2: DETALLE NUEVO DISEÑO (Accordion por partida) ================= */}
       {estatusGeneral !== "CANCELADO" && (
         <Card className="shadow-md border">
           <CardHeader>
             <CardTitle>Seleccionar estatus proveedor</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Select Partida */}
-            <div>
-              <Label>Partida</Label>
-              <Select
-                value={selectedPartidaId?.toString() ?? ""}
-                onValueChange={(val) => {
-                  const id = parseInt(val, 10);
-                  setSelectedPartidaId(id);
-                  // reset dependientes
-                  setSelectedRubroId(null);
-                  setSelectedProveedorLocal("");
-                  setEstatusLocal("");
-                }}
-              >
-                <SelectTrigger><SelectValue placeholder="Selecciona partida" /></SelectTrigger>
-                <SelectContent>
-                  {detalle.map((p) => (
-                    <SelectItem key={p.id_partida} value={p.id_partida.toString()}>
-                      {`#${p.id_partida} — ${p.partida}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Select Rubro (filtrado por partida) */}
-            <div>
-              <Label>Rubro</Label>
-              <Select
-                value={selectedRubroId?.toString() ?? ""}
-                onValueChange={(val) => {
-                  const id = parseInt(val, 10);
-                  setSelectedRubroId(id);
-                  // reset proveedor dependiente
-                  setSelectedProveedorLocal("");
-                  setSelectedProveedor((prev) => ({ ...prev, [id]: "" }));
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona rubro" />
-                </SelectTrigger>
-                <SelectContent className="z-50" position="popper">
-                  {detalle
-                    .filter((p) => (selectedPartidaId ? p.id_partida === selectedPartidaId : false))
-                    .flatMap((p) =>
-                      p.rubros.map((r) => (
-                        <SelectItem key={r.id_rubro} value={r.id_rubro.toString()}>
-                          {`Rubro #${r.id_rubro} — ${r.rubro}`}
-                        </SelectItem>
-                      ))
-                    )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Select Proveedor (filtrado por rubro seleccionado) */}
-            <div>
-              <Label>Proveedor A Adjudicar </Label>
-              <Select
-                value={selectedProveedorLocal}
-                onValueChange={(val) => {
-                  setSelectedProveedorLocal(val);
-                  if (selectedRubroId != null) {
-                    setSelectedProveedor((prev) => ({ ...prev, [selectedRubroId]: val }));
-                  }
-                }}
-                disabled={!selectedRubroId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={selectedRubroId ? "Selecciona proveedor" : "Primero selecciona rubro"} />
-                </SelectTrigger>
-                <SelectContent className="z-50" position="popper">
-                  {(() => {
-                    if (!selectedRubroId) return null;
-                    // Encuentra el rubro seleccionado dentro de la partida seleccionada
-                    const rubroSel = detalle
-                      .filter((p) => (selectedPartidaId ? p.id_partida === selectedPartidaId : false))
-                      .flatMap((p) => p.rubros)
-                      .find((r) => Number(r.id_rubro) === Number(selectedRubroId));
-
-                    if (!rubroSel || !Array.isArray(rubroSel.proveedores) || rubroSel.proveedores.length === 0) {
-                      return (
-                        <SelectItem disabled value="__no_providers__">
-                          No hay proveedores
-                        </SelectItem>
-                      );
-                    }
-
-                    return rubroSel.proveedores.map((prov) => (
-                      <SelectItem
-                        key={prov.id ? `prov-${prov.id}` : `prov-${prov.rfc}`}
-                        value={(prov.id || prov.rfc).toString()}
+            <Accordion type="single" collapsible className="w-full">
+              {detalle.map((p) => (
+                <AccordionItem key={p.id_partida} value={`partida-${p.id_partida}`}>
+                  <AccordionTrigger className="flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-colors">
+                    <span>{`#${p.id_partida} — ${p.partida}`}</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-6 transition-all duration-300 ease-in-out">
+                    {/* Select Rubro (filtrado por partida) */}
+                    <div>
+                      <Label>Rubro</Label>
+                      <Select
+                        value={selectedRubroId != null ? String(selectedRubroId) : ""}
+                        onValueChange={(val) => {
+                          const id = Number(val);
+                          setSelectedPartidaId(p.id_partida);
+                          setSelectedRubroId(id);
+                          setSelectedProveedorLocal("");
+                          setSelectedProveedor((prev) => ({ ...prev, [id]: "" }));
+                          setEstatusLocal("");
+                        }}
                       >
-                        {`${prov.rfc} ${prov.nombre}`}
-                      </SelectItem>
-                    ));
-                  })()}
-                </SelectContent>
-              </Select>
-            </div>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona rubro">
+                            {(() => {
+                              if (!selectedRubroId) return "Selecciona rubro";
+                              const rubro = p.rubros.find((r) => Number(r.id_rubro) === Number(selectedRubroId));
+                              return rubro ? `Rubro #${rubro.id_rubro} — ${rubro.rubro}` : "Selecciona rubro";
+                            })()}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent className="z-50" position="popper">
+                          {p.rubros.map((r) => (
+                            <SelectItem key={String(r.id_rubro)} value={String(r.id_rubro)}>
+                              {`Rubro #${r.id_rubro} — ${r.rubro}`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-            {/* Estatus, Fundamento y Monto del rubro */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label>Estatus</Label>
-                <Select
-                  value={estatusLocal}
-                  onValueChange={(val) => {
-                    setEstatusLocal(val);
-                    if (selectedRubroId != null) {
-                      setSelectedEstatus((prev) => ({ ...prev, [selectedRubroId]: val }));
-                    }
-                  }}
-                >
-                  <SelectTrigger><SelectValue placeholder="Selecciona estatus" /></SelectTrigger>
-                  <SelectContent>
-                    {estatusOptions.map((e) => (
-                      <SelectItem key={e} value={e}>{e}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                    {/* Select Proveedor (filtrado por rubro seleccionado) */}
+                    <div>
+                      <Label>Proveedor A Adjudicar </Label>
+                      <Select
+                        value={String(selectedProveedorLocal)}
+                        onValueChange={(val) => {
+                          setSelectedProveedorLocal(val);
+                          if (selectedRubroId != null) {
+                            setSelectedProveedor((prev) => ({ ...prev, [selectedRubroId]: val }));
+                          }
+                        }}
+                        disabled={!selectedRubroId}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={selectedRubroId ? "Selecciona proveedor" : "Primero selecciona rubro"} />
+                        </SelectTrigger>
+                        <SelectContent className="z-50" position="popper">
+                          {(() => {
+                            if (!selectedRubroId) return null;
+                            // Encuentra el rubro seleccionado dentro de la partida actual
+                            const rubroSel = p.rubros.find((r) => Number(r.id_rubro) === Number(selectedRubroId));
+                            if (!rubroSel || !Array.isArray(rubroSel.proveedores) || rubroSel.proveedores.length === 0) {
+                              return (
+                                <SelectItem disabled value="__no_providers__">
+                                  No hay proveedores
+                                </SelectItem>
+                              );
+                            }
+                            return rubroSel.proveedores.map((prov) => (
+                              <SelectItem
+                                key={prov.id ? `prov-${String(prov.id)}` : `prov-${prov.rfc}`}
+                                value={String(prov.id || prov.rfc)}
+                              >
+                                {`${prov.rfc} ${prov.nombre}`}
+                              </SelectItem>
+                            ));
+                          })()}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-              <div>
-                <Label>Fundamento</Label>
-                <Select
-                  value={selectedRubroId != null ? (selectedFundamento[selectedRubroId] ?? "") : ""}
-                  onValueChange={(val) => {
-                    if (selectedRubroId != null) {
-                      setSelectedFundamento((prev) => ({ ...prev, [selectedRubroId]: val }));
-                    }
-                  }}
-                  disabled={!["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)}
-                >
-                  <SelectTrigger><SelectValue placeholder="Selecciona fundamento" /></SelectTrigger>
-                  <SelectContent>
-                    {fundamentos.length > 0 ? (
-                      fundamentos.map((f: any) => (
-                        <SelectItem key={f.id} value={f.id.toString()}>
-                          {f.descripcion}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem disabled value="no_fundamentos">No hay fundamentos</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Campo nuevo: monto del rubro */}
-              <div>
-                <Label>Monto del rubro</Label>
-                <Input
-                  disabled
-                  value={
-                    selectedRubroId
-                      ? (() => {
-                          const rubro = detalle
-                            .flatMap((p) => p.rubros)
-                            .find(
-                              (r) => Number(r.id_rubro) === Number(selectedRubroId)
-                            );
-                          return rubro
-                            ? `$${rubro.monto.toLocaleString("es-MX", {
-                                minimumFractionDigits: 2,
-                              })}`
-                            : "$—";
-                        })()
-                      : ""
-                  }
-                  className="bg-gray-100 text-gray-700 cursor-not-allowed"
-                />
-              </div>
-            </div>
-
-            {/* Montos originales del proveedor (solo vista) */}
-            {selectedRubroId && selectedProveedorLocal && (() => {
-              const rubro = detalle
-                .flatMap((p) => p.rubros)
-                .find((r) => Number(r.id_rubro) === Number(selectedRubroId));
-              const proveedor = rubro?.proveedores.find(
-                (prov) =>
-                  prov.id?.toString() === selectedProveedorLocal ||
-                  prov.rfc === selectedProveedorLocal
-              );
-
-              if (!proveedor) return null;
-
-              return (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
-                  <div>
-                    <Label>Importe original sin IVA (Ente)</Label>
-                    <Input
-                      disabled
-                      value={`$${proveedor.importeSinIvaOriginal.toLocaleString("es-MX", {
-                        minimumFractionDigits: 2,
-                      })}`}
-                      className="bg-gray-100 text-gray-700 cursor-not-allowed"
-                    />
-                  </div>
-                  <div>
-                    <Label>Importe original con IVA (Ente)</Label>
-                    <Input
-                      disabled
-                      value={`$${proveedor.importeTotalOriginal.toLocaleString("es-MX", {
-                        minimumFractionDigits: 2,
-                      })}`}
-                      className="bg-gray-100 text-gray-700 cursor-not-allowed"
-                    />
-                  </div>
-                </div>
-              );
-            })()}
-            {/* Importe sin IVA y total (habilitados solo si estatus permite) */}
-            <div className="md:col-span-3 flex items-end gap-2">
-              <div className="flex-1">
-                <Label>Importe sin IVA (Rector)</Label>
-                <Input
-                  disabled={!["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)}
-                  value={
-                    selectedRubroId != null && importes[selectedRubroId]?.sinIva
-                      ? `$${importes[selectedRubroId].sinIva.toLocaleString("es-MX")}`
-                      : ""
-                  }
-                  onChange={(e) => {
-                    if (selectedRubroId == null) return;
-                    const digits = e.target.value.replace(/\D/g, "");
-                    const amount = digits ? parseInt(digits, 10) : 0;
-                    setImportes((prev) => ({
-                      ...prev,
-                      [selectedRubroId]: {
-                        sinIva: amount,
-                        total: Number((amount * 1.16).toFixed(2)),
-                      },
-                    }));
-                  }}
-                  placeholder="$0.00"
-                />
-              </div>
-
-              <div className="flex-1">
-                <Label>Importe total con IVA (Rector)</Label>
-                <Input
-                  disabled
-                  className="bg-gray-100 text-gray-700 cursor-not-allowed"
-                  value={
-                    selectedRubroId != null && importes[selectedRubroId]?.total
-                      ? `$${importes[selectedRubroId].total.toLocaleString("es-MX", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}`
-                      : ""
-                  }
-                  placeholder="$0.00"
-                />
-              </div>
-            </div>
-
-            {/* Botón dinámico con condicionales */}
-            {(() => {
-              const yaAdjudicado = rubroProveedorRows.some(
-                (row) => Number(row.rubro) === Number(selectedRubroId)
-              );
-              return (
-                <Button
-                  className="w-full text-white cursor-pointer"
-                  style={{ backgroundColor: '#2563eb' }}
-                  disabled={yaAdjudicado}
-                  onClick={async () => {
-                    if (!selectedPartidaId || !selectedRubroId || !selectedProveedorLocal) {
-                      toast.error("Selecciona partida y rubro/proveedor");
-                      return;
-                    }
-
-                    const esAdjudicable = ["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal);
-
-                    if (esAdjudicable) {
-                      await adjudicarProveedor(selectedRubroId, selectedPartidaId);
-                    } else {
-                      setRubroProveedorRows((prev) => [
-                        ...prev,
-                        {
-                          rubro: selectedRubroId,
-                          proveedor: selectedProveedorLocal,
-                          estatus: estatusLocal,
-                        },
-                      ]);
-                      toast.success("Estatus guardado.");
-                    }
-                  }}
-                >
-                  {yaAdjudicado
-                    ? "Ya adjudicado"
-                    : ["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)
-                    ? "Adjudicar"
-                    : "Guardar"}
-                </Button>
-              );
-            })()}
-
-            {/* Tabla inferior */}
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Rubro / Proveedor</TableHead>
-                  <TableHead>Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rubroProveedorRows.map((row, index) => (
-                  <TableRow key={index}>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <p><strong>Rubro:</strong> #{row.rubro}</p>
-                        <p><strong>RFC:</strong> {row.proveedor?.rfc || "N/A"}</p>
-                        <p><strong>Razón social:</strong> {row.proveedor?.razon_social || "N/A"}</p>
-                        <p><strong>Nombre comercial:</strong> {row.proveedor?.nombre_comercial || "N/A"}</p>
-                        <p><strong>Persona jurídica:</strong> {row.proveedor?.persona_juridica || "N/A"}</p>
-                        <p><strong>Correo:</strong> {row.proveedor?.correo_electronico || "N/A"}</p>
-                        <p><strong>Entidad federativa:</strong> {row.proveedor?.entidad_federativa || "N/A"}</p>
+                    {/* Estatus, Fundamento y Monto del rubro */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label>Estatus</Label>
+                        <Select
+                          value={estatusLocal}
+                          onValueChange={(val) => {
+                            setEstatusLocal(val);
+                            if (selectedRubroId != null) {
+                              setSelectedEstatus((prev) => ({ ...prev, [selectedRubroId]: val }));
+                            }
+                          }}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Selecciona estatus" /></SelectTrigger>
+                          <SelectContent>
+                            {estatusOptions.map((e) => (
+                              <SelectItem key={e} value={e}>{e}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                    </TableCell>
-                    <TableCell className="space-x-2">
-                      {/* Solo Detalles */}
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button size="sm" variant="outline">
-                            Detalles
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-lg">
-                          <DialogHeader>
-                            <DialogTitle>Detalles del registro</DialogTitle>
-                            <DialogDescription>
-                              Información adjudicada por el rector.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-2 text-sm">
-                            <p>
-                              <strong>Partida:</strong>{" "}
-                              {(() => {
-                                const partidaObj = detalle.find((p) => p.id_partida === Number(row.partida));
-                                return partidaObj ? `#${partidaObj.id_partida} — ${partidaObj.partida}` : row.partida || "—";
-                              })()}
-                            </p>
-                            <p>
-                              <strong>Rubro:</strong>{" "}
-                              {(() => {
-                                const rubroObj = detalle
-                                  .flatMap((p) => p.rubros)
-                                  .find((r) => Number(r.id_rubro) === Number(row.rubro));
-                                return rubroObj ? `#${rubroObj.id_rubro} — ${rubroObj.rubro}` : row.rubro || "—";
-                              })()}
-                            </p>
-                            <p>
-                              <strong>Proveedor (RFC):</strong> {row.proveedor?.rfc || "No especificado"}
-                            </p>
-                            <p>
-                              <strong>Estatus:</strong> {row.estatus}
-                            </p>
-                            <p>
-                              <strong>Fundamento:</strong>{" "}
-                              {(() => {
-                                const f = fundamentos.find(
-                                  (fun: any) => Number(fun.id) === Number(row.fundamento)
-                                );
-                                return f ? f.descripcion : row.fundamento || "N/A";
-                              })()}
-                            </p>
-                            <p>
-                              <strong>Importe sin IVA:</strong>{" "}
-                              ${row.importeSinIva?.toLocaleString("es-MX") || "0.00"}
-                            </p>
-                            <p>
-                              <strong>Importe total:</strong>{" "}
-                              ${row.importeTotal?.toLocaleString("es-MX") || "0.00"}
-                            </p>
+
+                      <div>
+                        <Label>Fundamento</Label>
+                        <Select
+                          value={selectedRubroId != null ? (selectedFundamento[selectedRubroId] ?? "") : ""}
+                          onValueChange={(val) => {
+                            if (selectedRubroId != null) {
+                              setSelectedFundamento((prev) => ({ ...prev, [selectedRubroId]: val }));
+                            }
+                          }}
+                          disabled={!["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Selecciona fundamento" /></SelectTrigger>
+                          <SelectContent>
+                            {fundamentos.length > 0 ? (
+                              fundamentos.map((f: any) => (
+                                <SelectItem key={f.id} value={f.id.toString()}>
+                                  {f.descripcion}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem disabled value="no_fundamentos">No hay fundamentos</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Campo nuevo: monto del rubro */}
+                      <div>
+                        <Label>Monto del rubro</Label>
+                        <Input
+                          disabled
+                          value={
+                            selectedRubroId
+                              ? (() => {
+                                  const rubro = p.rubros.find(
+                                    (r) => Number(r.id_rubro) === Number(selectedRubroId)
+                                  );
+                                  return rubro
+                                    ? `$${rubro.monto.toLocaleString("es-MX", {
+                                        minimumFractionDigits: 2,
+                                      })}`
+                                    : "$—";
+                                })()
+                              : ""
+                          }
+                          className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Montos originales del proveedor (solo vista) */}
+                    {selectedRubroId && selectedProveedorLocal && (() => {
+                      const rubro = p.rubros.find((r) => Number(r.id_rubro) === Number(selectedRubroId));
+                      const proveedor = rubro?.proveedores.find(
+                        (prov) =>
+                          prov.id?.toString() === selectedProveedorLocal ||
+                          prov.rfc === selectedProveedorLocal
+                      );
+                      if (!proveedor) return null;
+                      return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+                          <div>
+                            <Label>Importe original sin IVA (Ente)</Label>
+                            <Input
+                              disabled
+                              value={`$${proveedor.importeSinIvaOriginal.toLocaleString("es-MX", {
+                                minimumFractionDigits: 2,
+                              })}`}
+                              className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                            />
                           </div>
-                        </DialogContent>
-                      </Dialog>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                          <div>
+                            <Label>Importe original con IVA (Ente)</Label>
+                            <Input
+                              disabled
+                              value={`$${proveedor.importeTotalOriginal.toLocaleString("es-MX", {
+                                minimumFractionDigits: 2,
+                              })}`}
+                              className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    {/* Importe sin IVA y total (habilitados solo si estatus permite) */}
+                    <div className="md:col-span-3 flex items-end gap-2">
+                      <div className="flex-1">
+                        <Label>Importe sin IVA (Rector)</Label>
+                        <Input
+                          disabled={!["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)}
+                          value={
+                            selectedRubroId != null && importes[selectedRubroId]?.sinIva
+                              ? `$${importes[selectedRubroId].sinIva.toLocaleString("es-MX")}`
+                              : ""
+                          }
+                          onChange={(e) => {
+                            if (selectedRubroId == null) return;
+                            const digits = e.target.value.replace(/\D/g, "");
+                            const amount = digits ? parseInt(digits, 10) : 0;
+                            setImportes((prev) => ({
+                              ...prev,
+                              [selectedRubroId]: {
+                                sinIva: amount,
+                                total: Number((amount * 1.16).toFixed(2)),
+                              },
+                            }));
+                          }}
+                          placeholder="$0.00"
+                        />
+                      </div>
+
+                      <div className="flex-1">
+                        <Label>Importe total con IVA (Rector)</Label>
+                        <Input
+                          disabled
+                          className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                          value={
+                            selectedRubroId != null && importes[selectedRubroId]?.total
+                              ? `$${importes[selectedRubroId].total.toLocaleString("es-MX", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}`
+                              : ""
+                          }
+                          placeholder="$0.00"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Botón dinámico con condicionales */}
+                    {(() => {
+                      const yaAdjudicado = rubroProveedorRows.some(
+                        (row) => Number(row.rubro) === Number(selectedRubroId)
+                      );
+                      return (
+                        <Button
+                          className="w-full text-white cursor-pointer"
+                          style={{ backgroundColor: '#2563eb' }}
+                          disabled={yaAdjudicado}
+                          onClick={async () => {
+                            if (!p.id_partida || !selectedRubroId || !selectedProveedorLocal) {
+                              toast.error("Selecciona partida y rubro/proveedor");
+                              return;
+                            }
+                            const esAdjudicable = ["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal);
+                            if (esAdjudicable) {
+                              await adjudicarProveedor(selectedRubroId, p.id_partida);
+                            } else {
+                              setRubroProveedorRows((prev) => [
+                                ...prev,
+                                {
+                                  rubro: selectedRubroId,
+                                  proveedor: selectedProveedorLocal,
+                                  estatus: estatusLocal,
+                                },
+                              ]);
+                              toast.success("Estatus guardado.");
+                            }
+                          }}
+                        >
+                          {yaAdjudicado
+                            ? "Ya adjudicado"
+                            : ["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)
+                            ? "Adjudicar"
+                            : "Guardar"}
+                        </Button>
+                      );
+                    })()}
+
+                    {/* Tabla inferior */}
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Rubro / Proveedor</TableHead>
+                          <TableHead>Acciones</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                    <TableBody>
+                        {rubroProveedorRows
+                          .filter((row) => Number(row.partida) === Number(p.id_partida))
+                          .map((row, index) => (
+                          <TableRow key={index}>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <p><strong>Rubro:</strong> #{row.rubro}</p>
+                                <p><strong>RFC:</strong> {row.proveedor?.rfc || "N/A"}</p>
+                                <p><strong>Razón social:</strong> {row.proveedor?.razon_social || "N/A"}</p>
+                                <p><strong>Nombre comercial:</strong> {row.proveedor?.nombre_comercial || "N/A"}</p>
+                                <p><strong>Persona jurídica:</strong> {row.proveedor?.persona_juridica || "N/A"}</p>
+                                <p><strong>Correo:</strong> {row.proveedor?.correo_electronico || "N/A"}</p>
+                                <p><strong>Entidad federativa:</strong> {row.proveedor?.entidad_federativa || "N/A"}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="space-x-2">
+                              {/* Solo Detalles */}
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button size="sm" variant="outline">
+                                    Detalles
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-lg">
+                                  <DialogHeader>
+                                    <DialogTitle>Detalles del registro</DialogTitle>
+                                    <DialogDescription>
+                                      Información adjudicada por el rector.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-2 text-sm">
+                                    <p>
+                                      <strong>Partida:</strong>{" "}
+                                      {(() => {
+                                        const partidaObj = detalle.find((partida) => partida.id_partida === Number(row.partida));
+                                        return partidaObj ? `#${partidaObj.id_partida} — ${partidaObj.partida}` : row.partida || "—";
+                                      })()}
+                                    </p>
+                                    <p>
+                                      <strong>Rubro:</strong>{" "}
+                                      {(() => {
+                                        const rubroObj = detalle
+                                          .flatMap((pr) => pr.rubros)
+                                          .find((r) => Number(r.id_rubro) === Number(row.rubro));
+                                        return rubroObj ? `#${rubroObj.id_rubro} — ${rubroObj.rubro}` : row.rubro || "—";
+                                      })()}
+                                    </p>
+                                    <p>
+                                      <strong>Proveedor (RFC):</strong> {row.proveedor?.rfc || "No especificado"}
+                                    </p>
+                                    <p>
+                                      <strong>Estatus:</strong> {row.estatus}
+                                    </p>
+                                    <p>
+                                      <strong>Fundamento:</strong>{" "}
+                                      {(() => {
+                                        const f = fundamentos.find(
+                                          (fun: any) => Number(fun.id) === Number(row.fundamento)
+                                        );
+                                        return f ? f.descripcion : row.fundamento || "N/A";
+                                      })()}
+                                    </p>
+                                    <p>
+                                      <strong>Importe sin IVA:</strong>{" "}
+                                      ${row.importeSinIva?.toLocaleString("es-MX") || "0.00"}
+                                    </p>
+                                    <p>
+                                      <strong>Importe total:</strong>{" "}
+                                      ${row.importeTotal?.toLocaleString("es-MX") || "0.00"}
+                                    </p>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
           </CardContent>
         </Card>
       )}
