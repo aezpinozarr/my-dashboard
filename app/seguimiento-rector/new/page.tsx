@@ -1,6 +1,8 @@
+// eslint-disable-next-line
 "use client";
 
-import React, { useEffect, useState, Suspense } from "react";
+import React, { useEffect, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,15 +64,47 @@ const formatTimeHHMM = (value: string) => {
     .slice(0, 5);
 };
 
-export default function Page() {
+// Skeleton loader for RectorForm
+function RectorSkeleton() {
   return (
-    <Suspense fallback={<div className="p-6 text-center">Cargando página...</div>}>
-      <RectorForm />
-    </Suspense>
+    <main className="max-w-7xl mx-auto p-6 space-y-8">
+      <Card className="border shadow-sm bg-gray-50">
+        <CardHeader>
+          <Skeleton className="h-6 w-40" />
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i}>
+              <Skeleton className="h-4 w-24 mb-1" />
+              <Skeleton className="h-5 w-full" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-md border">
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </main>
   );
 }
 
+export default function Page() {
+  return <RectorForm />;
+}
+
 function RectorForm() {
+  const [isLoading, setIsLoading] = useState(true);
   const { user } = useUser();
 
   const searchParams = useSearchParams();
@@ -168,6 +202,7 @@ function RectorForm() {
   // Nueva versión agrupando correctamente por partida, rubro y proveedores
   // ======================================================
   const cargarDetalle = async (id: number) => {
+    setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/rector/seguimiento-detalle?p_id=${id}&incluir_detalle_proveedor=true`);
       const data = await res.json();
@@ -292,6 +327,8 @@ function RectorForm() {
       setDetalle(Array.from(partidaMap.values()));
     } catch (err) {
       console.error("❌ Error cargando detalle:", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -582,6 +619,10 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
     };
     setRubroProveedorRows((prev) => [...prev, newRow]);
   };
+
+  if (isLoading) {
+    return <RectorSkeleton />;
+  }
 
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-8">
