@@ -1,7 +1,7 @@
 // eslint-disable-next-line
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
@@ -99,8 +99,14 @@ function RectorSkeleton() {
   );
 }
 
+
+
 export default function Page() {
-  return <RectorForm />;
+  return (
+    <Suspense fallback={<RectorSkeleton />}>
+      <RectorForm />
+    </Suspense>
+  );
 }
 
 function RectorForm() {
