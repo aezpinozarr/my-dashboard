@@ -83,27 +83,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         { title: "Fechas de sesiones (Pivot)", url: "/sesiones/fechas-pivot" },
       ],
     },
-    {
-      title: "Seguridad",
-      url: "#",
-      icon: Bot,
-      isActive: openMenus.includes("Seguridad"),
-      items: [{ title: "Usuarios", url: "/seguridad/usuarios" }],
-    },
-    {
-      title: "Catálogos",
-      url: "#",
-      icon: Bot,
-      isActive: openMenus.includes("Catálogos"),
-      items: [
-        { title: "Entes", url: "/catalogos/entes" },
-        { title: "Rubros", url: "/catalogos/rubros" },
-        { title: "Proveedores", url: "/catalogos/proveedores" },
-        { title: "Servidores Públicos", url: "/catalogos/servidores-publicos" },
-        { title: "Entes Servidores Público", url: "/catalogos/servidores-publicos-ente" },
-      ],
-    },
-    {
+
+        {
       title: "Procesos",
       url: "#",
       icon: SquareTerminal,
@@ -114,7 +95,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       ],
     },
 
-  
+      
 // ✅ Solo visible para usuarios tipo RECTOR
 ...(user?.tipo?.toLowerCase() === "rector"
   ? [
@@ -130,6 +111,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
     ]
   : []),
+
+      {
+      title: "Catálogos",
+      url: "#",
+      icon: Bot,
+      isActive: openMenus.includes("Catálogos"),
+      items: [
+        { title: "Entes", url: "/catalogos/entes" },
+        { title: "Rubros", url: "/catalogos/rubros" },
+        { title: "Proveedores", url: "/catalogos/proveedores" },
+        { title: "Servidores Públicos", url: "/catalogos/servidores-publicos" },
+        { title: "Entes Servidores Público", url: "/catalogos/servidores-publicos-ente" },
+      ],
+    },
+
+    {
+      title: "Seguridad",
+      url: "#",
+      icon: Bot,
+      isActive: openMenus.includes("Seguridad"),
+      items: [{ title: "Usuarios", url: "/seguridad/usuarios" }],
+    },
 
   ];
 

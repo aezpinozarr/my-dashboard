@@ -113,6 +113,17 @@ function RectorForm() {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useUser();
 
+  const formatMXN = (v: any) => {
+    const n = Number(v);
+    if (!isFinite(n)) return "—";
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(n);
+  };
+
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -136,12 +147,13 @@ function RectorForm() {
         id_seguimiento_partida_rubro: number;
         id_seguimiento_partida_rubro_proveedor_adjudicado?: number | null;
         proveedores: {
-        id: number;
-        rfc: string;
-        nombre: string;
-        importeSinIvaOriginal: number;
-        importeTotalOriginal: number;
-      }[];
+          id: number;
+          rfc: string;
+          nombre: string;
+          importeSinIvaOriginal: number;
+          importeTotalOriginal: number;
+          estatus?: string;
+        }[];
       }[];
     }[]
   >([]);
@@ -161,6 +173,11 @@ function RectorForm() {
   const [estatusLocal, setEstatusLocal] = useState<string>("");
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Estado para errores de validación de campos Rubro, Proveedor, Estatus y Fundamento
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: boolean }>({});
+
+  // Estado para alternar vista de tabla o tarjetas en la tabla inferior
+  const [tableView, setTableView] = useState<"table" | "card">("table");
 
   // ======================================================
   const [errores, setErrores] = useState<{ fecha_emision?: string; fecha_reunion?: string; hora_reunion?: string }>({});
@@ -172,9 +189,9 @@ function RectorForm() {
     const fetchServidores = async () => {
       try {
         const sResp = await fetch(
-          `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=${user.id_ente}`
-        );
-        setServidores(await sResp.json());
+          `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=0`);
+        const data = await sResp.json();
+        setServidores(data.filter((s: any) => s.activo === true || s.estatus === "ACTIVO"));
       } catch (err) {
         console.error("❌ Error cargando servidores:", err);
       }
@@ -293,9 +310,9 @@ function RectorForm() {
             });
         }
 
-        // Generar fila adjudicada automáticamente si el registro está adjudicado
+        // Generar fila adjudicada automáticamente solo si el registro sigue vigente
         if (
-          d.estatus === "ADJUDICADO" &&
+          ["ADJUDICADO", "DIFERIMIENTO"].includes(d.estatus) &&
           d.id_seguimiento_partida_rubro_proveedor_adjudicado &&
           d.id_seguimiento_partida_rubro_proveedor_adjudicado !== 0
         ) {
@@ -323,12 +340,51 @@ function RectorForm() {
       setRubroProveedorRows(() => {
         const adjudicadosUnicos = adjudicadosRows.filter(
           (row, index, self) =>
-            index === self.findIndex(r => r.id_seguimiento_partida_rubro_proveedor_adjudicado === row.id_seguimiento_partida_rubro_proveedor_adjudicado)
+            index ===
+            self.findIndex(
+              (r) =>
+                r.id_seguimiento_partida_rubro_proveedor_adjudicado ===
+                row.id_seguimiento_partida_rubro_proveedor_adjudicado
+            )
         );
-        return adjudicadosUnicos;
+
+        // 🔍 Filtra solo los que siguen vigentes (estatus ADJUDICADO o DIFERIMIENTO)
+        const adjudicadosVigentes = adjudicadosUnicos.filter((r) =>
+          ["ADJUDICADO", "DIFERIMIENTO"].includes(r.estatus)
+        );
+
+        return adjudicadosVigentes;
       });
 
       setDetalleGeneral(data[0]);
+      // Lógica para poblar el estado form con fecha/hora de reunión si existen
+      if (data[0] && data[0].e_fecha_y_hora_reunion) {
+        // Formato esperado: "YYYY-MM-DDTHH:MM:SS" o "YYYY-MM-DD HH:MM:SS"
+        const fechaHora = data[0].e_fecha_y_hora_reunion;
+        let fecha = "";
+        let hora = "";
+        if (typeof fechaHora === "string") {
+          // Permitir ambos formatos
+          const [f, h] = fechaHora.split(/[T ]/);
+          if (f) {
+            const [yyyy, mm, dd] = f.split("-");
+            if (yyyy && mm && dd) {
+              fecha = `${dd}/${mm}/${yyyy}`;
+            }
+          }
+          if (h) {
+            const [hh, min] = h.split(":");
+            if (hh && min) {
+              hora = `${hh}:${min}`;
+            }
+          }
+        }
+        setForm((prev) => ({
+          ...prev,
+          fecha_reunion: fecha,
+          hora_reunion: hora,
+        }));
+      }
       // ✅ Guardar todas las partidas sin filtrar
       setDetalle(Array.from(partidaMap.values()));
     } catch (err) {
@@ -612,8 +668,21 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
     }
   }, [searchParams]);
 
-  // Nueva función para guardar fila en la tabla inferior
+  // Nueva función para guardar fila en la tabla inferior (con validación visual)
   const handleGuardar = () => {
+    // Validar campos obligatorios
+    const errors: { [key: string]: boolean } = {};
+    if (!selectedRubroId) errors.rubro = true;
+    if (!selectedProveedorLocal) errors.proveedor = true;
+    if (!estatusLocal) errors.estatus = true;
+    if (["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal) && !selectedFundamento[selectedRubroId ?? 0]) {
+      errors.fundamento = true;
+    }
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      toast.error("❌ Completa todos los campos obligatorios");
+      return;
+    }
     const newRow = {
       partida: "Partida seleccionada",
       rubro: "Rubro seleccionado",
@@ -650,15 +719,15 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
           </CardHeader>
           <CardContent className="text-sm text-gray-800 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2">
             <div>
-              <strong>Ente:</strong> {detalleGeneral.ente}
+              <strong>ID:</strong> {selectedId}
             </div>
             <div>
-              <strong>Clasificación:</strong> {detalleGeneral.ente_clasificacion}
+              <strong>Ente:</strong> {detalleGeneral.ente}
             </div>
             <div>
               <strong>Tipo de Licitación:</strong> {detalleGeneral.e_tipo_licitacion}
             </div>
-            <div>
+            <div className="mt-[-19px]">
               <strong>No. de veces:</strong>{" "}
               {detalleGeneral.e_tipo_licitacion_no_veces
                 ? `${detalleGeneral.tipo_licitacion_no_veces_descripcion || ""}`
@@ -670,7 +739,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
             <div>
               <strong>Estatus actual:</strong> {detalleGeneral.r_estatus}
             </div>
-            <div>
+            <div className="mt-[-19px]">
               <strong>Fecha de reunión:</strong> {detalleGeneral.e_fecha_y_hora_reunion || "Sin definir"}
             </div>
           </CardContent>
@@ -683,70 +752,132 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Primera fila: Oficio, Fecha de Emisión, Fecha y Hora de reunión */}
-          <div className="flex flex-wrap gap-4">
-            {/* Oficio */}
-            <div className="flex-1 min-w-[200px]">
-              <Label>Oficio</Label>
-              <Input name="oficio" placeholder="Número de oficio" />
-            </div>
+            {/* Primera fila: Oficio, Fecha de Emisión, Fecha Reunión, Hora Reunión, Estatus General (NUEVO DISEÑO) */}
+            <div className="flex flex-wrap items-end justify-between gap-6">
+              {/* Oficio */}
+              <div className="flex flex-col min-w-[160px]">
+                <Label className="text-gray-700 font-medium">Oficio</Label>
+                <Input name="oficio" placeholder="Número de oficio" className="w-[180px] shadow-sm" />
+              </div>
 
-            {/* Fecha de Emisión */}
-            <div className="flex-1 min-w-[200px]">
-              <Label>Fecha de Emisión</Label>
-              <Input
-                value={form.fecha_emision ?? ""}
-                onChange={(e) =>
-                  setForm({ ...form, fecha_emision: formatDateDDMMYYYY(e.target.value) })
-                }
-                placeholder="dd/mm/aaaa"
-                maxLength={10}
-                name="fecha_emision"
-                className={`${errores.fecha_emision ? "border-red-500" : ""}`}
-              />
-              {errores.fecha_emision && (
-                <p className="text-red-600 text-xs mt-1">{errores.fecha_emision}</p>
-              )}
-            </div>
+              {/* Fecha de Emisión */}
+              <div className="flex flex-col min-w-[140px]">
+                <Label className="text-gray-700 font-medium">Fecha de Emisión</Label>
+                <Input
+                  value={form.fecha_emision ?? ""}
+                  onChange={(e) =>
+                    setForm({ ...form, fecha_emision: formatDateDDMMYYYY(e.target.value) })
+                  }
+                  placeholder="dd/mm/aaaa"
+                  maxLength={10}
+                  name="fecha_emision"
+                  className={`w-[140px] shadow-sm ${errores.fecha_emision ? "border-red-500" : ""}`}
+                />
+              </div>
 
-            {/* Fecha y Hora de reunión */}
-            <div className="flex-1 min-w-[260px]">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label>Fecha reunión</Label>
-                  <Input
-                    value={form.fecha_reunion ?? ""}
-                    onChange={(e) =>
-                      setForm({ ...form, fecha_reunion: formatDateDDMMYYYY(e.target.value) })
+              {/* Fecha reunión */}
+              <div className="flex flex-col min-w-[140px]">
+                <Label className="text-gray-700 font-medium">Fecha reunión</Label>
+                <Input
+                  value={form.fecha_reunion ?? ""}
+                  onChange={(e) =>
+                    setForm({ ...form, fecha_reunion: formatDateDDMMYYYY(e.target.value) })
+                  }
+                  placeholder="dd/mm/aaaa"
+                  maxLength={10}
+                  name="fecha_reunion_fecha"
+                  className={`w-[140px] shadow-sm ${errores.fecha_reunion ? "border-red-500" : ""}`}
+                />
+              </div>
+
+              {/* Hora reunión */}
+              <div className="flex flex-col min-w-[100px]">
+                <Label className="text-gray-700 font-medium">Hora (24 Hrs)</Label>
+                <Input
+                  value={form.hora_reunion ?? ""}
+                  onChange={(e) =>
+                    setForm({ ...form, hora_reunion: formatTimeHHMM(e.target.value) })
+                  }
+                  placeholder="HH:MM"
+                  maxLength={5}
+                  name="fecha_reunion_hora"
+                  className={`w-[100px] shadow-sm ${errores.hora_reunion ? "border-red-500" : ""}`}
+                />
+              </div>
+
+              {/* Estatus General */}
+              <div className="flex flex-col justify-end min-w-[300px]">
+                <Label className="mb-1 text-gray-700 font-medium">Estatus General</Label>
+                <RadioGroup
+                  value={estatusGeneral}
+                  onValueChange={(val: string) => {
+                    setEstatusGeneral(val);
+                    if (val !== "REVISADO") {
+                      setMostrarObservaciones(false);
                     }
-                    placeholder="dd/mm/aaaa"
-                    maxLength={10}
-                    name="fecha_reunion_fecha"
-                    className={`${errores.fecha_reunion ? "border-red-500" : ""}`}
-                  />
-                  {errores.fecha_reunion && (
-                    <p className="text-red-600 text-xs mt-1">{errores.fecha_reunion}</p>
-                  )}
-                </div>
-                <div>
-                  <Label>Hora reunión (24 Hrs)</Label>
-                  <Input
-                    value={form.hora_reunion ?? ""}
-                    onChange={(e) =>
-                      setForm({ ...form, hora_reunion: formatTimeHHMM(e.target.value) })
-                    }
-                    placeholder="HH:MM"
-                    maxLength={5}
-                    name="fecha_reunion_hora"
-                    className={`${errores.hora_reunion ? "border-red-500" : ""}`}
-                  />
-                  {errores.hora_reunion && (
-                    <p className="text-red-600 text-xs mt-1">{errores.hora_reunion}</p>
-                  )}
-                </div>
+                  }}
+                  className="flex flex-row gap-6 items-center bg-gray-50 px-3 py-2 rounded-md border border-gray-200 shadow-sm"
+                  name="estatus"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="REVISADO" id="estatus-revisado" />
+                    <Label htmlFor="estatus-revisado" className="cursor-pointer text-sm font-medium">REVISADO</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="CANCELADO" id="estatus-cancelado" />
+                    <Label htmlFor="estatus-cancelado" className="cursor-pointer text-sm font-medium">CANCELADO</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="ADJUDICADO" id="estatus-adjudicado" />
+                    <Label htmlFor="estatus-adjudicado" className="cursor-pointer text-sm font-medium">ADJUDICADO</Label>
+                  </div>
+                </RadioGroup>
               </div>
             </div>
-          </div>
+            {/* Observaciones/Motivo de cancelación según estatus */}
+            {estatusGeneral === "REVISADO" && (
+              <div className="mt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={mostrarObservaciones}
+                    onChange={(e) => setMostrarObservaciones(e.target.checked)}
+                    className="accent-blue-600"
+                  />
+                  Observaciones
+                </label>
+                {mostrarObservaciones && (
+                  <div className="mt-2">
+                    <Label htmlFor="observaciones">Observaciones</Label>
+                    <textarea
+                      id="observaciones"
+                      name="observaciones"
+                      className="w-full border rounded-md p-2 resize-none"
+                      rows={2}
+                      value={observaciones}
+                      onChange={(e) => setObservaciones(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            {estatusGeneral === "CANCELADO" && (
+              <div className="mt-2">
+                <Label htmlFor="observacionesCancelado">Motivo de cancelación</Label>
+                <textarea
+                  id="observacionesCancelado"
+                  name="observacionesCancelado"
+                  className="w-full border rounded-md p-2 resize-none"
+                  rows={2}
+                  value={observaciones}
+                  onChange={(e) => {
+                    setObservaciones(e.target.value);
+                    setMostrarObservaciones(true);
+                  }}
+                  placeholder="Escribe el motivo de la cancelación..."
+                />
+              </div>
+            )}
             {/* Asunto */}
             <div>
               <Label>Asunto</Label>
@@ -800,73 +931,6 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                 </p>
               )}
             </div>
-            {/* Estatus General */}
-            <div>
-              <Label>Estatus General</Label>
-              <RadioGroup
-                value={estatusGeneral}
-                onValueChange={(val: string) => {
-                setEstatusGeneral(val);
-                if (val !== "REVISADO") {
-                  setMostrarObservaciones(false);
-                }
-              }}
-                className="flex flex-row gap-8 mt-2"
-                name="estatus"
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="REVISADO" id="estatus-revisado" />
-                  <Label htmlFor="estatus-revisado" className="cursor-pointer">REVISADO</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="CANCELADO" id="estatus-cancelado" />
-                  <Label htmlFor="estatus-cancelado" className="cursor-pointer">CANCELADO</Label>
-                </div>
-              </RadioGroup>
-              {estatusGeneral === "REVISADO" && (
-                <div className="mt-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={mostrarObservaciones}
-                      onChange={(e) => setMostrarObservaciones(e.target.checked)}
-                      className="accent-blue-600"
-                    />
-                    Observaciones
-                  </label>
-                  {mostrarObservaciones && (
-                    <div className="mt-2">
-                      <Label htmlFor="observaciones">Observaciones</Label>
-                      <textarea
-                        id="observaciones"
-                        name="observaciones"
-                        className="w-full border rounded-md p-2 resize-none"
-                        rows={2}
-                        value={observaciones}
-                        onChange={(e) => setObservaciones(e.target.value)}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-              {estatusGeneral === "CANCELADO" && (
-                <div className="mt-2">
-                  <Label htmlFor="observacionesCancelado">Motivo de cancelación</Label>
-                  <textarea
-                    id="observacionesCancelado"
-                    name="observacionesCancelado"
-                    className="w-full border rounded-md p-2 resize-none"
-                    rows={2}
-                    value={observaciones}
-                    onChange={(e) => {
-                      setObservaciones(e.target.value);
-                      setMostrarObservaciones(true);
-                    }}
-                    placeholder="Escribe el motivo de la cancelación..."
-                  />
-                </div>
-              )}
-            </div>
             {/* Botón Guardar Captura eliminado */}
           </form>
         </CardContent>
@@ -876,7 +940,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
       {estatusGeneral !== "CANCELADO" && (
         <Card className="shadow-md border">
           <CardHeader>
-            <CardTitle>Seleccionar estatus proveedor</CardTitle>
+            <CardTitle>Seleccionar proceso de adjudicación</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <Accordion type="single" collapsible className="w-full">
@@ -898,25 +962,28 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                           setSelectedProveedorLocal("");
                           setSelectedProveedor((prev) => ({ ...prev, [id]: "" }));
                           setEstatusLocal("");
+                          // Al cambiar el campo, quitar error si estaba
+                          setValidationErrors((prev) => ({ ...prev, rubro: false }));
                         }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className={`${validationErrors.rubro ? "border-red-500" : ""}`}>
                           <SelectValue placeholder="Selecciona rubro">
                             {(() => {
                               if (!selectedRubroId) return "Selecciona rubro";
                               const rubro = p.rubros.find((r) => Number(r.id_rubro) === Number(selectedRubroId));
-                              return rubro ? `Rubro #${rubro.id_rubro} — ${rubro.rubro}` : "Selecciona rubro";
+                              return rubro ? `#${rubro.id_rubro} — ${rubro.rubro}` : "Selecciona rubro";
                             })()}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent className="z-50" position="popper">
                           {p.rubros.map((r) => (
                             <SelectItem key={String(r.id_rubro)} value={String(r.id_rubro)}>
-                              {`Rubro #${r.id_rubro} — ${r.rubro}`}
+                              {`#${r.id_rubro} — ${r.rubro}`}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      {validationErrors.rubro && <p className="text-red-600 text-xs mt-1">Campo obligatorio</p>}
                     </div>
 
                     {/* Select Proveedor (filtrado por rubro seleccionado) */}
@@ -929,10 +996,11 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                           if (selectedRubroId != null) {
                             setSelectedProveedor((prev) => ({ ...prev, [selectedRubroId]: val }));
                           }
+                          setValidationErrors((prev) => ({ ...prev, proveedor: false }));
                         }}
                         disabled={!selectedRubroId}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className={`${validationErrors.proveedor ? "border-red-500" : ""}`}>
                           <SelectValue placeholder={selectedRubroId ? "Selecciona proveedor" : "Primero selecciona rubro"} />
                         </SelectTrigger>
                         <SelectContent className="z-50" position="popper">
@@ -958,10 +1026,11 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                           })()}
                         </SelectContent>
                       </Select>
+                      {validationErrors.proveedor && <p className="text-red-600 text-xs mt-1">Campo obligatorio</p>}
                     </div>
 
-                    {/* Estatus, Fundamento y Monto del rubro */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Primera fila: Estatus y Fundamento */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
                       <div>
                         <Label>Estatus</Label>
                         <Select
@@ -971,17 +1040,20 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                             if (selectedRubroId != null) {
                               setSelectedEstatus((prev) => ({ ...prev, [selectedRubroId]: val }));
                             }
+                            setValidationErrors((prev) => ({ ...prev, estatus: false }));
                           }}
                         >
-                          <SelectTrigger><SelectValue placeholder="Selecciona estatus" /></SelectTrigger>
+                          <SelectTrigger className={`${validationErrors.estatus ? "border-red-500" : ""}`}>
+                            <SelectValue placeholder="Selecciona estatus" />
+                          </SelectTrigger>
                           <SelectContent>
                             {estatusOptions.map((e) => (
                               <SelectItem key={e} value={e}>{e}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
+                        {validationErrors.estatus && <p className="text-red-600 text-xs mt-1">Campo obligatorio</p>}
                       </div>
-
                       <div>
                         <Label>Fundamento</Label>
                         <Select
@@ -990,10 +1062,13 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                             if (selectedRubroId != null) {
                               setSelectedFundamento((prev) => ({ ...prev, [selectedRubroId]: val }));
                             }
+                            setValidationErrors((prev) => ({ ...prev, fundamento: false }));
                           }}
                           disabled={!["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)}
                         >
-                          <SelectTrigger><SelectValue placeholder="Selecciona fundamento" /></SelectTrigger>
+                          <SelectTrigger className={`${validationErrors.fundamento ? "border-red-500" : ""}`}>
+                            <SelectValue placeholder="Selecciona fundamento" />
+                          </SelectTrigger>
                           <SelectContent>
                             {fundamentos.length > 0 ? (
                               fundamentos.map((f: any) => (
@@ -1006,9 +1081,12 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                             )}
                           </SelectContent>
                         </Select>
+                        {validationErrors.fundamento && <p className="text-red-600 text-xs mt-1">Campo obligatorio</p>}
                       </div>
-
-                      {/* Campo nuevo: monto del rubro */}
+                    </div>
+                    {/* Segunda fila: Montos */}
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-2">
+                      {/* Monto del rubro */}
                       <div>
                         <Label>Monto del rubro</Label>
                         <Input
@@ -1020,9 +1098,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                                     (r) => Number(r.id_rubro) === Number(selectedRubroId)
                                   );
                                   return rubro
-                                    ? `$${rubro.monto.toLocaleString("es-MX", {
-                                        minimumFractionDigits: 2,
-                                      })}`
+                                    ? formatMXN(rubro.monto)
                                     : "$—";
                                 })()
                               : ""
@@ -1030,51 +1106,54 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                           className="bg-gray-100 text-gray-700 cursor-not-allowed"
                         />
                       </div>
-                    </div>
-
-                    {/* Montos originales del proveedor (solo vista) */}
-                    {selectedRubroId && selectedProveedorLocal && (() => {
-                      const rubro = p.rubros.find((r) => Number(r.id_rubro) === Number(selectedRubroId));
-                      const proveedor = rubro?.proveedores.find(
-                        (prov) =>
-                          prov.id?.toString() === selectedProveedorLocal ||
-                          prov.rfc === selectedProveedorLocal
-                      );
-                      if (!proveedor) return null;
-                      return (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
-                          <div>
-                            <Label>Importe original sin IVA (Ente)</Label>
-                            <Input
-                              disabled
-                              value={`$${proveedor.importeSinIvaOriginal.toLocaleString("es-MX", {
-                                minimumFractionDigits: 2,
-                              })}`}
-                              className="bg-gray-100 text-gray-700 cursor-not-allowed"
-                            />
-                          </div>
-                          <div>
-                            <Label>Importe original con IVA (Ente)</Label>
-                            <Input
-                              disabled
-                              value={`$${proveedor.importeTotalOriginal.toLocaleString("es-MX", {
-                                minimumFractionDigits: 2,
-                              })}`}
-                              className="bg-gray-100 text-gray-700 cursor-not-allowed"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    {/* Importe sin IVA y total (habilitados solo si estatus permite) */}
-                    <div className="md:col-span-3 flex items-end gap-2">
-                      <div className="flex-1">
-                        <Label>Importe sin IVA (Rector)</Label>
+                      {/* Importe cotizado */}
+                      <div>
+                        <Label>Importe cotizado</Label>
+                        <Input
+                          disabled
+                          value={
+                            (() => {
+                              if (!selectedRubroId || !selectedProveedorLocal) return "";
+                              const rubro = p.rubros.find((r) => Number(r.id_rubro) === Number(selectedRubroId));
+                              const proveedor = rubro?.proveedores.find(
+                                (prov) =>
+                                  prov.id?.toString() === selectedProveedorLocal ||
+                                  prov.rfc === selectedProveedorLocal
+                              );
+                              return proveedor ? formatMXN(proveedor.importeSinIvaOriginal) : "";
+                            })()
+                          }
+                          className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                        />
+                      </div>
+                      {/* Importe cotizado con IVA */}
+                      <div>
+                        <Label>Importe cotizado con IVA</Label>
+                        <Input
+                          disabled
+                          value={
+                            (() => {
+                              if (!selectedRubroId || !selectedProveedorLocal) return "";
+                              const rubro = p.rubros.find((r) => Number(r.id_rubro) === Number(selectedRubroId));
+                              const proveedor = rubro?.proveedores.find(
+                                (prov) =>
+                                  prov.id?.toString() === selectedProveedorLocal ||
+                                  prov.rfc === selectedProveedorLocal
+                              );
+                              return proveedor ? formatMXN(proveedor.importeTotalOriginal) : "";
+                            })()
+                          }
+                          className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                        />
+                      </div>
+                      {/* Importe ajustado */}
+                      <div>
+                        <Label>Importe ajustado</Label>
                         <Input
                           disabled={!["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)}
                           value={
                             selectedRubroId != null && importes[selectedRubroId]?.sinIva
-                              ? `$${importes[selectedRubroId].sinIva.toLocaleString("es-MX")}`
+                              ? formatMXN(importes[selectedRubroId].sinIva)
                               : ""
                           }
                           onChange={(e) => {
@@ -1092,18 +1171,15 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                           placeholder="$0.00"
                         />
                       </div>
-
-                      <div className="flex-1">
-                        <Label>Importe total con IVA (Rector)</Label>
+                      {/* Importe ajustado con IVA */}
+                      <div>
+                        <Label>Importe ajustado con IVA</Label>
                         <Input
                           disabled
                           className="bg-gray-100 text-gray-700 cursor-not-allowed"
                           value={
                             selectedRubroId != null && importes[selectedRubroId]?.total
-                              ? `$${importes[selectedRubroId].total.toLocaleString("es-MX", {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}`
+                              ? formatMXN(importes[selectedRubroId].total)
                               : ""
                           }
                           placeholder="$0.00"
@@ -1122,6 +1198,19 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                           style={{ backgroundColor: '#2563eb' }}
                           disabled={yaAdjudicado}
                           onClick={async () => {
+                            // Validar campos obligatorios antes de continuar
+                            const errors: { [key: string]: boolean } = {};
+                            if (!selectedRubroId) errors.rubro = true;
+                            if (!selectedProveedorLocal) errors.proveedor = true;
+                            if (!estatusLocal) errors.estatus = true;
+                            if (["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal) && !selectedFundamento[selectedRubroId ?? 0]) {
+                              errors.fundamento = true;
+                            }
+                            if (Object.keys(errors).length > 0) {
+                              setValidationErrors(errors);
+                              toast.error("❌ Completa todos los campos obligatorios");
+                              return;
+                            }
                             if (!p.id_partida || !selectedRubroId || !selectedProveedorLocal) {
                               toast.error("Selecciona partida y rubro/proveedor");
                               return;
@@ -1151,93 +1240,178 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                       );
                     })()}
 
-                    {/* Tabla inferior */}
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Rubro / Proveedor</TableHead>
-                          <TableHead>Acciones</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                    <TableBody>
+                    {/* Alternador de vista de tabla o card */}
+                    <div className="flex justify-end mb-3">
+                      <Button
+                        variant={tableView === "table" ? "default" : "outline"}
+                        size="sm"
+                        className="cursor-pointer"
+                        onClick={() => setTableView("table")}
+                      >
+                        Vista Tabla
+                      </Button>
+                      <Button
+                        variant={tableView === "card" ? "default" : "outline"}
+                        size="sm"
+                        className="ml-2 cursor-pointer"
+                        onClick={() => setTableView("card")}
+                      >
+                        Vista Card
+                      </Button>
+                    </div>
+                    {/* Tabla inferior o cards según vista */}
+                    {tableView === "table" ? (
+                      <div className="bg-gray-100 p-4 rounded-md border border-gray-300 overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Rubro | Proveedor</TableHead>
+                              <TableHead>Monto IVA</TableHead>
+                              <TableHead>Estatus</TableHead>
+                              <TableHead>Fundamento</TableHead>
+                              <TableHead>Acciones</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {rubroProveedorRows
+                              .filter((row) => Number(row.partida) === Number(p.id_partida))
+                              .map((row, index) => {
+                                const partidaObj = detalle.find((partida) => partida.id_partida === Number(row.partida));
+                                const rubroObj = detalle.flatMap((pr) => pr.rubros).find((r) => Number(r.id_rubro) === Number(row.rubro));
+                                const fundamentoObj = fundamentos.find((fun: any) => Number(fun.id) === Number(row.fundamento));
+                                return (
+                                  <TableRow key={index}>
+                                    <TableCell className="whitespace-normal break-words">
+                                      <div>
+                                        <strong>Rubro:</strong><br />
+                                        {partidaObj
+                                          ? `${partidaObj.id_partida} - ${partidaObj.partida} | ${
+                                              rubroObj ? `${rubroObj.id_rubro} - ${rubroObj.rubro}` : "—"
+                                            }`
+                                          : "—"}
+                                        <br />
+                                        <strong>Proveedor:</strong><br />
+                                        {`${row.proveedor?.rfc || ""} ${row.proveedor?.razon_social || ""}`}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      {formatMXN(row.importeTotal)}
+                                    </TableCell>
+                                    <TableCell>{row.estatus || "—"}</TableCell>
+                                    <TableCell className="whitespace-normal break-words">
+                                      <div><strong>Fundamento:</strong> {fundamentoObj ? fundamentoObj.descripcion : "—"}</div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Dialog>
+                                        <DialogTrigger asChild>
+                                          <Button size="sm" variant="outline" className="cursor-pointer">Detalles</Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="max-w-lg">
+                                          <DialogHeader>
+                                            <DialogTitle>Detalles del registro</DialogTitle>
+                                            <DialogDescription>Información adjudicada por el rector.</DialogDescription>
+                                          </DialogHeader>
+                                          <div className="space-y-2 text-sm">
+                                            <p>
+                                              <strong>Proveedor:</strong> {`${row.proveedor?.rfc || ""} ${row.proveedor?.razon_social || ""}`}
+                                            </p>
+                                            <p>
+                                              <strong>Estatus:</strong> {row.estatus || "—"}
+                                            </p>
+                                            {/* 🔘 Botón para revertir adjudicación */}
+                                            <div className="pt-4">
+                                              <Button
+                                                className="w-full bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                                                onClick={async () => {
+                                                  const idRegistro = row.id_seguimiento_partida_rubro_proveedor_adjudicado;
+                                                  if (!idRegistro) {
+                                                    toast.error("❌ No se encontró el ID de adjudicación para este registro");
+                                                    return;
+                                                  }
+
+                                                  const confirmar = confirm("¿Seguro que deseas deshacer esta adjudicación?");
+                                                  if (!confirmar) return;
+
+                                                  try {
+                                                    const res = await fetch(`${API_BASE}/rector/seg-partida-rubro-proveedor-deshacer/`, {
+                                                      method: "POST",
+                                                      headers: { "Content-Type": "application/json" },
+                                                      body: JSON.stringify({ p_id: idRegistro }),
+                                                    });
+
+                                                    const data = await res.json();
+
+                                                    if (!res.ok) {
+                                                      throw new Error(data?.detail || "Error al revertir adjudicación");
+                                                    }
+
+                                                    if (data.resultado === 1) {
+                                                      toast.success("✅ Adjudicación revertida correctamente");
+                                                      (document.activeElement as HTMLElement | null)?.blur();
+                                                      // 🔽 Quita SOLO el registro revertido de la tabla local
+                                                      setRubroProveedorRows((prev) =>
+                                                        prev.filter(
+                                                          (r) =>
+                                                            r.id_seguimiento_partida_rubro_proveedor_adjudicado !== idRegistro
+                                                        )
+                                                      );
+
+                                                      // ⚙️ Actualiza el estatus visualmente
+                                                      setDetalle((prev) =>
+                                                        prev.map((partida) => ({
+                                                          ...partida,
+                                                          rubros: partida.rubros.map((rubro) => ({
+                                                            ...rubro,
+                                                            proveedores: rubro.proveedores.map((prov) => ({
+                                                              ...prov,
+                                                              estatus:
+                                                                prov.id === idRegistro ? "PENDIENTE" : prov.estatus,
+                                                            })),
+                                                          })),
+                                                        }))
+                                                      );
+                                                    } else {
+                                                      toast.warning("⚠️ No se encontró ninguna adjudicación para revertir");
+                                                    }
+                                                  } catch (err: any) {
+                                                    console.error("❌ Error al deshacer adjudicación:", err);
+                                                    toast.error("Error al intentar revertir la adjudicación");
+                                                  }
+                                                }}
+                                              >
+                                                Deshacer adjudicación
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </DialogContent>
+                                      </Dialog>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4">
                         {rubroProveedorRows
                           .filter((row) => Number(row.partida) === Number(p.id_partida))
-                          .map((row, index) => (
-                          <TableRow key={index}>
-                            <TableCell>
-                              <div className="space-y-1">
-                                <p><strong>Rubro:</strong> #{row.rubro}</p>
-                                <p><strong>RFC:</strong> {row.proveedor?.rfc || "N/A"}</p>
-                                <p><strong>Razón social:</strong> {row.proveedor?.razon_social || "N/A"}</p>
-                                <p><strong>Nombre comercial:</strong> {row.proveedor?.nombre_comercial || "N/A"}</p>
-                                <p><strong>Persona jurídica:</strong> {row.proveedor?.persona_juridica || "N/A"}</p>
-                                <p><strong>Correo:</strong> {row.proveedor?.correo_electronico || "N/A"}</p>
-                                <p><strong>Entidad federativa:</strong> {row.proveedor?.entidad_federativa || "N/A"}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="space-x-2">
-                              {/* Solo Detalles */}
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button size="sm" variant="outline">
-                                    Detalles
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-lg">
-                                  <DialogHeader>
-                                    <DialogTitle>Detalles del registro</DialogTitle>
-                                    <DialogDescription>
-                                      Información adjudicada por el rector.
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="space-y-2 text-sm">
-                                    <p>
-                                      <strong>Partida:</strong>{" "}
-                                      {(() => {
-                                        const partidaObj = detalle.find((partida) => partida.id_partida === Number(row.partida));
-                                        return partidaObj ? `#${partidaObj.id_partida} — ${partidaObj.partida}` : row.partida || "—";
-                                      })()}
-                                    </p>
-                                    <p>
-                                      <strong>Rubro:</strong>{" "}
-                                      {(() => {
-                                        const rubroObj = detalle
-                                          .flatMap((pr) => pr.rubros)
-                                          .find((r) => Number(r.id_rubro) === Number(row.rubro));
-                                        return rubroObj ? `#${rubroObj.id_rubro} — ${rubroObj.rubro}` : row.rubro || "—";
-                                      })()}
-                                    </p>
-                                    <p>
-                                      <strong>Proveedor (RFC):</strong> {row.proveedor?.rfc || "No especificado"}
-                                    </p>
-                                    <p>
-                                      <strong>Estatus:</strong> {row.estatus}
-                                    </p>
-                                    <p>
-                                      <strong>Fundamento:</strong>{" "}
-                                      {(() => {
-                                        const f = fundamentos.find(
-                                          (fun: any) => Number(fun.id) === Number(row.fundamento)
-                                        );
-                                        return f ? f.descripcion : row.fundamento || "N/A";
-                                      })()}
-                                    </p>
-                                    <p>
-                                      <strong>Importe sin IVA:</strong>{" "}
-                                      ${row.importeSinIva?.toLocaleString("es-MX") || "0.00"}
-                                    </p>
-                                    <p>
-                                      <strong>Importe total:</strong>{" "}
-                                      ${row.importeTotal?.toLocaleString("es-MX") || "0.00"}
-                                    </p>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                          .map((row, index) => {
+                            const partidaObj = detalle.find((partida) => partida.id_partida === Number(row.partida));
+                            const rubroObj = detalle.flatMap((pr) => pr.rubros).find((r) => Number(r.id_rubro) === Number(row.rubro));
+                            const fundamentoObj = fundamentos.find((fun: any) => Number(fun.id) === Number(row.fundamento));
+                            return (
+                              <Card key={index} className="border shadow-sm bg-gray-50 p-4">
+                                <p><strong>Rubro:</strong><br />{partidaObj ? `${partidaObj.id_partida} - ${partidaObj.partida} | ${rubroObj ? `${rubroObj.id_rubro} - ${rubroObj.rubro}` : "—"}` : "—"}</p>
+                                <p><strong>Proveedor:</strong> {`${row.proveedor?.rfc || ""} ${row.proveedor?.razon_social || ""}`}</p>
+                                <p><strong>Monto IVA:</strong> {formatMXN(row.importeTotal)}</p>
+                                <p><strong>Estatus:</strong> {row.estatus || "—"}</p>
+                                <p><strong>Fundamento:</strong><br />{fundamentoObj ? fundamentoObj.descripcion : "—"}</p>
+                              </Card>
+                            );
+                          })}
+                      </div>
+                    )}
                   </AccordionContent>
                 </AccordionItem>
               ))}

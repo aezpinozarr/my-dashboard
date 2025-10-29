@@ -27,6 +27,7 @@ const API_BASE =
 
 type Adjudicado = {
   id: number;
+  id_rubro?: string
   ente: string;
   ente_clasificacion: string;
   e_tipo_licitacion: string;
@@ -42,6 +43,7 @@ type Adjudicado = {
   e_id_partida?: string;
   e_monto_presupuesto_suficiencia?: number;
   f_financiamiento?: string;
+  ramo?: string;
   observaciones?: string;
 };
 
@@ -71,15 +73,28 @@ export default function AdjudicadosPage() {
   const cargarAdjudicados = async () => {
     try {
       setLoading(true);
+      // Si el usuario es rector, fuerza a traer todos los entes
+      const enteFinal = typeof window !== "undefined" && localStorage.getItem("userTipo")?.toLowerCase() === "rector"
+        ? "-99"
+        : idEnte;
       const params = new URLSearchParams({
-        p_id_ente: idEnte,
+        p_id_ente: enteFinal,
         p_fecha1: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "-99",
         p_fecha2: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "-99",
       });
       const res = await fetch(`${API_BASE}/rector/seguimiento-adjudicado?${params.toString()}`);
       const data = await res.json();
-      setRegistros(Array.isArray(data) ? data : []);
-      setRegistrosOriginales(Array.isArray(data) ? data : []);
+
+      // ✅ Normalizar para asegurar compatibilidad de campos
+      const normalizados = Array.isArray(data)
+        ? data.map((item) => ({
+            ...item,
+            id_rubro: item.id_rubro || item.e_id_rubro || item.rubro_id || item.id || "",
+          }))
+        : [];
+
+      setRegistros(normalizados);
+      setRegistrosOriginales(normalizados);
     } catch (error) {
       console.error("❌ Error al cargar adjudicados:", error);
     } finally {
@@ -137,11 +152,11 @@ export default function AdjudicadosPage() {
       r.e_tipo_licitacion ?? "",
       r.r_fecha_emision ?? "",
       r.e_id_partida ?? "",
-      r.rubro ?? "",
+      `${r.id_rubro ?? ""} - ${r.rubro}`,
       formatCurrency(r.e_monto_presupuesto_suficiencia),
-      r.f_financiamiento ?? "",
+      r.ramo ?? "",
       formatCurrency(r.importe_ajustado_total),
-      r.razon_social ?? "",
+      `${r.rfc ?? ""} — ${r.razon_social ?? ""}`,
       r.observaciones ?? "",
     ]];
 
@@ -191,6 +206,87 @@ export default function AdjudicadosPage() {
 
     // Guardar archivo PDF
     doc.save(`reporte_adjudicacion_${r.id}.pdf`);
+  };
+
+  // Exportar todos los registros filtrados a un solo PDF (formato institucional)
+  const handleExportAllPDF = () => {
+    if (!registrosFiltrados.length) return;
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a2" });
+    const logo = "/tabasco-logo.png";
+    doc.addImage(logo, "PNG", 20, 10, 60, 25);
+    doc.setFontSize(20);
+    doc.text("GOBIERNO DEL ESTADO DE TABASCO", 150, 25, { align: "center" });
+    doc.setFontSize(14);
+    doc.text("INFORME DE ADJUDICACIONES", 150, 35, { align: "center" });
+    const head = [[
+      "DEPENDENCIA, ÓRGANO O ENTIDAD",
+      "FUNDAMENTO",
+      "MODALIDAD DE CONTRATACIÓN",
+      "FECHA DE EJECUCIÓN",
+      "PARTIDA PRESUPUESTAL",
+      "RUBRO",
+      "SUFICIENCIA PRESUPUESTAL POR RUBRO",
+      "FUENTE DE FINANCIAMIENTO",
+      "MONTO DE ADJUDICACIÓN CON IVA",
+      "PROVEEDOR ADJUDICADO",
+      "OBSERVACIONES",
+    ]];
+    const body = registrosFiltrados.map((r) => [
+      r.ente ?? "",
+      r.fundamento ?? "",
+      r.e_tipo_licitacion ?? "",
+      r.r_fecha_emision ?? "",
+      r.e_id_partida ?? "",
+      `${r.id_rubro ?? ""} - ${r.rubro}`,
+      formatCurrency(r.e_monto_presupuesto_suficiencia),
+      r.ramo ?? "",
+      formatCurrency(r.importe_ajustado_total),
+      `${r.rfc ?? ""} — ${r.razon_social ?? ""}`,
+      r.observaciones ?? "",
+    ]);
+    autoTable(doc, {
+      startY: 45,
+      head,
+      body,
+      styles: {
+        fontSize: 15,
+        halign: "center",
+        valign: "middle",
+        cellPadding: 4,
+        lineColor: [0, 0, 0],
+        lineWidth: 0.1,
+      },
+      headStyles: {
+        fillColor: [153, 20, 71],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        halign: "center",
+      },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+      columnStyles: {
+        0: { cellWidth: 55 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 50 },
+        3: { cellWidth: 40 },
+        4: { cellWidth: 50 },
+        5: { cellWidth: 55 },
+        6: { cellWidth: 50 },
+        7: { cellWidth: 55 },
+        8: { cellWidth: 50 },
+        9: { cellWidth: 55 },
+        10: { cellWidth: 55 },
+      },
+      margin: { left: 15, right: 15 },
+      didDrawPage: (data) => {
+        doc.setFontSize(10);
+        doc.text(
+          "Fuente: Sistema de Seguimiento Rector | Secretaría de Administración e Innovación Gubernamental",
+          data.settings.margin.left,
+          doc.internal.pageSize.height - 10
+        );
+      },
+    });
+    doc.save("reporte_adjudicaciones.pdf");
   };
 
   // 🔍 Filtro simple
@@ -333,6 +429,13 @@ export default function AdjudicadosPage() {
               Eliminar filtro
             </Button>
           )}
+          {/* Botón Exportar todo en PDF (ahora junto a los filtros) */}
+          <Button
+            className="bg-[#991447] hover:bg-[#7a1040] text-white font-semibold px-6 py-2"
+            onClick={handleExportAllPDF}
+          >
+            Exportar todo en PDF
+          </Button>
         </div>
       </div>
 
@@ -366,7 +469,7 @@ export default function AdjudicadosPage() {
               <TableHead>Monto del rubro</TableHead>
               <TableHead>Fuente de financiamiento</TableHead>
               <TableHead>Importe con IVA</TableHead>
-              <TableHead>Proveedor adjudicado</TableHead>
+              <TableHead>Adjudicado</TableHead>
               <TableHead>Observaciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -378,15 +481,15 @@ export default function AdjudicadosPage() {
                 <TableCell>{r.estatus ?? ""}</TableCell>
                 <TableCell>{r.r_fecha_emision}</TableCell>
                 <TableCell>{r.e_id_partida ?? ""}</TableCell>
-                <TableCell>{r.rubro}</TableCell>
+                <TableCell>{`${r.id_rubro ?? ""} - ${r.rubro}`}</TableCell>
                 <TableCell>
                   {formatCurrency(r.e_monto_presupuesto_suficiencia)}
                 </TableCell>
-                <TableCell>{r.f_financiamiento ?? ""}</TableCell>
+                <TableCell>{r.ramo ?? ""}</TableCell>
                 <TableCell>
                   {formatCurrency(r.importe_ajustado_total)}
                 </TableCell>
-                <TableCell>{r.rfc}</TableCell>
+                <TableCell>{`${r.rfc} — ${r.razon_social ?? ""}`}</TableCell>
                 <TableCell>{r.observaciones ?? ""}</TableCell>
               </TableRow>
             ))}
@@ -408,11 +511,11 @@ export default function AdjudicadosPage() {
                 <p><strong>Estatus general:</strong> {r.estatus ?? ""}</p>
                 <p><strong>Fecha de emisión:</strong> {r.r_fecha_emision}</p>
                 <p><strong>Partida:</strong> {r.e_id_partida ?? ""}</p>
-                <p><strong>Rubro:</strong> {r.rubro}</p>
+                <p><strong>Rubro:</strong> {`${r.id_rubro ?? ""} - ${r.rubro}`}</p>
                 <p><strong>Monto del rubro:</strong> {formatCurrency(r.e_monto_presupuesto_suficiencia)}</p>
-                <p><strong>Fuente de financiamiento:</strong> {r.f_financiamiento ?? ""}</p>
+                <p><strong>Fuente de financiamiento:</strong> {r.ramo ?? ""}</p>
                 <p><strong>Importe con IVA:</strong> {formatCurrency(r.importe_ajustado_total)}</p>
-                <p><strong>Proveedor adjudicado:</strong> {r.rfc}</p>
+                <p><strong>Adjudicado:</strong> {`${r.rfc} — ${r.razon_social ?? ""}`}</p>
                 <p><strong>Observaciones:</strong> {r.observaciones ?? ""}</p>
                 <Button
                   className="w-full mt-2 bg-[#235391] hover:bg-[#1e487d] text-white"

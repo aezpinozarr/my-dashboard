@@ -16,6 +16,12 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
 
 const API_BASE =
   typeof window !== "undefined"
@@ -133,6 +139,20 @@ export default function SeguimientoRectorPage() {
     }).format(n);
   };
 
+  // Agrupa detalle por e_id_partida
+  const detalleAgrupado = detalle.reduce((acc: Record<string, any>, item) => {
+    const key = item.e_id_partida || "sin_partida";
+    if (!acc[key]) {
+      acc[key] = {
+        e_id_partida: item.e_id_partida,
+        partida: item.partida,
+        items: [],
+      };
+    }
+    acc[key].items.push(item);
+    return acc;
+  }, {});
+
   // ===============================
   // 🔹 Render
   // ===============================
@@ -207,7 +227,7 @@ export default function SeguimientoRectorPage() {
               <TableHead>Clasificación</TableHead>
               <TableHead>Tipo Licitación</TableHead>
               <TableHead>No. Veces</TableHead>
-              <TableHead>Servidor Público</TableHead>
+              <TableHead>Servidor Público (Emite)</TableHead>
               <TableHead>Fecha Reunión</TableHead>
               <TableHead>Estatus</TableHead>
               <TableHead>Acciones</TableHead>
@@ -223,11 +243,12 @@ export default function SeguimientoRectorPage() {
                 <TableCell>{r.tipo_licitacion_no_veces_descripcion}</TableCell>
                 <TableCell>{r.servidor_publico_emite}</TableCell>
                 <TableCell>
-                  {r.r_fecha_y_hora_reunion
-                    ? new Date(r.r_fecha_y_hora_reunion).toLocaleString("es-MX", {
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      })
+                  {r.e_fecha_y_hora_reunion
+                    ? new Date(r.e_fecha_y_hora_reunion).toLocaleString("es-MX", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                      hour12: false, // ✅ fuerza formato de 24 horas
+                    })
                     : "—"}
                 </TableCell>
                 <TableCell>
@@ -267,13 +288,14 @@ export default function SeguimientoRectorPage() {
                 <p><strong>ID:</strong> {r.id}</p>
                 <p><strong>Tipo Licitación:</strong> {r.e_tipo_licitacion}</p>
                 <p><strong>No. Veces:</strong> {r.tipo_licitacion_no_veces_descripcion}</p>
-                <p><strong>Servidor Público:</strong> {r.servidor_publico_emite}</p>
+                <p><strong>Servidor Público (Emite):</strong> {r.servidor_publico_emite}</p>
                 <p><strong>Fecha reunión:</strong>{" "}
-                  {r.r_fecha_y_hora_reunion
-                    ? new Date(r.r_fecha_y_hora_reunion).toLocaleString("es-MX", {
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      })
+                  {r.e_fecha_y_hora_reunion
+                    ? new Date(r.e_fecha_y_hora_reunion).toLocaleString("es-MX", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                      hour12: false, // ✅ fuerza formato de 24 horas
+                    })
                     : "—"}
                 </p>
                 <p>
@@ -308,35 +330,74 @@ export default function SeguimientoRectorPage() {
                       </SheetHeader>
                       <div className="mt-4 space-y-4 text-sm text-gray-800">
 
-
                         <div className="mt-6 border-t pt-4 space-y-6">
                           <h3 className="font-semibold text-gray-700">Partidas y Rubros registrados</h3>
                           {detalle.length > 0 ? (
-                            <div className="flex flex-col space-y-4">
-                              {detalle.map((d, i) => (
-                                <div
-                                  key={i}
-                                  className="border border-gray-200 rounded-md p-4 bg-gray-50 hover:bg-gray-100 transition"
-                                >
-                                  <p>
-                                    <strong>Partida:</strong>{" "}
-                                    {d.e_id_partida ? `${d.e_id_partida} — ${d.partida || "Sin descripción"}` : "—"}
-                                  </p>
-                                  <p>
-                                    <strong>Rubro:</strong>{" "}
-                                    {d.e_id_rubro ? `${d.e_id_rubro} — ${d.rubro || "Sin nombre"}` : "—"}
-                                  </p>
-                                  <p>
-                                    <strong>Monto sin IVA:</strong>{" "}
-                                    {formatMXN(d.e_importe_sin_iva)}
-                                  </p>
-                                  <p>
-                                    <strong>Monto Total:</strong>{" "}
-                                    {formatMXN(d.e_importe_total)}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
+                            <Accordion type="single" collapsible className="space-y-4">
+                              {Object.values(detalleAgrupado).map(({ e_id_partida, partida, items }) => {
+                                // Agrupar items por e_id_rubro
+                                const rubrosAgrupados = items.reduce((acc: Record<string, any>, item: any) => {
+                                  const key = item.e_id_rubro || "sin_rubro";
+                                  if (!acc[key]) {
+                                    acc[key] = {
+                                      e_id_rubro: item.e_id_rubro,
+                                      rubro: item.rubro,
+                                      proveedores: [],
+                                    };
+                                  }
+                                  acc[key].proveedores.push(item);
+                                  return acc;
+                                }, {});
+
+                                return (
+                                  <AccordionItem key={e_id_partida || "sin_partida"} value={String(e_id_partida) || "sin_partida"} className="border border-gray-200 rounded-md">
+                                    <AccordionTrigger className="px-4 py-2 font-semibold text-gray-800">
+                                      {e_id_partida ? `${e_id_partida} — ${partida || "Sin descripción"}` : "Sin partida"}
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-4 py-2 space-y-4 bg-gray-50">
+                                      {Object.values(rubrosAgrupados).map(({ e_id_rubro, rubro, proveedores }: any) => (
+                                        <div key={e_id_rubro || "sin_rubro"} className="border border-gray-300 rounded-md p-3 bg-white space-y-3">
+                                          <p className="font-semibold text-gray-800 border-b border-gray-200 pb-1">
+                                            {e_id_rubro ? `${e_id_rubro} — ${rubro || "Sin nombre"}` : "Sin rubro"}
+                                          </p>
+                                          <div className="space-y-2">
+                                            {proveedores.map((prov: any, i: number) => (
+                                              <div key={i} className="border border-gray-200 rounded-md p-2 flex flex-col bg-gray-50">
+                                                {/* Proveedores participantes */}
+                                                {prov.e_rfc_proveedor && (
+                                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-gray-200 pb-2 mb-2">
+                                                    <p className="text-sm font-medium text-gray-700">
+                                                      Proveedor participante: <span className="font-semibold">{prov.e_rfc_proveedor}</span>
+                                                    </p>
+                                                    <div className="flex gap-4 text-sm text-gray-600 mt-1 sm:mt-0">
+                                                      <p><strong>Monto sin IVA:</strong> {formatMXN(prov.e_importe_sin_iva)}</p>
+                                                      <p><strong>Monto Total:</strong> {formatMXN(prov.e_importe_total)}</p>
+                                                    </div>
+                                                  </div>
+                                                )}
+
+                                                {/* Proveedor adjudicado */}
+                                                {prov.r_rfc_proveedor_adjudicado && (
+                                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-green-50 p-2 rounded-md">
+                                                    <p className="text-sm font-medium text-green-700">
+                                                      ✅ Adjudicado: <span className="font-semibold">{prov.r_rfc_proveedor_adjudicado}</span>
+                                                    </p>
+                                                    <div className="flex gap-4 text-sm text-green-700 mt-1 sm:mt-0">
+                                                      <p><strong>Monto sin IVA:</strong> {formatMXN(prov.r_importe_ajustado_sin_iva)}</p>
+                                                      <p><strong>Monto Total:</strong> {formatMXN(prov.r_importe_ajustado_total)}</p>
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                );
+                              })}
+                            </Accordion>
                           ) : (
                             <p className="text-gray-500 mt-2">No hay partidas registradas.</p>
                           )}
