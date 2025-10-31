@@ -53,15 +53,19 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
         throw new Error(data.mensaje || "Error de autenticación");
       }
 
-      // ✅ Guardar sesión global
+      // ✅ Guardar sesión global con los datos correctos
       setUser({
-        id: data.id,
-        username: data.username,
-        nombre: data.nombre,
-        id_ente: data.id_ente,
-        tipo: data.tipo,
+        id: data.usuario.id,
+        username: data.usuario.username,
+        nombre: data.usuario.nombre,
+        id_ente: data.usuario.id_ente,
+        tipo: data.usuario.tipo,
       });
 
+      // ✅ Guardar cookie
+      document.cookie = `session_token=${data.usuario.username}; path=/; secure; samesite=strict`;
+
+      // ✅ Redirigir al dashboard
       router.push("/dashboard");
     } catch (err: any) {
       console.error("❌ Error al autenticar usuario:", err);

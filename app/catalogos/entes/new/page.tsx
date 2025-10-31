@@ -16,6 +16,7 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
+import { toast } from "sonner";
 
 const API_BASE =
   typeof window !== "undefined"
@@ -120,11 +121,11 @@ export default function EnteNewPage() {
       });
 
       if (!resp.ok) throw new Error(await resp.text());
-      alert("✅ Ente creado correctamente");
+      toast.success("✅ Ente creado correctamente");
       router.push("/catalogos/entes");
     } catch (e: any) {
       console.error("❌ Error creando ente:", e);
-      alert(`❌ Error: ${e?.message ?? e}`);
+      toast.error(`❌ Error: ${e?.message ?? e}`);
     }
   };
 

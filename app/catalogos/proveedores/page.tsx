@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input"; // ✅ Barra de búsqueda
+import { toast } from "sonner";
 
 // ======================
 // 🔹 Base de la API
@@ -90,7 +91,7 @@ export default function ProveedoresPage() {
         body: JSON.stringify({ rfc }),
       });
       if (!resp.ok) throw new Error(await resp.text());
-      alert(
+      toast.success(
         activar
           ? "♻️ Proveedor reactivado correctamente"
           : "🗑️ Proveedor eliminado correctamente"
@@ -98,7 +99,7 @@ export default function ProveedoresPage() {
       fetchProveedores();
     } catch (err) {
       console.error(`❌ Error al ${accion} proveedor:`, err);
-      alert(`Error al ${accion} proveedor`);
+      toast.error(`Error al ${accion} proveedor`);
     }
   };
 

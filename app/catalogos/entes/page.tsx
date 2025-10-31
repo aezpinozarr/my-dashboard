@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 // ======================
 // 🔹 Base de la API
@@ -88,11 +89,15 @@ export default function EntesPage() {
       });
 
       if (!resp.ok) throw new Error(await resp.text());
-      alert(activar ? "♻️ Ente reactivado correctamente" : "🗑️ Ente eliminado correctamente");
+      toast.success(
+        activar
+          ? "♻️ Ente reactivado correctamente"
+          : "🗑️ Ente eliminado correctamente"
+      );
       fetchEntes();
     } catch (err) {
       console.error(`❌ Error al ${accion} ente:`, err);
-      alert(`Error al ${accion} ente`);
+      toast.error(`Error al ${accion} ente`);
     }
   };
 

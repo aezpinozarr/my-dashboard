@@ -409,6 +409,12 @@ function RectorForm() {
     e.preventDefault();
     const formEl = e.currentTarget;
 
+    // Validación: Debe seleccionarse un estatus general (REVISADO o CANCELADO)
+    if (!estatusGeneral) {
+      toast.error("❌ Debes seleccionar un estatus general (REVISADO o CANCELADO)");
+      return;
+    }
+
     const payload = {
       p_accion: "EDITAR",
       p_r_suplencia_oficio_no: formEl.oficio.value,
@@ -441,6 +447,35 @@ function RectorForm() {
       }
 
       toast.success("✅ Captura registrada correctamente");
+
+      // 🔍 Obtener el usuario tipo ENTE que registró el seguimiento
+      let idUsuarioEnte: number | null = null;
+      try {
+        const segRes = await fetch(`${API_BASE}/rector/seguimiento-detalle?p_id=${selectedId}`);
+        const segData = await segRes.json();
+        idUsuarioEnte = segData?.[0]?.e_id_usuario_registra || null;
+      } catch (err) {
+        console.warn("⚠️ No se pudo obtener e_id_usuario_registra:", err);
+      }
+
+      // 🚀 Enviar notificación al usuario que registró el seguimiento
+      if (idUsuarioEnte) {
+        const mensaje =
+          estatusGeneral === "CANCELADO"
+            ? `El rector canceló tu seguimiento #${selectedId}. Motivo: ${observaciones}`
+            : estatusGeneral === "REVISADO"
+            ? mostrarObservaciones && observaciones
+              ? `El rector revisó tu seguimiento #${selectedId} con observaciones: ${observaciones}`
+              : `El rector revisó tu seguimiento #${selectedId} sin observaciones.`
+            : "";
+
+const url = `${API_BASE}/seguridad/notificaciones/?p_accion=CREAR&p_id_usuario_origen=${user?.id}&p_id_notificacion=${selectedId}&p_mensaje_extra=${encodeURIComponent(mensaje)}&p_estatus=${estatusGeneral}`;        console.log("🚀 Enviando notificación (RECTOR → ENTE):", url);
+        try {
+          await fetch(url, { method: "POST" });
+        } catch (err) {
+          console.warn("⚠️ Error enviando notificación:", err);
+        }
+      }
 
       // Si el estatus general es "CANCELADO", redirigir
       if (estatusGeneral === "CANCELADO") {
@@ -613,6 +648,28 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
       toast.warning("⚠️ Guardado correcto pero sin ID devuelto por el backend");
     }
 
+  // 🔍 Obtener el usuario tipo ENTE que registró el seguimiento
+  let idUsuarioEnte: number | null = null;
+  try {
+    const segRes = await fetch(`${API_BASE}/rector/seguimiento-detalle?p_id=${selectedId}`);
+    const segData = await segRes.json();
+    idUsuarioEnte = segData?.[0]?.e_id_usuario_registra || null;
+  } catch (err) {
+    console.warn("⚠️ No se pudo obtener e_id_usuario_registra:", err);
+  }
+
+  // 🚀 Enviar notificación al usuario que registró el seguimiento (ENTE)
+  if (prov && idUsuarioEnte) {
+    const mensaje = `El rector adjudicó el proveedor ${prov.nombre || "Proveedor desconocido"} (${prov.rfc}) para el rubro #${idRubro} del seguimiento #${selectedId}.`;
+    const url = `${API_BASE}/seguridad/notificaciones/?p_accion=CREAR&p_id_usuario_origen=${user?.id}&p_id_usuario_destinatario=${idUsuarioEnte}&p_id_notificacion=${selectedId}&p_mensaje_extra=${encodeURIComponent(mensaje)}&p_estatus=ADJUDICADO`;
+    console.log("🚀 Enviando notificación (RECTOR → ENTE específico):", url);
+    try {
+      await fetch(url, { method: "POST" });
+    } catch (err) {
+      console.warn("⚠️ Error enviando notificación:", err);
+    }
+  }
+
     // 🧾 Agregar registro a la grilla inferior (guardar objeto proveedor completo)
     setRubroProveedorRows((prev) => [
       ...prev,
@@ -718,8 +775,13 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
             </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-gray-800 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2">
-            <div>
-              <strong>ID:</strong> {selectedId}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+              <div>
+                <strong>ID:</strong> {selectedId}
+              </div>
+              <div>
+                <strong>Oficio de Invitación:</strong> {detalleGeneral.e_oficio_invitacion || "—"}
+              </div>
             </div>
             <div>
               <strong>Ente:</strong> {detalleGeneral.ente}
@@ -757,7 +819,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
               {/* Oficio */}
               <div className="flex flex-col min-w-[160px]">
                 <Label className="text-gray-700 font-medium">Oficio</Label>
-                <Input name="oficio" placeholder="Número de oficio" className="w-[180px] shadow-sm" />
+                <Input name="oficio" placeholder="Número de oficio" className="w-[320px] shadow-sm" />
               </div>
 
               {/* Fecha de Emisión */}
@@ -826,10 +888,6 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                   <div className="flex items-center gap-2">
                     <RadioGroupItem value="CANCELADO" id="estatus-cancelado" />
                     <Label htmlFor="estatus-cancelado" className="cursor-pointer text-sm font-medium">CANCELADO</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value="ADJUDICADO" id="estatus-adjudicado" />
-                    <Label htmlFor="estatus-adjudicado" className="cursor-pointer text-sm font-medium">ADJUDICADO</Label>
                   </div>
                 </RadioGroup>
               </div>

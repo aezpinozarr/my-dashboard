@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input"; // ✅ Import para la barra de búsqueda
+import { toast } from "sonner";
 
 type Rubro = {
   id: string;
@@ -76,14 +77,14 @@ export default function RubrosPage() {
       });
 
       if (!resp.ok) throw new Error(await resp.text());
-      alert("🗑️ Rubro eliminado correctamente");
+      toast.success("🗑️ Rubro eliminado correctamente");
 
       const resp2 = await fetch(`${API_BASE}/catalogos/rubro?p_id=-99`);
       const data = await resp2.json();
       setRubros(Array.isArray(data) ? data.filter((r) => r.activo) : []);
     } catch (err) {
       console.error("❌ Error al eliminar rubro:", err);
-      alert("Error al eliminar rubro");
+      toast.error("Error al eliminar rubro");
     }
   };
 

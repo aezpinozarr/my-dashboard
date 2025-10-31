@@ -150,6 +150,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
+        {/* ✅ Mover NavUser arriba del todo */}
+        <NavUser />
+
+        {/* 🔻 Mantener el TeamSwitcher debajo */}
         <TeamSwitcher teams={teams} />
       </SidebarHeader>
 
@@ -161,9 +165,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         />
       </SidebarContent>
 
-      <SidebarFooter>
+      {/* ❌ Eliminado el NavUser del footer */}
+      {/* <SidebarFooter>
         <NavUser />
-      </SidebarFooter>
+      </SidebarFooter> */}
 
       <SidebarRail />
     </Sidebar>

@@ -282,13 +282,48 @@ export default function NuevoProcesoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  // Paso 4: Finalizar proceso handler (simplificado, solo toast, sin validaciones visuales ni backend)
+  // Paso 4: Finalizar proceso handler (actualizado)
   const handleFinalizarProceso = React.useCallback(async () => {
     console.log("🔍 Validando proveedores antes de finalizar...");
 
     // ✅ Permitir finalizar si ya hay al menos un proveedor añadido
     if (proveedores.length > 0) {
       console.log("✅ Ya existe al menos un proveedor añadido:", proveedores);
+      try {
+        const folioFinal =
+          folioSeguimiento ||
+          folio ||
+          Number(sessionStorage.getItem("folioSeguimiento")) ||
+          null;
+
+        if (user && folioFinal) {
+          const tipoNormalizado = (user.tipo || "").toString().trim().toUpperCase();
+          if (tipoNormalizado === "ENTE") {
+            const mensaje = `El usuario ${user.nombre} ha completado el seguimiento #${folioFinal}`;
+            const params = new URLSearchParams();
+            params.append("p_accion", "CREAR");
+            params.append("p_id_usuario_origen", String(user.id));
+            params.append("p_id_ente", String(user.id_ente));
+            params.append("p_mensaje_extra", mensaje);
+
+            console.log("🚀 Enviando notificación (ENTE → RECTORES):", params.toString());
+
+            try {
+              const resp = await fetch(`${API_BASE}/seguridad/notificaciones/?${params.toString()}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+              });
+
+              const data = await resp.json();
+              console.log("📩 Respuesta del backend:", data);
+            } catch (err) {
+              console.error("❌ Error al enviar la notificación:", err);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("⚠️ No se pudo enviar la notificación al rector:", err);
+      }
       toast.success("Proceso finalizado correctamente.");
       router.push("/procesos");
       return;
@@ -300,6 +335,41 @@ export default function NuevoProcesoPage() {
     );
     if (yaAgregoProveedor) {
       console.log("✅ Proveedor válido detectado.");
+      try {
+        const folioFinal =
+          folioSeguimiento ||
+          folio ||
+          Number(sessionStorage.getItem("folioSeguimiento")) ||
+          null;
+
+        if (user && folioFinal) {
+          const tipoNormalizado = (user.tipo || "").toString().trim().toUpperCase();
+          if (tipoNormalizado === "ENTE") {
+            const mensaje = `El usuario ${user.nombre} ha completado el seguimiento #${folioFinal}`;
+            const params = new URLSearchParams();
+            params.append("p_accion", "CREAR");
+            params.append("p_id_usuario_origen", String(user.id));
+            params.append("p_id_ente", String(user.id_ente));
+            params.append("p_mensaje_extra", mensaje);
+
+            console.log("🚀 Enviando notificación (ENTE → RECTORES):", params.toString());
+
+            try {
+              const resp = await fetch(`${API_BASE}/seguridad/notificaciones/?${params.toString()}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+              });
+
+              const data = await resp.json();
+              console.log("📩 Respuesta del backend:", data);
+            } catch (err) {
+              console.error("❌ Error al enviar la notificación:", err);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("⚠️ No se pudo enviar la notificación al rector:", err);
+      }
       toast.success("Proceso finalizado correctamente.");
       router.push("/procesos");
       return;
@@ -307,7 +377,7 @@ export default function NuevoProcesoPage() {
 
     // ⚠️ Si no hay proveedores, solo mostrar toast de advertencia (sin marcar campos)
     toast.warning("Debes añadir al menos un proveedor antes de finalizar.");
-  }, [proveedores, router]);
+  }, [proveedores, router, user, folio, folioSeguimiento]);
 
   /* ========================================
      🔹 Cargar catálogos paso 1
@@ -1765,7 +1835,7 @@ export default function NuevoProcesoPage() {
                   const partidaAsociada =
                     partidas.find((p) => String(p.e_id_partida) === String(r.p_id_partida_asociada));
                   const textoPartida = partidaAsociada
-                    ? `${partidaAsociada.e_id_partida} — ${partidaAsociada.partida_descripcion}`
+                    ? `${partidaAsociada.e_id_partida}`
                     : "Partida no encontrada";
                   return (
                     <option key={`${r.p_e_id_rubro}-${idValido}`} value={idValido}>
@@ -1904,7 +1974,7 @@ export default function NuevoProcesoPage() {
                       const partidaAsociada =
                         partidas.find((p) => String(p.e_id_partida) === String(rubro.p_id_partida_asociada));
                       const textoPartida = partidaAsociada
-                        ? `${partidaAsociada.e_id_partida} — ${partidaAsociada.partida_descripcion}`
+                        ? `${partidaAsociada.e_id_partida}`
                         : "Partida no encontrada";
                       return `${textoPartida} | Rubro ${rubro.p_e_id_rubro} — ${rubro.rubro_descripcion}`;
                     })()}

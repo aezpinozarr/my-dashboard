@@ -12,6 +12,7 @@ import {
   CommandEmpty,
 } from "@/components/ui/command";
 import Link from "next/link";
+import { toast } from "sonner";
 
 const API_BASE =
   typeof window !== "undefined"
@@ -87,7 +88,7 @@ export default function EditarProveedorPage() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEntidad) {
-      alert("⚠️ Debes seleccionar una entidad federativa.");
+      toast.warning("Debes seleccionar una entidad federativa.");
       return;
     }
 
@@ -108,11 +109,11 @@ export default function EditarProveedorPage() {
       });
 
       if (!resp.ok) throw new Error(await resp.text());
-      alert("✅ Proveedor actualizado correctamente");
+      toast.success("Proveedor actualizado correctamente.");
       router.push("/catalogos/proveedores");
     } catch (err) {
       console.error("❌ Error al actualizar proveedor:", err);
-      alert("Error al actualizar proveedor");
+      toast.error("Error al actualizar proveedor.");
     } finally {
       setSaving(false);
     }

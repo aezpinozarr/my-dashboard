@@ -44,6 +44,7 @@ type Registro = {
   e_rfc_proveedor: string | null;
   e_importe_total: number | null;
   estatus: string;
+  e_oficio_invitacion: string | null;
 };
 
 export default function DetallePresupuestoPage() {
@@ -161,6 +162,7 @@ export default function DetallePresupuestoPage() {
           <TableHeader>
             <TableRow>
               <TableHead>ID Proceso</TableHead>
+              <TableHead>Oficio de Invitación</TableHead>
               <TableHead>Ente</TableHead>
               <TableHead>Clasificación Ente</TableHead>
               <TableHead>Tipo Ente</TableHead>
@@ -182,6 +184,7 @@ export default function DetallePresupuestoPage() {
                     {r.id}
                   </Link>
                 </TableCell>
+                <TableCell>{r.e_oficio_invitacion || "—"}</TableCell>
                 <TableCell>{r.ente}</TableCell>
                 <TableCell>{r.ente_clasificacion}</TableCell>
                 <TableCell>{r.id_ente_tipo}</TableCell>
@@ -233,6 +236,9 @@ export default function DetallePresupuestoPage() {
               <CardContent className="text-sm space-y-1">
                 <p>
                   <strong>ID Proceso:</strong> {r.id}
+                </p>
+                <p>
+                  <strong>Oficio de Invitación:</strong> {r.e_oficio_invitacion || "—"}
                 </p>
                 <p>
                   <strong>Tipo Ente:</strong> {r.id_ente_tipo}

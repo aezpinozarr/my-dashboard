@@ -14,6 +14,7 @@ import {
   CommandItem,
   CommandEmpty,
 } from "@/components/ui/command";
+import { toast } from "sonner";
 
 const API_BASE =
   typeof window !== "undefined"
@@ -74,7 +75,7 @@ export default function NuevoProveedorPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEntidad) {
-      alert("⚠️ Debes seleccionar una entidad federativa.");
+      toast.warning("Debes seleccionar una entidad federativa.");
       return;
     }
 
@@ -95,11 +96,11 @@ export default function NuevoProveedorPage() {
       });
 
       if (!resp.ok) throw new Error(await resp.text());
-      alert("✅ Proveedor creado correctamente");
+      toast.success("Proveedor creado correctamente.");
       router.push("/catalogos/proveedores");
     } catch (err) {
       console.error("❌ Error al crear proveedor:", err);
-      alert("❌ Error al crear proveedor");
+      toast.error("Error al crear proveedor.");
     } finally {
       setLoading(false);
     }
