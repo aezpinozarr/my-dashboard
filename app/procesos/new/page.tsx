@@ -532,7 +532,7 @@ export default function NuevoProcesoPage() {
       try {
         const [fResp, pResp] = await Promise.all([
           fetch(`${API_BASE}/catalogos/fuentes-financiamiento?p_id=-99&p_id_ramo=-99`).then((r) => r.json()),
-          fetch(`${API_BASE}/catalogos/partidas?p_id=-99&p_id_capitulo=-99`).then((r) => r.json()),
+          fetch(`${API_BASE}/catalogos/partidas?p_id=-99&p_id_capitulo=-99&p_tipo=PROVEEDURIA`)
         ]);
         setFuentes(Array.isArray(fResp) ? fResp : []);
         setCatalogoPartidas(Array.isArray(pResp) ? pResp : []);
@@ -770,7 +770,7 @@ export default function NuevoProcesoPage() {
       {/* Paso 1 */}
       {step === 1 && (
           <>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mb-6">
               <Button asChild variant="outline">
                 <Link href="/dashboard">←</Link>
               </Button>
@@ -1100,7 +1100,12 @@ export default function NuevoProcesoPage() {
         return (
           <Card>
             <CardContent className="space-y-5 mt-4">
-              <h1 className="text-2xl font-bold">Paso 2: Partidas</h1>
+              <div className="flex items-center gap-3 mb-6">
+                <Button asChild variant="outline">
+                  <Link href="/dashboard">←</Link>
+                </Button>
+                <h1 className="text-2xl font-bold">Paso 2: Partidas</h1>
+              </div>
               <div>
                 <Label>Oficio de invitación</Label>
                 <Input value={form.oficio_invitacion ?? ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
@@ -1398,7 +1403,12 @@ export default function NuevoProcesoPage() {
   return (
     <Card>
       <CardContent className="space-y-5 mt-4">
-        <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
+        <div className="flex items-center gap-3 mb-6">
+          <Button asChild variant="outline">
+            <Link href="/dashboard">←</Link>
+          </Button>
+          <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
+        </div>
         <div>
           <Label>Oficio de invitación</Label>
           <Input
@@ -1743,7 +1753,12 @@ export default function NuevoProcesoPage() {
   return (
     <Card>
       <CardContent className="space-y-5 mt-4">
-        <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
+        <div className="flex items-center gap-3 mb-6">
+          <Button asChild variant="outline">
+            <Link href="/dashboard">←</Link>
+          </Button>
+          <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
+        </div>
 
         {/* Formulario para añadir proveedor */}
         <div className="p-4 rounded border border-gray-200 bg-gray-50 mb-4">
