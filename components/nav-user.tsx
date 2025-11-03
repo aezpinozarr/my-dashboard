@@ -1,11 +1,12 @@
 "use client";
 
+import { toast } from "sonner";
 import {
   BadgeCheck,
   Bell,
   CreditCard,
   LogOut,
-  Sparkles,
+  Lock,
   ChevronsUpDown,
 } from "lucide-react";
 
@@ -34,6 +35,17 @@ import {
 import { NotificationBadge } from "@/components/Notifications/NotificationBadge";
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 // ✅ Detectar automáticamente el entorno de ejecución
 const API_BASE =
@@ -52,6 +64,11 @@ export function NavUser() {
   const { user, logout } = useUser(); // ✅ datos y cierre de sesión global
 
   const [enteDescripcion, setEnteDescripcion] = useState<string>("");
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
     if (user?.id_ente && !(user as any)?.ente_descripcion) {
@@ -112,6 +129,51 @@ export function NavUser() {
       })
       .catch((err) => console.error("Error cargando notificaciones:", err));
   }, [user?.id]);
+
+  const handlePasswordUpdate = async () => {
+    if (!user || !user.id) {
+      toast.error("❌ No hay usuario autenticado.");
+      return;
+    }
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      toast.error("❌ Por favor, complete todos los campos.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("❌ La nueva contraseña y la confirmación no coinciden.");
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE}/seguridad/usuarios/cambiar-password/${user.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          p_password_actual: oldPassword,
+          p_password_nueva: newPassword,
+        }),
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          toast.error("❌ La contraseña actual no es correcta.");
+        } else if (response.status === 404) {
+          toast.error("❌ Usuario no encontrado.");
+        } else if (response.status === 500) {
+          toast.error("❌ Error interno del servidor.");
+        } else {
+          const errorData = await response.json();
+          toast.error("❌ Error: " + (errorData.detail || JSON.stringify(errorData)));
+        }
+        return;
+      }
+      toast.success("✅ Contraseña actualizada correctamente");
+      setDialogOpen(false);
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      toast.error("❌ Error: " + error.message);
+    }
+  };
 
   return (
     <SidebarMenu>
@@ -195,6 +257,66 @@ export function NavUser() {
             </DropdownMenuGroup>
 
             <DropdownMenuSeparator />
+
+            {/* Nuevo DropdownMenuItem para cambiar contraseña */}
+            <DropdownMenuItem asChild>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <>
+                  <DialogTrigger asChild>
+                    <button className="flex items-center w-full cursor-pointer px-2 py-2 rounded-md text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground">
+                      <Lock className="mr-2 h-4 w-4" />
+                      <span className="text-sm font-normal">Cambiar contraseña</span>
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Cambiar contraseña</DialogTitle>
+                    </DialogHeader>
+                    <form
+                      onSubmit={e => {
+                        e.preventDefault();
+                        handlePasswordUpdate();
+                      }}
+                      className="space-y-4"
+                    >
+                      <div>
+                        <Label htmlFor="oldPassword">Contraseña actual</Label>
+                        <Input
+                          id="oldPassword"
+                          type="password"
+                          value={oldPassword}
+                          onChange={e => setOldPassword(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="newPassword">Nueva contraseña</Label>
+                        <Input
+                          id="newPassword"
+                          type="password"
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="confirmPassword">Confirmar nueva contraseña</Label>
+                        <Input
+                          id="confirmPassword"
+                          type="password"
+                          value={confirmPassword}
+                          onChange={e => setConfirmPassword(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button type="submit">Actualizar contraseña</Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </>
+              </Dialog>
+            </DropdownMenuItem>
 
             {/* ✅ Logout funcional */}
             <DropdownMenuItem onClick={handleLogout} className="flex items-center w-full cursor-pointer px-2 py-2 rounded-md text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground">

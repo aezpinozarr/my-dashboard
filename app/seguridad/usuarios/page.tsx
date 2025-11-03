@@ -78,11 +78,13 @@ export default function UsuariosPage() {
     tipo: string;
     activo: boolean;
     p_id_ente?: string;
+    p_pass_hash?: string;
   }>({
     username: "",
     nombre: "",
     tipo: "",
     activo: true,
+    p_pass_hash: "",
   });
   const [editLoading, setEditLoading] = React.useState(false);
 
@@ -132,6 +134,7 @@ export default function UsuariosPage() {
         tipo: data.tipo || "",
         activo: data.activo ?? true,
         p_id_ente: data.id_ente || "",
+        p_pass_hash: "",
       });
 
       const resEntes = await fetch(`${API_BASE}/catalogos/entes?p_id=-99`);
@@ -216,6 +219,7 @@ export default function UsuariosPage() {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedUserId === null) return;
+    if (!editUserData.p_pass_hash) delete editUserData.p_pass_hash;
     try {
       const resp = await fetch(`${API_BASE}/seguridad/usuarios/${selectedUserId}`, {
         method: "PUT",
@@ -394,7 +398,7 @@ export default function UsuariosPage() {
                   id="username"
                   name="username"
                   type="text"
-                  value={editUserData.username}
+                  value={editUserData.username ?? ""}
                   onChange={handleEditChange}
                   required
                 />
@@ -407,8 +411,19 @@ export default function UsuariosPage() {
                   id="nombre"
                   name="nombre"
                   type="text"
-                  value={editUserData.nombre}
+                  value={editUserData.nombre ?? ""}
                   onChange={handleEditChange}
+                />
+              </div>
+              <div>
+                <Label>Nueva contraseña</Label>
+                <Input
+                  type="password"
+                  value={editUserData.p_pass_hash ?? ""}
+                  onChange={(e) =>
+                    setEditUserData((prev) => ({ ...prev, p_pass_hash: e.target.value }))
+                  }
+                  placeholder="(Déjalo vacío si no la cambiarás)"
                 />
               </div>
               <div>

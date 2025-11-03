@@ -509,62 +509,66 @@ export default function AdjudicadosPage() {
             // Tomar el primer registro para encabezados generales
             const encabezado = grupo.registros[0];
             return (
-              <Card key={grupo.id} className="border shadow-sm hover:shadow-md transition-all duration-200">
+              <Card
+                key={grupo.id}
+                className="border shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full"
+              >
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base font-semibold text-gray-800">
                     {encabezado.ente}
                     <span className="block text-sm text-gray-500">{encabezado.ente_clasificacion}</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm space-y-2 text-gray-700">
-                  <p>
-                    <strong>Fundamento:</strong> {encabezado.fundamento}
-                    {encabezado.fundamiento_clasificacion ? ` (${encabezado.fundamiento_clasificacion})` : ""}
-                  </p>
-                  <p>
-                    <strong>Modalidad de contratación:</strong> {encabezado.e_tipo_licitacion}
-                  </p>
-                  <p><strong>Oficio de invitación:</strong> {encabezado.e_oficio_invitacion ?? "—"}</p>
-                  <p>
-                    <strong>Fecha de emisión:</strong> {encabezado.r_fecha_emision}
-                  </p>
-                  {/* Tabla de rubros/proveedores de este seguimiento */}
-                  <div className="overflow-x-auto mt-2">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Estatus</TableHead>
-                          <TableHead>Partida</TableHead>
-                          <TableHead>Rubro</TableHead>
-                          <TableHead>Monto del rubro</TableHead>
-                          <TableHead>Fuente de financiamiento</TableHead>
-                          <TableHead>Importe con IVA</TableHead>
-                          <TableHead>Adjudicado</TableHead>
-                          <TableHead>Observaciones</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {grupo.registros.map((r) => (
-                          <TableRow key={`${r.id}-${r.id_rubro}-${r.rfc}`}>
-                            <TableCell>{r.estatus || r.rubro_estatus || "—"}</TableCell>
-                            <TableCell>{r.e_id_partida ?? ""}</TableCell>
-                            <TableCell>{`${r.id_rubro ?? ""} - ${r.rubro}`}</TableCell>
-                            <TableCell>{formatCurrency(r.e_monto_presupuesto_suficiencia)}</TableCell>
-                            <TableCell>{r.ramo ?? ""}</TableCell>
-                            <TableCell>{formatCurrency(r.importe_ajustado_total)}</TableCell>
-                            <TableCell>{`${r.rfc} — ${r.razon_social ?? ""}`}</TableCell>
-                            <TableCell>{r.observaciones ?? ""}</TableCell>
+                <CardContent className="flex flex-col flex-1 text-sm space-y-2 text-gray-700">
+                  <div className="flex-1">
+                    <p><strong>Oficio de invitación:</strong> {encabezado.e_oficio_invitacion ?? "—"}</p>
+                    <p><strong>Fecha de emisión:</strong> {encabezado.r_fecha_emision}</p>
+                    <p>
+                      <strong>Fundamento:</strong> {encabezado.fundamento}
+                      {encabezado.fundamiento_clasificacion ? ` (${encabezado.fundamiento_clasificacion})` : ""}
+                    </p>
+                    <p>
+                      <strong>Modalidad de contratación:</strong> {encabezado.e_tipo_licitacion}
+                    </p>
+                    <div className="overflow-x-auto mt-2">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Estatus</TableHead>
+                            <TableHead>Partida</TableHead>
+                            <TableHead>Rubro</TableHead>
+                            <TableHead>Monto del rubro</TableHead>
+                            <TableHead>Fuente de financiamiento</TableHead>
+                            <TableHead>Importe con IVA</TableHead>
+                            <TableHead>Adjudicado</TableHead>
+                            <TableHead>Observaciones</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {grupo.registros.map((r) => (
+                            <TableRow key={`${r.id}-${r.id_rubro}-${r.rfc}`}>
+                              <TableCell>{r.estatus || r.rubro_estatus || "—"}</TableCell>
+                              <TableCell>{r.e_id_partida ?? ""}</TableCell>
+                              <TableCell>{`${r.id_rubro ?? ""} - ${r.rubro}`}</TableCell>
+                              <TableCell>{formatCurrency(r.e_monto_presupuesto_suficiencia)}</TableCell>
+                              <TableCell>{r.ramo ?? ""}</TableCell>
+                              <TableCell>{formatCurrency(r.importe_ajustado_total)}</TableCell>
+                              <TableCell>{`${r.rfc} — ${r.razon_social ?? ""}`}</TableCell>
+                              <TableCell>{r.observaciones ?? ""}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
-                  <Button
-                    className="w-full mt-2 bg-[#235391] hover:bg-[#1e487d] text-white"
-                    onClick={() => handleExportSinglePDF(grupo)}
-                  >
-                    Guardar .PDF
-                  </Button>
+                  <div className="mt-auto">
+                    <Button
+                      className="w-full bg-[#235391] hover:bg-[#1e487d] text-white"
+                      onClick={() => handleExportSinglePDF(grupo)}
+                    >
+                      Guardar .PDF
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             );

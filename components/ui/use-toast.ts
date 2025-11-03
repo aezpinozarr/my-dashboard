@@ -15,6 +15,10 @@ type ToasterToast = ToastProps & {
   action?: ToastActionElement
 }
 
+export interface ToastOptions extends Omit<ToasterToast, "id"> {
+  variant?: "default" | "destructive"
+}
+
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
   UPDATE_TOAST: "UPDATE_TOAST",
@@ -55,7 +59,7 @@ export function useToast() {
     []
   )
 
-  const addToast = React.useCallback((toast: Omit<ToasterToast, "id">) => {
+  const addToast = React.useCallback((toast: ToastOptions) => {
     const id = genId()
     dispatch({ type: actionTypes.ADD_TOAST, toast: { ...toast, id, open: true } })
 

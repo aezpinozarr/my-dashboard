@@ -532,7 +532,8 @@ export default function NuevoProcesoPage() {
       try {
         const [fResp, pResp] = await Promise.all([
           fetch(`${API_BASE}/catalogos/fuentes-financiamiento?p_id=-99&p_id_ramo=-99`).then((r) => r.json()),
-          fetch(`${API_BASE}/catalogos/partidas?p_id=-99&p_id_capitulo=-99&p_tipo=PROVEEDURIA`)
+            fetch(`${API_BASE}/catalogos/partidas?p_id=-99&p_id_capitulo=-99&p_tipo=PROVEEDURIA`).then((r) => r.json()),
+
         ]);
         setFuentes(Array.isArray(fResp) ? fResp : []);
         setCatalogoPartidas(Array.isArray(pResp) ? pResp : []);
@@ -788,17 +789,51 @@ export default function NuevoProcesoPage() {
                   />
                 </div>
 
-                <div>
-                  <Label>Oficio de invitación</Label>
-                  <Input
-                    value={form.oficio_invitacion ?? ""}
-                    onChange={(e) => setForm({ ...form, oficio_invitacion: e.target.value })}
-                    placeholder="Ej. OF.123/2025"
-                    className={`${errores.oficio_invitacion ? "border-red-500" : ""}`}
-                  />
-                  {errores.oficio_invitacion && (
-                    <p className="text-red-600 text-xs mt-1">{errores.oficio_invitacion}</p>
-                  )}
+                                {/* Oficio de invitación + Fecha + Hora en la misma línea */}
+                <div className="flex gap-4 flex-wrap md:flex-nowrap">
+                  {/* Campo: Oficio de invitación */}
+                  <div className="w-full md:w-[60%]">
+                    <Label>Oficio de invitación</Label>
+                    <Input
+                      value={form.oficio_invitacion ?? ""}
+                      onChange={(e) => setForm({ ...form, oficio_invitacion: e.target.value })}
+                      placeholder="Ej. OF.123/2025"
+                      className={`${errores.oficio_invitacion ? "border-red-500" : ""}`}
+                    />
+                    {errores.oficio_invitacion && (
+                      <p className="text-red-600 text-xs mt-1">{errores.oficio_invitacion}</p>
+                    )}
+                  </div>
+
+                  {/* Campo: Fecha */}
+                  <div className="w-full md:w-[20%]">
+                    <Label>Fecha</Label>
+                    <Input
+                      value={form.fecha ?? ""}
+                      onChange={(e) => setForm({ ...form, fecha: formatDateDDMMYYYY(e.target.value) })}
+                      placeholder="dd/mm/aaaa"
+                      maxLength={10}
+                      className={`${errores.fecha ? "border-red-500" : ""}`}
+                    />
+                    {errores.fecha && (
+                      <p className="text-red-600 text-xs mt-1">{errores.fecha}</p>
+                    )}
+                  </div>
+
+                  {/* Campo: Hora */}
+                  <div className="w-full md:w-[20%]">
+                    <Label>Hora (24 Hrs)</Label>
+                    <Input
+                      value={form.hora ?? ""}
+                      onChange={(e) => setForm({ ...form, hora: formatTimeHHMM(e.target.value) })}
+                      placeholder="HH:MM"
+                      maxLength={5}
+                      className={`${errores.hora ? "border-red-500" : ""}`}
+                    />
+                    {errores.hora && (
+                      <p className="text-red-600 text-xs mt-1">{errores.hora}</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Servidor público */}
@@ -946,36 +981,7 @@ export default function NuevoProcesoPage() {
                     <p className="text-red-600 text-xs mt-1">{errores.tipo_licitacion_notas}</p>
                   )}
                 </div>
-
-                {/* Fecha / hora */}
-                <div className="grid md:grid-cols-2 gap-2">
-                  <div>
-                    <Label>Fecha</Label>
-                    <Input
-                      value={form.fecha ?? ""}
-                      onChange={(e) => setForm({ ...form, fecha: formatDateDDMMYYYY(e.target.value) })}
-                      placeholder="dd/mm/aaaa"
-                      maxLength={10}
-                      className={`${errores.fecha ? "border-red-500" : ""}`}
-                    />
-                    {errores.fecha && (
-                      <p className="text-red-600 text-xs mt-1">{errores.fecha}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Hora (24 Hrs)</Label>
-                    <Input
-                      value={form.hora ?? ""}
-                      onChange={(e) => setForm({ ...form, hora: formatTimeHHMM(e.target.value) })}
-                      placeholder="HH:MM"
-                      maxLength={5}
-                      className={`${errores.hora ? "border-red-500" : ""}`}
-                    />
-                    {errores.hora && (
-                      <p className="text-red-600 text-xs mt-1">{errores.hora}</p>
-                    )}
-                  </div>
-                </div>
+                
                 <div>
                   <Label>Usuario</Label>
                   <Input
@@ -1401,7 +1407,7 @@ export default function NuevoProcesoPage() {
   // Render paso 3
   if (step !== 3) return null;
   return (
-    <Card>
+    <Card>3
       <CardContent className="space-y-5 mt-4">
         <div className="flex items-center gap-3 mb-6">
           <Button asChild variant="outline">
