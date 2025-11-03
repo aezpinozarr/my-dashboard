@@ -159,13 +159,13 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
       </Card>
 
       <div className="text-muted-foreground text-center text-xs text-balance">
-        By clicking continue, you agree to our{" "}
+       Al hacer clic en continuar, aceptas nuestros{" "}
         <a href="#" className="underline underline-offset-4 hover:text-primary">
-          Terms of Service
+          Términos de servicio
         </a>{" "}
-        and{" "}
+        y{" "}
         <a href="#" className="underline underline-offset-4 hover:text-primary">
-          Privacy Policy
+          Política de privacidad
         </a>.
       </div>
     </div>

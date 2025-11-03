@@ -51,9 +51,31 @@ export function NavUser() {
   const router = useRouter();
   const { user, logout } = useUser(); // ✅ datos y cierre de sesión global
 
+  const [enteDescripcion, setEnteDescripcion] = useState<string>("");
+
+  useEffect(() => {
+    if (user?.id_ente && !(user as any)?.ente_descripcion) {
+      const url = `${API_BASE}/catalogos/entes?p_id=${user.id_ente}`;
+      fetch(url, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data) && data.length > 0) {
+            setEnteDescripcion(data[0].descripcion || "");
+          }
+        })
+        .catch((err) => console.error("Error cargando descripción del ente:", err));
+    }
+  }, [user?.id_ente, user]);
+
   // ✅ Datos dinámicos o fallback
   const name = user?.nombre || user?.username || "Invitado";
-  const email = user?.username ? `${user.username}@local` : "sin-sesion@local";
+  const userTipo = user?.tipo?.toUpperCase() || "SIN TIPO";
+  // ✅ Obtener descripción real del ente desde el backend (ya incluida en la sesión o desde fetch)
+  const userEnte = enteDescripcion || (user as any)?.ente_descripcion || "Sin ente asignado";
+  const userSubinfo = `${userTipo} — ${userEnte}`;
   const avatar = "/avatars/default.jpg";
   const initials = name
     .split(" ")
@@ -106,7 +128,7 @@ export function NavUser() {
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{name}</span>
-                <span className="truncate text-xs">{email}</span>
+                <span className="truncate text-xs text-muted-foreground">{userSubinfo}</span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -127,7 +149,7 @@ export function NavUser() {
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{name}</span>
-                  <span className="truncate text-xs">{email}</span>
+                  <span className="truncate text-xs text-muted-foreground">{userSubinfo}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
