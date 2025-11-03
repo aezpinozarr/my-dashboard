@@ -21,6 +21,13 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 // ======================
 // 🔹 Base de la API
@@ -56,6 +63,19 @@ export default function EntesPage() {
   const [view, setView] = React.useState<"cards" | "table">("cards");
   const [showDeleted, setShowDeleted] = React.useState(false);
   const [search, setSearch] = React.useState("");
+
+  const [servidores, setServidores] = React.useState<any[]>([]);
+  const [enteSeleccionado, setEnteSeleccionado] = React.useState<string | null>(null);
+
+  const fetchServidores = async (id: string) => {
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/servidores-publicos-ente?p_id_ente=${id}`);
+      const data = await resp.json();
+      setServidores(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ Error cargando servidores públicos:", err);
+    }
+  };
 
   // ======================
   // Cargar entes
@@ -220,6 +240,46 @@ export default function EntesPage() {
                 <p><strong>Activo:</strong> {e.activo ? "✅ Sí" : "❌ No"}</p>
 
                 <div className="flex justify-end gap-2 pt-2">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        style={{
+                          borderColor: "#235391",
+                          color: "#235391",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => {
+                          setEnteSeleccionado(e.descripcion);
+                          fetchServidores(e.id);
+                        }}
+                      >
+                        👥 Ver Servidores
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-3xl p-8">
+                      <DialogHeader className="pb-4 mb-2 border-b border-gray-200">
+                        <DialogTitle className="text-lg font-semibold leading-tight">
+                          Servidores públicos — {enteSeleccionado}
+                        </DialogTitle>
+                      </DialogHeader>
+                      {servidores.length === 0 ? (
+                        <p className="text-sm text-gray-500">No hay servidores registrados para este ente.</p>
+                      ) : (
+                        <ul className="text-sm space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                          {servidores.map((s) => (
+                            <li key={s.id} className="border-b pb-1">
+                              <strong>{s.nombre}</strong> — {s.cargo}
+                              {s.activo === false && (
+                                <span className="ml-2 text-xs text-red-500">(Inactivo)</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </DialogContent>
+                  </Dialog>
                   {showDeleted ? (
                     <Button
                       size="sm"
@@ -290,6 +350,46 @@ export default function EntesPage() {
                 <TableCell>{e.activo ? "✅" : "❌"}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          style={{
+                            borderColor: "#235391",
+                            color: "#235391",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => {
+                            setEnteSeleccionado(e.descripcion);
+                            fetchServidores(e.id);
+                          }}
+                        >
+                          👥 Ver Servidores
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-3xl p-8">
+                        <DialogHeader className="pb-4 mb-2 border-b border-gray-200">
+                          <DialogTitle className="text-lg font-semibold leading-tight">
+                            Servidores públicos — {enteSeleccionado}
+                          </DialogTitle>
+                        </DialogHeader>
+                        {servidores.length === 0 ? (
+                          <p className="text-sm text-gray-500">No hay servidores registrados para este ente.</p>
+                        ) : (
+                          <ul className="text-sm space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                            {servidores.map((s) => (
+                              <li key={s.id} className="border-b pb-1">
+                                <strong>{s.nombre}</strong> — {s.cargo}
+                                {s.activo === false && (
+                                  <span className="ml-2 text-xs text-red-500">(Inactivo)</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </DialogContent>
+                    </Dialog>
                     {showDeleted ? (
                       <Button
                         size="sm"

@@ -27,7 +27,7 @@ const API_BASE =
 
 type Adjudicado = {
   id: number;
-  id_rubro?: string
+  id_rubro?: string;
   ente: string;
   ente_clasificacion: string;
   e_tipo_licitacion: string;
@@ -37,14 +37,17 @@ type Adjudicado = {
   importe_ajustado_sin_iva: number;
   importe_ajustado_total: number;
   fundamento: string;
-  fundamiento_clasificacion: string;
+  fundamiento_clasificacion?: string;
   r_fecha_emision: string;
   estatus?: string;
+  rubro_estatus?: string; // ✅ Nuevo campo opcional
   e_id_partida?: string;
   e_monto_presupuesto_suficiencia?: number;
   f_financiamiento?: string;
   ramo?: string;
   observaciones?: string;
+  nombre_comercial?: string;
+  e_oficio_invitacion?: string;
 };
 
 export default function AdjudicadosPage() {
@@ -93,8 +96,11 @@ export default function AdjudicadosPage() {
           }))
         : [];
 
-      setRegistros(normalizados);
-      setRegistrosOriginales(normalizados);
+      const ordenados = normalizados.sort(
+        (a, b) => new Date(b.r_fecha_emision).getTime() - new Date(a.r_fecha_emision).getTime()
+      );
+      setRegistros(ordenados);
+      setRegistrosOriginales(ordenados);
     } catch (error) {
       console.error("❌ Error al cargar adjudicados:", error);
     } finally {
@@ -106,21 +112,57 @@ export default function AdjudicadosPage() {
     cargarAdjudicados();
   }, []);
 
-  // Export individual PDF (nuevo formato tipo tabla Excel)
-  const handleExportSinglePDF = (r: Adjudicado) => {
+  // 🔍 Filtro simple
+  const normalize = (v: any) =>
+    (v ?? "")
+      .toString()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "");
+  const term = normalize(filtro);
+
+  const registrosFiltrados = registros.filter((r) =>
+    [
+      r.ente,
+      r.ente_clasificacion,
+      r.e_tipo_licitacion,
+      r.rubro,
+      r.rfc,
+      r.razon_social,
+      r.nombre_comercial,
+      r.fundamento,
+    ]
+      .map(normalize)
+      .join(" ")
+      .includes(term)
+  );
+
+  // Agrupar registros por ID de seguimiento
+  // Asumimos que el campo 'id' es el identificador de seguimiento (si no, ajustar)
+  type AdjudicadoGroup = {
+    id: number;
+    registros: Adjudicado[];
+  };
+  const grupos: AdjudicadoGroup[] = React.useMemo(() => {
+    const map = new Map<number, Adjudicado[]>();
+    for (const r of registrosFiltrados) {
+      if (!map.has(r.id)) map.set(r.id, []);
+      map.get(r.id)!.push(r);
+    }
+    return Array.from(map.entries()).map(([id, registros]) => ({ id, registros }));
+  }, [registrosFiltrados]);
+
+  // Exportar PDF de un grupo completo
+  const handleExportSinglePDF = (grupo: AdjudicadoGroup) => {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a2" });
-
-    // Añadir logotipo institucional
-    const logo = "/tabasco-logo.png"; // Guarda la imagen en public/
+    const logo = "/tabasco-logo.png";
     doc.addImage(logo, "PNG", 20, 10, 60, 25);
-
-    // Títulos centrados
     doc.setFontSize(20);
     doc.text("GOBIERNO DEL ESTADO DE TABASCO", 150, 25, { align: "center" });
     doc.setFontSize(14);
-    doc.text("INFORME DE ADJUDICACIÓN INDIVIDUAL", 150, 35, { align: "center" });
+    doc.text("INFORME DE ADJUDICACIÓN - SEGUIMIENTO", 150, 35, { align: "center" });
 
-    // Definir encabezados y datos
+    // Encabezados
     const head = [[
       "DEPENDENCIA, ÓRGANO O ENTIDAD",
       "FUNDAMENTO",
@@ -134,19 +176,7 @@ export default function AdjudicadosPage() {
       "PROVEEDOR ADJUDICADO",
       "OBSERVACIONES",
     ]];
-
-    const formatCurrency = (value?: number) => {
-      if (value === undefined || value === null || isNaN(value)) return "";
-      const formatted = new Intl.NumberFormat("es-MX", {
-        style: "currency",
-        currency: "MXN",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
-      return formatted.replace(/\s/g, ""); // Elimina espacio entre símbolo y número
-    };
-
-    const body = [[
+    const body = grupo.registros.map((r) => [
       r.ente ?? "",
       r.fundamento ?? "",
       r.e_tipo_licitacion ?? "",
@@ -158,9 +188,7 @@ export default function AdjudicadosPage() {
       formatCurrency(r.importe_ajustado_total),
       `${r.rfc ?? ""} — ${r.razon_social ?? ""}`,
       r.observaciones ?? "",
-    ]];
-
-    // Generar tabla con estilo institucional
+    ]);
     autoTable(doc, {
       startY: 45,
       head,
@@ -174,24 +202,24 @@ export default function AdjudicadosPage() {
         lineWidth: 0.1,
       },
       headStyles: {
-        fillColor: [153, 20, 71], // #991447
+        fillColor: [153, 20, 71],
         textColor: [255, 255, 255],
         fontStyle: "bold",
         halign: "center",
       },
       alternateRowStyles: { fillColor: [245, 245, 245] },
       columnStyles: {
-        0: { cellWidth: 55 }, // Ente
-        1: { cellWidth: 50 }, // Fundamento
-        2: { cellWidth: 50 }, // Modalidad
-        3: { cellWidth: 40 }, // Fecha
-        4: { cellWidth: 50 }, // Partida
-        5: { cellWidth: 55 }, // Rubro
-        6: { cellWidth: 50 }, // Suficiencia
-        7: { cellWidth: 55 }, // Financiamiento
-        8: { cellWidth: 50 }, // Monto con IVA
-        9: { cellWidth: 55 }, // Proveedor
-        10: { cellWidth: 55 }, // Observaciones
+        0: { cellWidth: 55 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 50 },
+        3: { cellWidth: 40 },
+        4: { cellWidth: 50 },
+        5: { cellWidth: 55 },
+        6: { cellWidth: 50 },
+        7: { cellWidth: 55 },
+        8: { cellWidth: 50 },
+        9: { cellWidth: 55 },
+        10: { cellWidth: 55 },
       },
       margin: { left: 15, right: 15 },
       didDrawPage: (data) => {
@@ -203,9 +231,7 @@ export default function AdjudicadosPage() {
         );
       },
     });
-
-    // Guardar archivo PDF
-    doc.save(`reporte_adjudicacion_${r.id}.pdf`);
+    doc.save(`reporte_adjudicacion_seguimiento_${grupo.id}.pdf`);
   };
 
   // Exportar todos los registros filtrados a un solo PDF (formato institucional)
@@ -289,30 +315,6 @@ export default function AdjudicadosPage() {
     doc.save("reporte_adjudicaciones.pdf");
   };
 
-  // 🔍 Filtro simple
-  const normalize = (v: any) =>
-    (v ?? "")
-      .toString()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "");
-  const term = normalize(filtro);
-
-  const registrosFiltrados = registros.filter((r) =>
-    [
-      r.ente,
-      r.ente_clasificacion,
-      r.e_tipo_licitacion,
-      r.rubro,
-      r.rfc,
-      r.razon_social,
-      r.nombre_comercial,
-      r.fundamento,
-    ]
-      .map(normalize)
-      .join(" ")
-      .includes(term)
-  );
 
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-6">
@@ -464,6 +466,7 @@ export default function AdjudicadosPage() {
               <TableHead>Fundamento</TableHead>
               <TableHead>Estatus general</TableHead>
               <TableHead>Fecha de emisión</TableHead>
+              <TableHead>Oficio de invitación</TableHead>
               <TableHead>Partida</TableHead>
               <TableHead>Rubro</TableHead>
               <TableHead>Monto del rubro</TableHead>
@@ -477,9 +480,13 @@ export default function AdjudicadosPage() {
             {registrosFiltrados.map((r) => (
               <TableRow key={`${r.id}-${r.rubro}-${r.rfc}`}>
                 <TableCell>{r.ente}</TableCell>
-                <TableCell>{r.fundamento}</TableCell>
-                <TableCell>{r.estatus ?? ""}</TableCell>
+                <TableCell>
+                  {r.fundamento}
+                  {r.fundamiento_clasificacion ? ` (${r.fundamiento_clasificacion})` : ""}
+                </TableCell>
+                <TableCell>{r.estatus || r.rubro_estatus || "—"}</TableCell>
                 <TableCell>{r.r_fecha_emision}</TableCell>
+                <TableCell>{r.e_oficio_invitacion ?? "—"}</TableCell>
                 <TableCell>{r.e_id_partida ?? ""}</TableCell>
                 <TableCell>{`${r.id_rubro ?? ""} - ${r.rubro}`}</TableCell>
                 <TableCell>
@@ -496,36 +503,72 @@ export default function AdjudicadosPage() {
           </TableBody>
         </Table>
       ) : (
-        // 🏛️ Vista Tarjetas
+        // 🏛️ Vista Tarjetas agrupadas por seguimiento
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {registrosFiltrados.map((r) => (
-            <Card key={`${r.id}-${r.rubro}-${r.rfc}`} className="border shadow-sm hover:shadow-md transition-all duration-200">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold text-gray-800">
-                  {r.ente}
-                  <span className="block text-sm text-gray-500">{r.ente_clasificacion}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm space-y-2 text-gray-700">
-                <p><strong>Fundamento:</strong> {r.fundamento}</p>
-                <p><strong>Estatus general:</strong> {r.estatus ?? ""}</p>
-                <p><strong>Fecha de emisión:</strong> {r.r_fecha_emision}</p>
-                <p><strong>Partida:</strong> {r.e_id_partida ?? ""}</p>
-                <p><strong>Rubro:</strong> {`${r.id_rubro ?? ""} - ${r.rubro}`}</p>
-                <p><strong>Monto del rubro:</strong> {formatCurrency(r.e_monto_presupuesto_suficiencia)}</p>
-                <p><strong>Fuente de financiamiento:</strong> {r.ramo ?? ""}</p>
-                <p><strong>Importe con IVA:</strong> {formatCurrency(r.importe_ajustado_total)}</p>
-                <p><strong>Adjudicado:</strong> {`${r.rfc} — ${r.razon_social ?? ""}`}</p>
-                <p><strong>Observaciones:</strong> {r.observaciones ?? ""}</p>
-                <Button
-                  className="w-full mt-2 bg-[#235391] hover:bg-[#1e487d] text-white"
-                  onClick={() => handleExportSinglePDF(r)}
-                >
-                  Guardar .PDF
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+          {grupos.map((grupo) => {
+            // Tomar el primer registro para encabezados generales
+            const encabezado = grupo.registros[0];
+            return (
+              <Card key={grupo.id} className="border shadow-sm hover:shadow-md transition-all duration-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-semibold text-gray-800">
+                    {encabezado.ente}
+                    <span className="block text-sm text-gray-500">{encabezado.ente_clasificacion}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm space-y-2 text-gray-700">
+                  <p>
+                    <strong>Fundamento:</strong> {encabezado.fundamento}
+                    {encabezado.fundamiento_clasificacion ? ` (${encabezado.fundamiento_clasificacion})` : ""}
+                  </p>
+                  <p>
+                    <strong>Modalidad de contratación:</strong> {encabezado.e_tipo_licitacion}
+                  </p>
+                  <p><strong>Oficio de invitación:</strong> {encabezado.e_oficio_invitacion ?? "—"}</p>
+                  <p>
+                    <strong>Fecha de emisión:</strong> {encabezado.r_fecha_emision}
+                  </p>
+                  {/* Tabla de rubros/proveedores de este seguimiento */}
+                  <div className="overflow-x-auto mt-2">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Estatus</TableHead>
+                          <TableHead>Partida</TableHead>
+                          <TableHead>Rubro</TableHead>
+                          <TableHead>Monto del rubro</TableHead>
+                          <TableHead>Fuente de financiamiento</TableHead>
+                          <TableHead>Importe con IVA</TableHead>
+                          <TableHead>Adjudicado</TableHead>
+                          <TableHead>Observaciones</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {grupo.registros.map((r) => (
+                          <TableRow key={`${r.id}-${r.id_rubro}-${r.rfc}`}>
+                            <TableCell>{r.estatus || r.rubro_estatus || "—"}</TableCell>
+                            <TableCell>{r.e_id_partida ?? ""}</TableCell>
+                            <TableCell>{`${r.id_rubro ?? ""} - ${r.rubro}`}</TableCell>
+                            <TableCell>{formatCurrency(r.e_monto_presupuesto_suficiencia)}</TableCell>
+                            <TableCell>{r.ramo ?? ""}</TableCell>
+                            <TableCell>{formatCurrency(r.importe_ajustado_total)}</TableCell>
+                            <TableCell>{`${r.rfc} — ${r.razon_social ?? ""}`}</TableCell>
+                            <TableCell>{r.observaciones ?? ""}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <Button
+                    className="w-full mt-2 bg-[#235391] hover:bg-[#1e487d] text-white"
+                    onClick={() => handleExportSinglePDF(grupo)}
+                  >
+                    Guardar .PDF
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
