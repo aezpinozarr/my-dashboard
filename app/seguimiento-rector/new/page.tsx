@@ -2,6 +2,72 @@
 "use client";
 
 import React, { useEffect, useState, Suspense } from "react";
+import { Info } from "lucide-react";
+// StepIndicator con estilo igual al de procesos/new/page.tsx:
+// - Círculos grandes con números centrados (w-10 h-10)
+// - Líneas delgadas conectando pasos (h-[2px])
+// - Color azul #235391 para paso activo
+// - Transición suave al cambiar de paso
+// - Texto debajo en gris, azul cuando está activo
+function StepIndicator({ step, steps }: { step: number; steps: string[] }) {
+  return (
+    <div className="flex items-center justify-center mb-8">
+      {steps.map((label, idx) => {
+        const isActive = idx + 1 === step;
+        const isCompleted = idx + 1 < step;
+        return (
+          <React.Fragment key={label}>
+            <div className="flex flex-col items-center">
+              <div
+                className={
+                  [
+                    "flex items-center justify-center rounded-full border font-bold transition-all duration-300 ease-in-out",
+                    "w-10 h-10 text-lg",
+                    isActive
+                      ? "bg-[#235391] text-white border-[#235391] shadow-lg"
+                      : isCompleted
+                      ? "bg-blue-100 text-[#235391] border-[#235391]"
+                      : "bg-gray-200 text-gray-400 border-gray-300"
+                  ].join(" ")
+                }
+              >
+                {idx + 1}
+              </div>
+              <span
+                className={
+                  [
+                    "mt-2 text-sm text-center transition-all duration-300 ease-in-out",
+                    isActive
+                      ? "font-semibold text-[#235391]"
+                      : isCompleted
+                      ? "text-[#235391]"
+                      : "text-gray-500"
+                  ].join(" ")
+                }
+                style={{ width: 140 }}
+              >
+                {label}
+              </span>
+            </div>
+            {idx < steps.length - 1 && (
+              <div
+                className="mx-2 flex items-center"
+                style={{
+                  width: 48,
+                  minWidth: 32,
+                  maxWidth: 60,
+                  height: "2px",
+                  background: step > idx + 1 ? "#235391" : "#e5e7eb",
+                  transition: "all 0.3s ease-in-out"
+                }}
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
@@ -110,8 +176,15 @@ export default function Page() {
 }
 
 function RectorForm() {
+  // Paso visual y control de flujo
+  const [step, setStep] = useState(1);
+  // Para tooltips
+  const [showTooltipAvanzar, setShowTooltipAvanzar] = useState(false);
+  const [showTooltipFinalizar, setShowTooltipFinalizar] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useUser();
+  // Estado para controlar el accordion abierto en el paso 2
+  const [accordionOpen, setAccordionOpen] = useState<string | undefined>();
 
   const formatMXN = (v: any) => {
     const n = Number(v);
@@ -182,6 +255,23 @@ function RectorForm() {
   // ======================================================
   const [errores, setErrores] = useState<{ fecha_emision?: string; fecha_reunion?: string; hora_reunion?: string }>({});
   const [form, setForm] = useState<{ fecha_emision?: string; fecha_reunion?: string; hora_reunion?: string }>({});
+  // Estado para errores de validación del formulario del paso 1
+  const [formErrors, setFormErrors] = useState<{ [key: string]: boolean }>({});
+  // Validación de campos obligatorios del paso 1
+  const validateStep1Fields = () => {
+    const newErrors: { [key: string]: boolean } = {};
+    if (!form.fecha_emision) newErrors.fecha_emision = true;
+    if (!form.fecha_reunion) newErrors.fecha_reunion = true;
+    if (!form.hora_reunion) newErrors.hora_reunion = true;
+    const formEl = document.querySelector('form') as HTMLFormElement | null;
+    if (formEl) {
+      if (!formEl.oficio.value.trim()) newErrors.oficio = true;
+      if (!formEl.asunto.value.trim()) newErrors.asunto = true;
+    }
+    if (!servidorSeleccionado) newErrors.servidor = true;
+    setFormErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
   // 1️⃣ Cargar servidores públicos por ente
   // ======================================================
   useEffect(() => {
@@ -477,14 +567,17 @@ const url = `${API_BASE}/seguridad/notificaciones/?p_accion=CREAR&p_id_usuario_o
         }
       }
 
-      // Si el estatus general es "CANCELADO", redirigir
+      // ✅ Si el estatus general es "CANCELADO", redirigir al listado
       if (estatusGeneral === "CANCELADO") {
         router.push("/seguimiento-rector");
         return;
       }
 
-      // Redirigir siempre después de guardar
-      router.push("/seguimiento-rector");
+      // ✅ Si el guardado fue exitoso y el estatus es REVISADO, avanzar al paso 2 sin redirigir
+      if (estatusGeneral === "REVISADO") {
+        setStep(2);
+        return;
+      }
       // Si no quieres redirigir siempre, comenta la línea anterior y descomenta la siguiente para solo recargar detalle:
       // cargarDetalle(selectedId!);
     } catch (err: any) {
@@ -596,6 +689,8 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
   }
 
   // 🔍 Verificar si ya existe adjudicado en backend (para obtener p_id existente)
+  // Guardar la partida abierta antes de recargar
+  const partidaAbierta = accordionOpen;
   let pIdExistente: number | null = null;
   try {
     const checkRes = await fetch(
@@ -705,8 +800,11 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
       return newState;
     });
 
-    // Recargar detalle visual
-    cargarDetalle(selectedId);
+    // Recargar detalle visual sin perder posición ni accordion
+    const scrollPos = window.scrollY;
+    await cargarDetalle(selectedId);
+    setAccordionOpen(partidaAbierta);
+    setTimeout(() => window.scrollTo({ top: scrollPos, behavior: "instant" }), 0);
   } catch (err: any) {
     console.error("❌ Error adjudicando proveedor:", err);
     toast.error(`❌ Error al adjudicar: ${err.message || "Revisa consola o backend"}`);
@@ -756,31 +854,49 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
     return <RectorSkeleton />;
   }
 
+  // Paso y flujo visual
+  const steps = ["Gestión del rector", "Adjudicación"];
+  // Determinar paso máximo según estatus
+  const pasoActual = (() => {
+    if (estatusGeneral === "CANCELADO") return 1;
+    if (step === 2) return 2;
+    return 1;
+  })();
+
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-8">
+      {/* Step Indicator visual */}
+      <StepIndicator step={pasoActual} steps={steps} />
+
+      {/* Card Detalle del Seguimiento SIEMPRE visible */}
       {detalleGeneral && (
         <Card className="border shadow-sm bg-gray-50">
-          <CardHeader className="flex flex-row items-center space-x-2">
-            <Button
-              variant="outline"
-              size="icon"
-              type="button"
-              onClick={() => router.push("/seguimiento-rector")}
-              className="rounded-md shadow-sm cursor-pointer"
-            >
-              <span className="text-lg">←</span>
-            </Button>
-            <CardTitle className="text-gray-700 text-lg">
-              Detalle del Seguimiento
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-x-4">
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="icon"
+                type="button"
+                onClick={() => router.push("/seguimiento-rector")}
+                className="rounded-md shadow-sm cursor-pointer"
+              >
+                <span className="text-lg">←</span>
+              </Button>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
+                <CardTitle className="text-gray-700 text-lg">Detalle del Seguimiento</CardTitle>
+                <span className="text-gray-600 font-medium">
+                  Oficio de invitación:{" "}
+                  <span className="text-gray-800">
+                    {detalleGeneral.e_oficio_invitacion || "—"}
+                  </span>
+                </span>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="text-sm text-gray-800 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2">
             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
               <div>
                 <strong>ID:</strong> {selectedId}
-              </div>
-              <div>
-                <strong>Oficio de Invitación:</strong> {detalleGeneral.e_oficio_invitacion || "—"}
               </div>
             </div>
             <div>
@@ -798,8 +914,21 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
             <div>
               <strong>Tipo de Evento:</strong> {detalleGeneral.e_tipo_evento}
             </div>
-            <div>
-              <strong>Estatus actual:</strong> {detalleGeneral.r_estatus}
+            <div className="flex items-center gap-2">
+              <strong>Estatus actual:</strong>
+              <span
+                className={`px-3 py-1 text-sm font-semibold rounded-md ${
+                  detalleGeneral.r_estatus === "PREREGISTRADO"
+                    ? "bg-yellow-100 text-yellow-800"
+                    : detalleGeneral.r_estatus === "REVISADO"
+                    ? "bg-green-100 text-green-800"
+                    : detalleGeneral.r_estatus === "CANCELADO"
+                    ? "bg-red-100 text-red-800"
+                    : "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {detalleGeneral.r_estatus || "—"}
+              </span>
             </div>
             <div className="mt-[-19px]">
               <strong>Fecha de reunión:</strong> {detalleGeneral.e_fecha_y_hora_reunion || "Sin definir"}
@@ -807,19 +936,25 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
           </CardContent>
         </Card>
       )}
-      {/* ================= CARD 1: FORMULARIO PRINCIPAL ================= */}
-      <Card className="shadow-md border">
-        <CardHeader>
-          <CardTitle>Gestión del Rector</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+
+      {/* Paso 1: Gestión del rector */}
+      {pasoActual === 1 && (
+        <Card className="shadow-md border">
+      <CardHeader>
+            <CardTitle>Gestión del Rector</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
             {/* Primera fila: Oficio, Fecha de Emisión, Fecha Reunión, Hora Reunión, Estatus General (NUEVO DISEÑO) */}
             <div className="flex flex-wrap items-end justify-between gap-6">
               {/* Oficio */}
-              <div className="flex flex-col min-w-[160px]">
+            <div className="flex flex-col min-w-[160px]">
                 <Label className="text-gray-700 font-medium">Oficio</Label>
-                <Input name="oficio" placeholder="Número de oficio" className="w-[320px] shadow-sm" />
+                <Input
+                  name="oficio"
+                  placeholder="Número de oficio"
+                  className={`w-[320px] shadow-sm ${formErrors.oficio ? "border-red-500" : ""}`}
+                />
               </div>
 
               {/* Fecha de Emisión */}
@@ -833,7 +968,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                   placeholder="dd/mm/aaaa"
                   maxLength={10}
                   name="fecha_emision"
-                  className={`w-[140px] shadow-sm ${errores.fecha_emision ? "border-red-500" : ""}`}
+                  className={`w-[140px] shadow-sm ${errores.fecha_emision || formErrors.fecha_emision ? "border-red-500" : ""}`}
                 />
               </div>
 
@@ -848,7 +983,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                   placeholder="dd/mm/aaaa"
                   maxLength={10}
                   name="fecha_reunion_fecha"
-                  className={`w-[140px] shadow-sm ${errores.fecha_reunion ? "border-red-500" : ""}`}
+                  className={`w-[140px] shadow-sm ${errores.fecha_reunion || formErrors.fecha_reunion ? "border-red-500" : ""}`}
                 />
               </div>
 
@@ -863,7 +998,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                   placeholder="HH:MM"
                   maxLength={5}
                   name="fecha_reunion_hora"
-                  className={`w-[100px] shadow-sm ${errores.hora_reunion ? "border-red-500" : ""}`}
+                  className={`w-[100px] shadow-sm ${errores.hora_reunion || formErrors.hora_reunion ? "border-red-500" : ""}`}
                 />
               </div>
 
@@ -942,7 +1077,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
               <textarea
                 name="asunto"
                 placeholder="Escribe el asunto..."
-                className="w-full border rounded-md p-2 resize-none"
+                className={`w-full border rounded-md p-2 resize-none ${formErrors.asunto ? "border-red-500" : ""}`}
                 rows={2}
               />
             </div>
@@ -988,23 +1123,97 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                   Seleccionado: <strong>{servidorSeleccionado.nombre}</strong>
                 </p>
               )}
+              {!servidorSeleccionado && formErrors.servidor && (
+                <p className="text-xs text-red-600 mt-1">Campo obligatorio</p>
+              )}
             </div>
-            {/* Botón Guardar Captura eliminado */}
-          </form>
-        </CardContent>
-      </Card>
+              {/* Botón para avanzar a paso 2 si aplica */}
+              {estatusGeneral === "REVISADO" && (
+                <div className="flex justify-end mt-6">
+                  <div className="relative">
+                    <Button
+                      type="button"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      onMouseEnter={() => setShowTooltipAvanzar(true)}
+                      onMouseLeave={() => setShowTooltipAvanzar(false)}
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        if (!validateStep1Fields()) {
+                          toast.error("❌ Completa todos los campos obligatorios antes de avanzar");
+                          return;
+                        }
+                        const formEl = document.querySelector('form');
+                        if (formEl) {
+                          // Ejecutar el envío del formulario
+                          // @ts-ignore
+                          formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+                        }
+                        // Esperar un pequeño tiempo para asegurar el guardado antes de avanzar
+                        setTimeout(() => setStep(2), 500);
+                      }}
+                    >
+                      Avanzar al paso 2
+                    </Button>
+                    {showTooltipAvanzar && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
+                        Continuar con la adjudicación de proveedores
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* Si estatus CANCELADO, mostrar Finalizar */}
+              {estatusGeneral === "CANCELADO" && (
+                <div className="flex justify-end mt-6">
+                  <div className="relative">
+                    <Button
+                      type="button"
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                      onMouseEnter={() => setShowTooltipFinalizar(true)}
+                      onMouseLeave={() => setShowTooltipFinalizar(false)}
+                      onClick={e => {
+                        const formEl = document.querySelector('form');
+                        if (formEl) {
+                          // @ts-ignore
+                          formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+                        }
+                      }}
+                    >
+                      Finalizar proceso
+                    </Button>
+                    {showTooltipFinalizar && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
+                        Terminar proceso. No se podrá avanzar a adjudicación.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* ================= CARD 2: DETALLE NUEVO DISEÑO (Accordion por partida) ================= */}
-      {estatusGeneral !== "CANCELADO" && (
+      {/* Paso 2: Seleccionar proceso de adjudicación */}
+      {pasoActual === 2 && estatusGeneral === "REVISADO" && (
         <Card className="shadow-md border">
           <CardHeader>
             <CardTitle>Seleccionar proceso de adjudicación</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <Accordion type="single" collapsible className="w-full">
+            <Accordion
+              type="single"
+              collapsible
+              className="w-full"
+              value={accordionOpen}
+              onValueChange={setAccordionOpen}
+            >
               {detalle.map((p) => (
                 <AccordionItem key={p.id_partida} value={`partida-${p.id_partida}`}>
-                  <AccordionTrigger className="flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-colors">
+                  <AccordionTrigger
+                    onClick={() => setAccordionOpen(`partida-${p.id_partida}`)}
+                    className="flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-colors"
+                  >
                     <span>{`#${p.id_partida} — ${p.partida}`}</span>
                   </AccordionTrigger>
                   <AccordionContent className="space-y-6 transition-all duration-300 ease-in-out">
@@ -1105,9 +1314,20 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                             <SelectValue placeholder="Selecciona estatus" />
                           </SelectTrigger>
                           <SelectContent>
-                            {estatusOptions.map((e) => (
-                              <SelectItem key={e} value={e}>{e}</SelectItem>
-                            ))}
+                            {estatusOptions.map((e) => {
+                              let colorClass = "bg-blue-500"; // Por defecto
+                              if (["ADJUDICADO", "DIFERIMIENTO"].includes(e)) colorClass = "bg-green-500";
+                              else if (e === "CANCELADO") colorClass = "bg-red-500";
+
+                              return (
+                                <SelectItem key={e} value={e}>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`w-2.5 h-2.5 rounded-full ${colorClass}`}></span>
+                                    {e}
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
                           </SelectContent>
                         </Select>
                         {validationErrors.estatus && <p className="text-red-600 text-xs mt-1">Campo obligatorio</p>}
@@ -1298,25 +1518,25 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                       );
                     })()}
 
-                    {/* Alternador de vista de tabla o card */}
-                    <div className="flex justify-end mb-3">
-                      <Button
-                        variant={tableView === "table" ? "default" : "outline"}
-                        size="sm"
-                        className="cursor-pointer"
-                        onClick={() => setTableView("table")}
-                      >
-                        Vista Tabla
-                      </Button>
-                      <Button
-                        variant={tableView === "card" ? "default" : "outline"}
-                        size="sm"
-                        className="ml-2 cursor-pointer"
-                        onClick={() => setTableView("card")}
-                      >
-                        Vista Card
-                      </Button>
-                    </div>
+            {/* Alternador de vista de tabla o card */}
+            <div className="flex justify-end mb-3">
+              <Button
+                variant={tableView === "table" ? "default" : "outline"}
+                size="sm"
+                className="cursor-pointer"
+                onClick={() => setTableView("table")}
+              >
+                Vista Tabla
+              </Button>
+              <Button
+                variant={tableView === "card" ? "default" : "outline"}
+                size="sm"
+                className="ml-2 cursor-pointer"
+                onClick={() => setTableView("card")}
+              >
+                Vista Card
+              </Button>
+            </div>
                     {/* Tabla inferior o cards según vista */}
                     {tableView === "table" ? (
                       <div className="bg-gray-100 p-4 rounded-md border border-gray-300 overflow-x-auto">
@@ -1343,7 +1563,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                                       <div>
                                         <strong>Rubro:</strong><br />
                                         {partidaObj
-                                          ? `${partidaObj.id_partida} - ${partidaObj.partida} | ${
+                                          ? `${partidaObj.id_partida} | ${
                                               rubroObj ? `${rubroObj.id_rubro} - ${rubroObj.rubro}` : "—"
                                             }`
                                           : "—"}
@@ -1355,7 +1575,22 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                                     <TableCell>
                                       {formatMXN(row.importeTotal)}
                                     </TableCell>
-                                    <TableCell>{row.estatus || "—"}</TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        {row.estatus && (
+                                          <span
+                                            className={`w-2.5 h-2.5 rounded-full ${
+                                              ["ADJUDICADO", "DIFERIMIENTO"].includes(row.estatus)
+                                                ? "bg-green-500"
+                                                : row.estatus === "CANCELADO"
+                                                ? "bg-red-500"
+                                                : "bg-blue-500"
+                                            }`}
+                                          ></span>
+                                        )}
+                                        {row.estatus || "—"}
+                                      </div>
+                                    </TableCell>
                                     <TableCell className="whitespace-normal break-words">
                                       <div><strong>Fundamento:</strong> {fundamentoObj ? fundamentoObj.descripcion : "—"}</div>
                                     </TableCell>
@@ -1474,35 +1709,47 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                 </AccordionItem>
               ))}
             </Accordion>
+            {/* Botones de navegación entre pasos */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-end mt-6">
+              <div className="relative">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                  onClick={() => setStep(1)}
+                >
+                  ← Regresar al paso 1
+                </Button>
+              </div>
+              <div className="relative">
+                <Button
+                  type="button"
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  onMouseEnter={() => setShowTooltipFinalizar(true)}
+                  onMouseLeave={() => setShowTooltipFinalizar(false)}
+                  onClick={e => {
+                    // Simular submit del form principal
+                    const formEl = document.querySelector('form');
+                    if (formEl) {
+                      // @ts-ignore
+                      formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+                    }
+                    // ✅ Redirigir al finalizar
+                    router.push("/seguimiento-rector");
+                  }}
+                >
+                  Finalizar proceso
+                </Button>
+                {showTooltipFinalizar && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
+                    Terminar proceso y guardar cambios
+                  </div>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
-      {/* ================= BOTÓN FINALIZAR ================= */}
-      <div className="mt-6">
-        <Button
-          onClick={(e) => {
-            // Ejecutar handleSubmit y redirigir al finalizar
-            // Creamos un evento falso para llamar handleSubmit
-            // Si el form está referenciado, podemos hacer submit programático
-            // Pero aquí reutilizamos la lógica
-            // handleSubmit espera un evento de formulario, así que creamos uno
-            // Pero como handleSubmit ya hace el push, solo lo llamamos
-            // 
-            // Simulamos un evento de formulario: buscamos el form del Card principal
-            const formEl = document.querySelector('form');
-            if (formEl) {
-              // @ts-ignore
-              formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
-            }
-          }}
-          className="w-full text-white cursor-pointer"
-          style={{ backgroundColor: '#db200b' }}
-          onMouseOver={e => (e.currentTarget.style.backgroundColor='#b81a09')}
-          onMouseOut={e => (e.currentTarget.style.backgroundColor='#db200b')}
-        >
-          Finalizar
-        </Button>
-      </div>
     </main>
   );
 }

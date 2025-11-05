@@ -18,7 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input"; // ✅ Barra de búsqueda
 import {
   DropdownMenu,
@@ -26,7 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"; // ✅ Menú de opciones
-import { MoreHorizontal } from "lucide-react"; // Ícono “...”
+import { MoreHorizontal, List, LayoutGrid } from "lucide-react"; // Ícono “...”
 
 const API_BASE =
   typeof window !== "undefined"
@@ -123,15 +122,32 @@ export default function ServidoresPage() {
 
         {/* Controles derechos */}
         <div className="flex items-center gap-4">
-          <Tabs
-            value={view}
-            onValueChange={(v) => setView(v as "cards" | "table")}
-          >
-            <TabsList>
-              <TabsTrigger value="cards">📇 Cards</TabsTrigger>
-              <TabsTrigger value="table">📋 Tabla</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex items-center space-x-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setView("cards")}
+              className={`rounded-full w-10 h-10 transition-all duration-200 ${
+                view === "cards"
+                  ? "bg-blue-100 text-blue-600"
+                  : "bg-transparent text-gray-800 hover:bg-gray-100"
+              }`}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setView("table")}
+              className={`rounded-full w-10 h-10 transition-all duration-200 ${
+                view === "table"
+                  ? "bg-blue-100 text-blue-600"
+                  : "bg-transparent text-gray-800 hover:bg-gray-100"
+              }`}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
 
           {/* 🔴 Botón de salir */}
           <Button

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, List, LayoutGrid } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DateRange } from "react-day-picker";
@@ -15,6 +15,21 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+
+// TanStack Table imports
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+  ColumnDef,
+  SortingState,
+} from "@tanstack/react-table";
+
+import { ChevronUp, ChevronDown } from "lucide-react";
+
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import { Settings2 } from "lucide-react";
 
 const API_BASE =
   typeof window !== "undefined"
@@ -51,6 +66,166 @@ type Adjudicado = {
 };
 
 export default function AdjudicadosPage() {
+  // TanStack Table sorting state
+  const [sorting, setSorting] = useState<SortingState>([]);
+
+  // Column definitions for TanStack Table
+  const columns = React.useMemo<ColumnDef<Adjudicado>[]>(
+    () => [
+      {
+        accessorKey: "ente",
+        header: "Ente",
+        cell: info => info.getValue(),
+        enableSorting: true,
+      },
+      {
+        accessorKey: "fundamento",
+        header: "Fundamento",
+        cell: info => {
+          const row = info.row.original;
+          return (
+            <>
+              {row.fundamento}
+              {row.fundamiento_clasificacion ? ` (${row.fundamiento_clasificacion})` : ""}
+            </>
+          );
+        },
+        enableSorting: true,
+      },
+      {
+        accessorKey: "estatus",
+        header: "Estatus general",
+        cell: info => {
+          const row = info.row.original;
+          return row.estatus || row.rubro_estatus || "—";
+        },
+        enableSorting: true,
+        sortingFn: (a, b) => {
+          // Simple localeCompare for estatus/rubro_estatus
+          const valA = a.original.estatus || a.original.rubro_estatus || "";
+          const valB = b.original.estatus || b.original.rubro_estatus || "";
+          return valA.localeCompare(valB);
+        },
+      },
+      {
+        accessorKey: "r_fecha_emision",
+        header: "Fecha de emisión",
+        cell: info => info.getValue(),
+        enableSorting: true,
+        sortingFn: (a, b) => {
+          // Compare as timestamps (date)
+          return new Date(a.original.r_fecha_emision).getTime() - new Date(b.original.r_fecha_emision).getTime();
+        },
+      },
+      {
+        accessorKey: "e_oficio_invitacion",
+        header: "Oficio de invitación",
+        cell: info => info.row.original.e_oficio_invitacion ?? "—",
+        enableSorting: true,
+      },
+      {
+        accessorKey: "e_id_partida",
+        header: "Partida",
+        cell: info => info.row.original.e_id_partida ?? "",
+        enableSorting: true,
+      },
+      {
+        accessorKey: "rubro",
+        header: "Rubro",
+        cell: info => {
+          const row = info.row.original;
+          return `${row.id_rubro ?? ""} - ${row.rubro}`;
+        },
+        enableSorting: true,
+        sortingFn: (a, b) => {
+          const aStr = `${a.original.id_rubro ?? ""} - ${a.original.rubro}`;
+          const bStr = `${b.original.id_rubro ?? ""} - ${b.original.rubro}`;
+          return aStr.localeCompare(bStr);
+        },
+      },
+      {
+        accessorKey: "e_monto_presupuesto_suficiencia",
+        header: "Monto del rubro",
+        cell: info => formatCurrency(info.row.original.e_monto_presupuesto_suficiencia),
+        enableSorting: true,
+        sortingFn: (a, b) => {
+          return (a.original.e_monto_presupuesto_suficiencia ?? 0) - (b.original.e_monto_presupuesto_suficiencia ?? 0);
+        },
+      },
+      {
+        accessorKey: "ramo",
+        header: "Fuente de financiamiento",
+        cell: info => info.row.original.ramo ?? "",
+        enableSorting: true,
+      },
+      {
+        accessorKey: "importe_ajustado_total",
+        header: "Importe con IVA",
+        cell: info => formatCurrency(info.row.original.importe_ajustado_total),
+        enableSorting: true,
+        sortingFn: (a, b) => {
+          return (a.original.importe_ajustado_total ?? 0) - (b.original.importe_ajustado_total ?? 0);
+        },
+      },
+      {
+        accessorKey: "adjudicado",
+        header: "Adjudicado",
+        cell: info => {
+          const row = info.row.original;
+          return `${row.rfc} — ${row.razon_social ?? ""}`;
+        },
+        enableSorting: true,
+      },
+      {
+        accessorKey: "observaciones",
+        header: "Observaciones",
+        cell: info => info.row.original.observaciones ?? "",
+        enableSorting: true,
+      },
+    ],
+    []
+  );
+
+  // Estados principales (registros, filtro, originales)
+  const [registros, setRegistros] = useState<Adjudicado[]>([]);
+  const [registrosOriginales, setRegistrosOriginales] = useState<Adjudicado[]>([]);
+  const [filtro, setFiltro] = useState("");
+
+  // 🔍 Filtro simple
+  const normalize = (v: any) =>
+    (v ?? "")
+      .toString()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "");
+  const term = normalize(filtro);
+
+  const registrosFiltrados = registros.filter((r) =>
+    [
+      r.ente,
+      r.ente_clasificacion,
+      r.e_tipo_licitacion,
+      r.rubro,
+      r.rfc,
+      r.razon_social,
+      r.nombre_comercial,
+      r.fundamento,
+    ]
+      .map(normalize)
+      .join(" ")
+      .includes(term)
+  );
+
+  // TanStack Table instance
+  const table = useReactTable({
+    data: registrosFiltrados,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    manualSorting: false, // Usa el sorting interno optimizado de TanStack
+  });
   // Utilidad para formato de moneda
   const formatCurrency = (value?: number) => {
     if (value === undefined || value === null || isNaN(value)) return "";
@@ -63,9 +238,6 @@ export default function AdjudicadosPage() {
     return formatted.replace(/\s/g, ""); // elimina espacios entre el símbolo y la cantidad
   };
   const router = useRouter();
-  const [registros, setRegistros] = useState<Adjudicado[]>([]);
-  const [registrosOriginales, setRegistrosOriginales] = useState<Adjudicado[]>([]);
-  const [filtro, setFiltro] = useState("");
   const [view, setView] = useState<"cards" | "table">("cards");
   const [loading, setLoading] = useState(true);
   // Eliminar fechaInicio y fechaFin, usar dateRange
@@ -112,30 +284,6 @@ export default function AdjudicadosPage() {
     cargarAdjudicados();
   }, []);
 
-  // 🔍 Filtro simple
-  const normalize = (v: any) =>
-    (v ?? "")
-      .toString()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "");
-  const term = normalize(filtro);
-
-  const registrosFiltrados = registros.filter((r) =>
-    [
-      r.ente,
-      r.ente_clasificacion,
-      r.e_tipo_licitacion,
-      r.rubro,
-      r.rfc,
-      r.razon_social,
-      r.nombre_comercial,
-      r.fundamento,
-    ]
-      .map(normalize)
-      .join(" ")
-      .includes(term)
-  );
 
   // Agrupar registros por ID de seguimiento
   // Asumimos que el campo 'id' es el identificador de seguimiento (si no, ajustar)
@@ -341,12 +489,80 @@ export default function AdjudicadosPage() {
           )}
         </div>
 
-        <Tabs value={view} onValueChange={(v) => setView(v as any)}>
-          <TabsList>
-            <TabsTrigger value="cards">🏛️ Tarjetas</TabsTrigger>
-            <TabsTrigger value="table">📋 Tabla</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-3">
+          {/* Botón Personalizar Columnas */}
+          {view === "table" && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="flex gap-2 items-center">
+                  <Settings2 size={16} />
+                  <span className="hidden sm:inline">Personalizar Columnas</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-80 overflow-auto">
+                {[
+                  "Ente",
+                  "Fundamento",
+                  "Estatus general",
+                  "Fecha de emisión",
+                  "Oficio de invitación",
+                  "Partida",
+                  "Rubro",
+                  "Monto del rubro",
+                  "Fuente de financiamiento",
+                  "Importe con IVA",
+                  "Adjudicado",
+                  "Observaciones",
+                ].map((columna, index) => (
+                  <DropdownMenuCheckboxItem
+                    key={index}
+                    checked={true}
+                    onCheckedChange={() => {}}
+                  >
+                    {columna}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {/* Botón Exportar a CSV */}
+          {view === "table" && (
+            <Button
+              variant="outline"
+              style={{ backgroundColor: "#10c706", color: "white" }}
+              onClick={() => console.log("Exportar CSV (implementación pendiente)")}
+            >
+              Exportar a .CSV
+            </Button>
+          )}
+
+          {/* Botones de cambio de vista */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setView("table")}
+            className={`rounded-full w-12 h-12 transition-all ${
+              view === "table"
+                ? "bg-blue-100 text-blue-600"
+                : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+            }`}
+          >
+            <List className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setView("cards")}
+            className={`rounded-full w-12 h-12 transition-all ${
+              view === "cards"
+                ? "bg-blue-100 text-blue-600"
+                : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+            }`}
+          >
+            <LayoutGrid className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -458,50 +674,48 @@ export default function AdjudicadosPage() {
       ) : registrosFiltrados.length === 0 ? (
         <p className="text-center text-gray-600">No hay adjudicaciones en este rango.</p>
       ) : view === "table" ? (
-        // 📋 Vista Tabla
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Ente</TableHead>
-              <TableHead>Fundamento</TableHead>
-              <TableHead>Estatus general</TableHead>
-              <TableHead>Fecha de emisión</TableHead>
-              <TableHead>Oficio de invitación</TableHead>
-              <TableHead>Partida</TableHead>
-              <TableHead>Rubro</TableHead>
-              <TableHead>Monto del rubro</TableHead>
-              <TableHead>Fuente de financiamiento</TableHead>
-              <TableHead>Importe con IVA</TableHead>
-              <TableHead>Adjudicado</TableHead>
-              <TableHead>Observaciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {registrosFiltrados.map((r) => (
-              <TableRow key={`${r.id}-${r.rubro}-${r.rfc}`}>
-                <TableCell>{r.ente}</TableCell>
-                <TableCell>
-                  {r.fundamento}
-                  {r.fundamiento_clasificacion ? ` (${r.fundamiento_clasificacion})` : ""}
-                </TableCell>
-                <TableCell>{r.estatus || r.rubro_estatus || "—"}</TableCell>
-                <TableCell>{r.r_fecha_emision}</TableCell>
-                <TableCell>{r.e_oficio_invitacion ?? "—"}</TableCell>
-                <TableCell>{r.e_id_partida ?? ""}</TableCell>
-                <TableCell>{`${r.id_rubro ?? ""} - ${r.rubro}`}</TableCell>
-                <TableCell>
-                  {formatCurrency(r.e_monto_presupuesto_suficiencia)}
-                </TableCell>
-                <TableCell>{r.ramo ?? ""}</TableCell>
-                <TableCell>
-                  {formatCurrency(r.importe_ajustado_total)}
-                </TableCell>
-                <TableCell>{`${r.rfc} — ${r.razon_social ?? ""}`}</TableCell>
-                <TableCell>{r.observaciones ?? ""}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        // 📋 Vista Tabla con TanStack Table
+        <>
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map(headerGroup => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map(header => {
+                    const isSorted = header.column.getIsSorted();
+                    return (
+                      <TableHead
+                        key={header.id}
+                        onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
+                        style={{
+                          cursor: header.column.getCanSort() ? "pointer" : undefined,
+                          userSelect: "none",
+                        }}
+                        className={header.column.getCanSort() ? "hover:bg-gray-100 select-none" : ""}
+                      >
+                        <div className="flex items-center gap-1">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {isSorted === "asc" && <ChevronUp size={16} className="inline ml-1" />}
+                          {isSorted === "desc" && <ChevronDown size={16} className="inline ml-1" />}
+                        </div>
+                      </TableHead>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.map(row => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map(cell => (
+                    <TableCell key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </>
       ) : (
         // 🏛️ Vista Tarjetas agrupadas por seguimiento
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
