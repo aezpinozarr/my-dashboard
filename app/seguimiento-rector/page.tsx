@@ -7,6 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
+import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
 import { Settings2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -316,92 +317,15 @@ export default function SeguimientoRectorPage() {
         </div>
 
         <div className="flex items-center space-x-3">
-          {/* Solo mostrar los botones Personalizar Columnas y Exportar CSV en vista tabla */}
-          {view === "table" && (
-            <>
-              {/* Personalizar columnas */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="flex gap-2 items-center">
-                    <Settings2 size={16} />
-                    <span>Personalizar Columnas</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="max-h-80 overflow-auto">
-                  {Object.keys(columnVisibility).map((key) => (
-                    <DropdownMenuCheckboxItem
-                      key={key}
-                      checked={columnVisibility[key]}
-                      onCheckedChange={() =>
-                        setColumnVisibility((prev) => ({ ...prev, [key]: !prev[key] }))
-                      }
-                    >
-                      {(() => {
-                        switch (key) {
-                          case "id":
-                            return "ID";
-                          case "ente":
-                            return "Ente";
-                          case "e_oficio_invitacion":
-                            return "Oficio de Invitación";
-                          case "ente_clasificacion":
-                            return "Clasificación";
-                          case "e_tipo_licitacion":
-                            return "Tipo Licitación";
-                          case "tipo_licitacion_no_veces_descripcion":
-                            return "No. Veces";
-                          case "servidor_publico_emite":
-                            return "Emite";
-                          case "e_fecha_y_hora_reunion":
-                            return "Fecha Reunión";
-                          case "r_estatus":
-                            return "Estatus";
-                          case "acciones":
-                            return "Acciones";
-                          default:
-                            return key;
-                        }
-                      })()}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Exportar CSV */}
-              <Button
-                variant="outline"
-                style={{ backgroundColor: "#10c706", color: "white" }}
-                onClick={() => console.log("Exportar CSV (implementación pendiente)")}
-              >
-                Exportar a .CSV
-              </Button>
-            </>
-          )}
-          {/* Botones de vista */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setView("table")}
-            className={`rounded-full w-10 h-10 transition-all duration-200 ${
-              view === "table"
-                ? "bg-blue-100 text-blue-600"
-                : "bg-transparent text-gray-800 hover:bg-gray-100"
-            }`}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setView("cards")}
-            className={`rounded-full w-10 h-10 transition-all duration-200 ${
-              view === "cards"
-                ? "bg-blue-100 text-blue-600"
-                : "bg-transparent text-gray-800 hover:bg-gray-100"
-            }`}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
+          <ActionButtonsGroup
+            viewMode={view}
+            setViewMode={setView}
+            onExport={() => console.log("Exportar CSV (implementación pendiente)")}
+            showExport={view === "table"}
+            newPath={undefined}
+            hideNew
+            table={table} // ✅ se pasa la instancia de la tabla para personalizar columnas
+          />
         </div>
       </div>
 

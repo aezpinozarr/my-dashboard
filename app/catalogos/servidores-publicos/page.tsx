@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+// import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,16 @@ import {
 } from "@/components/ui/table";
 import { List, LayoutGrid } from "lucide-react";
 import { Input } from "@/components/ui/input"; // ✅ Barra de búsqueda
+import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
+import { DataTable } from "@/components/shared/DataTable";
+import { RowActionButtons } from "@/components/shared/RowActionButtons";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 // ======================
 // 🔹 Base de la API sin variables de entorno
@@ -52,6 +63,10 @@ export default function ServidoresPublicosPage() {
   const [view, setView] = React.useState<"cards" | "table">("cards");
   const [search, setSearch] = React.useState(""); // ✅ Búsqueda
   const [showDeleted, setShowDeleted] = React.useState(false); // ✅ Ver eliminados
+  const [tableInstance, setTableInstance] = React.useState<any>(null);
+
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+  const [selectedServidor, setSelectedServidor] = React.useState<ServidorPublico | null>(null);
 
   // ======================
   // Cargar servidores públicos
@@ -116,6 +131,24 @@ export default function ServidoresPublicosPage() {
     );
   }, [servidores, search, showDeleted]);
 
+  const columns = [
+    { accessorKey: "id", header: "ID" },
+    { accessorKey: "nombre", header: "Nombre" },
+    { accessorKey: "cargo", header: "Cargo" },
+    { accessorKey: "activo", header: "Activo",
+      cell: ({ getValue }: any) => (getValue() ? "✅ Sí" : "❌ No")
+    },
+  ];
+
+  // ======================
+  // Instancia de tabla TanStack
+  // ======================
+  // const table = useReactTable({
+  //   data: servidoresFiltrados,
+  //   columns,
+  //   getCoreRowModel: getCoreRowModel(),
+  // });
+
   // ======================
   // 🎨 Render principal
   // ======================
@@ -139,67 +172,18 @@ export default function ServidoresPublicosPage() {
           </div>
         </div>
 
-        {/* CONTROLES */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center space-x-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setView("cards")}
-              className={`rounded-full w-10 h-10 transition-all duration-200 ${
-                view === "cards"
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-transparent text-gray-800 hover:bg-gray-100"
-              }`}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setView("table")}
-              className={`rounded-full w-10 h-10 transition-all duration-200 ${
-                view === "table"
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-transparent text-gray-800 hover:bg-gray-100"
-              }`}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {!showDeleted && (
-            <Button
-              asChild
-              style={{
-                backgroundColor: "#235391",
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              <Link href="/catalogos/servidores-publicos/new">Nuevo</Link>
-            </Button>
-          )}
-
-          {/* Botón Eliminados */}
-          <Button
-            variant="outline"
-            className="cursor-pointer hover:shadow-sm transition"
-            onClick={() => setShowDeleted(!showDeleted)}
-          >
-            {showDeleted ? "← Volver a Activos" : "Eliminados"}
-          </Button>
-
-          <Button
-            asChild
-            style={{
-              backgroundColor: "#db200b",
-              color: "white",
-              cursor: "pointer",
-            }}
-          >
-            <Link href="/dashboard">Salir</Link>
-          </Button>
+        <div className="flex items-center gap-3">
+          <ActionButtonsGroup
+            viewMode={view}
+            setViewMode={setView}
+            onExport={() => console.log("Exportar CSV (pendiente)")}
+            showExport={view === "table"}
+            newPath="/catalogos/servidores-publicos/new"
+            // table={table}
+            showDeleted={showDeleted}
+            setShowDeleted={setShowDeleted}
+            table={tableInstance}
+          />
         </div>
       </div>
 
@@ -256,36 +240,15 @@ export default function ServidoresPublicosPage() {
                       ♻️ Reactivar
                     </Button>
                   ) : (
-                    <>
-                      <Button
-                        asChild
-                        size="sm"
-                        variant="outline"
-                        style={{
-                          borderColor: "#235391",
-                          color: "#235391",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Link
-                          href={`/catalogos/servidores-publicos/edit/${s.id}`}
-                        >
-                          ✏️ Editar
-                        </Link>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        style={{
-                          borderColor: "#db200b",
-                          color: "#db200b",
-                          cursor: "pointer",
-                        }}
-                        onClick={() => toggleEstadoServidor(s.id)}
-                      >
-                        🗑️ Eliminar
-                      </Button>
-                    </>
+                    <RowActionButtons
+                      id={String(s.id)}
+                      editPath="#"
+                      onEdit={() => {
+                        setSelectedServidor(s);
+                        setIsEditDialogOpen(true);
+                      }}
+                      onDelete={() => toggleEstadoServidor(s.id)}
+                    />
                   )}
                 </div>
               </CardContent>
@@ -293,77 +256,90 @@ export default function ServidoresPublicosPage() {
           ))}
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Cargo</TableHead>
-              <TableHead>Activo</TableHead>
-              <TableHead>Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {servidoresFiltrados.map((s) => (
-              <TableRow key={s.id}>
-                <TableCell>{s.id}</TableCell>
-                <TableCell>{s.nombre}</TableCell>
-                <TableCell>{s.cargo}</TableCell>
-                <TableCell>{s.activo ? "✅ Sí" : "❌ No"}</TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    {showDeleted ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        style={{
-                          borderColor: "#235391",
-                          color: "#235391",
-                          cursor: "pointer",
-                        }}
-                        onClick={() => toggleEstadoServidor(s.id, true)}
-                      >
-                        ♻️ Reactivar
-                      </Button>
-                    ) : (
-                      <>
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="outline"
-                          style={{
-                            borderColor: "#235391",
-                            color: "#235391",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <Link
-                            href={`/catalogos/servidores-publicos/edit/${s.id}`}
-                          >
-                            ✏️ Editar
-                          </Link>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          style={{
-                            borderColor: "#db200b",
-                            color: "#db200b",
-                            cursor: "pointer",
-                          }}
-                          onClick={() => toggleEstadoServidor(s.id)}
-                        >
-                          🗑️ Eliminar
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="w-full overflow-x-auto border rounded-lg bg-white shadow-sm">
+          <DataTable
+            data={servidoresFiltrados}
+            columns={columns}
+            isLoading={loading}
+            onTableReady={setTableInstance}
+          />
+        </div>
       )}
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar Servidor Público</DialogTitle>
+          </DialogHeader>
+          {selectedServidor && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  const res = await fetch(`${API_BASE}/catalogos/servidores-publicos/`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(selectedServidor),
+                  });
+                  if (!res.ok) throw new Error(await res.text());
+                  alert("✅ Servidor actualizado correctamente");
+                  setIsEditDialogOpen(false);
+                  fetchServidores();
+                } catch (err) {
+                  alert("❌ Error actualizando servidor");
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <Label>Nombre</Label>
+                <Input
+                  value={selectedServidor.nombre}
+                  onChange={(e) =>
+                    setSelectedServidor({ ...selectedServidor, nombre: e.target.value })
+                  }
+                  required
+                />
+              </div>
+
+              <div>
+                <Label>Cargo</Label>
+                <Input
+                  value={selectedServidor.cargo}
+                  onChange={(e) =>
+                    setSelectedServidor({ ...selectedServidor, cargo: e.target.value })
+                  }
+                  required
+                />
+              </div>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selectedServidor.activo}
+                  onChange={(e) =>
+                    setSelectedServidor({ ...selectedServidor, activo: e.target.checked })
+                  }
+                />{" "}
+                Activo
+              </label>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-[#235391] text-white">
+                  Guardar Cambios
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

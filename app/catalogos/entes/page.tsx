@@ -2,8 +2,22 @@
 "use client";
 
 import * as React from "react";
+import { RotateCcw, CopyX } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+  ColumnDef,
+  SortingState,
+  VisibilityState,
+} from "@tanstack/react-table";
+import { RowActionButtons } from "@/components/shared/RowActionButtons";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import { Settings2, ChevronUp, ChevronDown } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -27,7 +41,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
+
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 
 // ======================
 // 🔹 Base de la API
@@ -54,6 +73,24 @@ type Ente = {
   activo: boolean;
 };
 
+type EnteTipo = {
+  id: string;
+  descripcion: string;
+};
+
+// ======================
+// 🔹 Schema para validación con zod
+// ======================
+const enteSchema = z.object({
+  descripcion: z.string().min(3, "La descripción es requerida y debe tener al menos 3 caracteres"),
+  siglas: z.string().optional(),
+  clasificacion: z.enum(["Centralizada", "Paraestatal", "Desconcentrada"]),
+  id_ente_tipo: z.string().min(1, "El tipo de ente es requerido"),
+  activo: z.boolean(),
+});
+
+type EnteFormData = z.infer<typeof enteSchema>;
+
 // ======================
 // 🔹 Componente principal
 // ======================
@@ -66,6 +103,25 @@ export default function EntesPage() {
 
   const [servidores, setServidores] = React.useState<any[]>([]);
   const [enteSeleccionado, setEnteSeleccionado] = React.useState<string | null>(null);
+
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+
+  // Estados para edición en modal
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+  const [enteEditando, setEnteEditando] = React.useState<Ente | null>(null);
+
+  const [enteTipos, setEnteTipos] = React.useState<EnteTipo[]>([]);
+
+  const fetchEnteTipos = async () => {
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/ente-tipo?p_id=-99`);
+      const data = await resp.json();
+      setEnteTipos(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ Error cargando tipos de ente:", err);
+    }
+  };
 
   const fetchServidores = async (id: string) => {
     try {
@@ -82,7 +138,8 @@ export default function EntesPage() {
   // ======================
   const fetchEntes = async () => {
     try {
-      const resp = await fetch(`${API_BASE}/catalogos/entes`);
+      const url = `${API_BASE}/catalogos/entes?p_id=-99&p_descripcion=-99&p_activo=${showDeleted ? "0" : "1"}`;
+      const resp = await fetch(url);
       const data = await resp.json();
       setEntes(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -94,7 +151,8 @@ export default function EntesPage() {
 
   React.useEffect(() => {
     fetchEntes();
-  }, []);
+    fetchEnteTipos();
+  }, [showDeleted]);
 
   // ======================
   // Eliminar o reactivar ente
@@ -104,9 +162,13 @@ export default function EntesPage() {
     if (!confirm(`¿Seguro que deseas ${accion} el ente ${id}?`)) return;
 
     try {
-      const resp = await fetch(`${API_BASE}/catalogos/entes/${id}`, {
-        method: activar ? "PUT" : "DELETE",
-      });
+      const endpoint = activar
+        ? `${API_BASE}/catalogos/entes/${id}/reactivar`
+        : `${API_BASE}/catalogos/entes/${id}`;
+
+      const method = activar ? "PUT" : "DELETE";
+
+      const resp = await fetch(endpoint, { method });
 
       if (!resp.ok) throw new Error(await resp.text());
       toast.success(
@@ -126,9 +188,10 @@ export default function EntesPage() {
   // ======================
   const entesFiltrados = React.useMemo(() => {
     const term = search.trim().toLowerCase();
-    const filtrados = entes.filter((e) =>
-      showDeleted ? !e.activo : e.activo
-    );
+
+    // No filtramos por "activo" aquí; el backend ya devuelve
+    // activos o eliminados según el parámetro p_activo.
+    const filtrados = entes;
 
     if (!term) return filtrados;
 
@@ -137,7 +200,99 @@ export default function EntesPage() {
         .filter(Boolean)
         .some((field) => field!.toString().toLowerCase().includes(term))
     );
-  }, [entes, search, showDeleted]);
+  }, [entes, search]);
+
+  // ======================
+  // Definir columnas para TanStack Table
+  // ======================
+  const columns = React.useMemo<ColumnDef<Ente>[]>(() => [
+    { accessorKey: "id", header: "ID" },
+    { accessorKey: "descripcion", header: "Descripción" },
+    { accessorKey: "siglas", header: "Siglas" },
+    { accessorKey: "clasificacion", header: "Clasificación" },
+    { accessorKey: "ente_tipo_descripcion", header: "Tipo" },
+    {
+      accessorKey: "activo",
+      header: showDeleted ? "Estado" : "Activo",
+      cell: ({ getValue }) =>
+        showDeleted
+          ? "🗑️ Eliminado"
+          : getValue()
+          ? "✅ Sí"
+          : "❌ No",
+    },
+  ], [showDeleted]);
+
+  const table = useReactTable({
+    data: entesFiltrados,
+    columns,
+    state: { sorting, columnVisibility },
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  // ======================
+  // Formulario edición con react-hook-form y zod
+  // ======================
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+    setValue,
+  } = useForm<EnteFormData>({
+    resolver: zodResolver(enteSchema),
+    defaultValues: {
+      descripcion: "",
+      siglas: "",
+      clasificacion: "Centralizada",
+      id_ente_tipo: "",
+      activo: true,
+    },
+  });
+
+  React.useEffect(() => {
+    if (enteEditando) {
+      reset({
+        descripcion: enteEditando.descripcion ?? "",
+        siglas: enteEditando.siglas ?? "",
+        clasificacion: (enteEditando.clasificacion as "Centralizada" | "Paraestatal" | "Desconcentrada") ?? "Centralizada",
+        id_ente_tipo: String(enteEditando.id_ente_tipo ?? ""),
+        activo: Boolean(enteEditando.activo),
+      });
+    }
+  }, [enteEditando, reset]);
+
+  const onSubmit = async (data: EnteFormData) => {
+    if (!enteEditando) return;
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/entes/${String(enteEditando.id)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      toast.success("✅ Ente actualizado con éxito");
+      setIsEditDialogOpen(false);
+      setEnteEditando(null);
+      fetchEntes();
+    } catch (err) {
+      console.error("❌ Error actualizando ente:", err);
+      toast.error("Error actualizando ente");
+    }
+  };
+
+  // ======================
+  // Abrir diálogo de edición
+  // ======================
+  const handleEditClick = (id: string) => {
+    const ente = entes.find((e) => e.id === id);
+    if (!ente) return;
+    setEnteEditando(ente);
+    setIsEditDialogOpen(true);
+  };
 
   // ======================
   // Render principal
@@ -159,69 +314,35 @@ export default function EntesPage() {
             </p>
           </div>
         </div>
-
-        {/* CONTROLES */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center space-x-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setView("cards")}
-              className={`rounded-full w-10 h-10 transition-all duration-200 ${
-                view === "cards"
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-transparent text-gray-800 hover:bg-gray-100"
-              }`}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setView("table")}
-              className={`rounded-full w-10 h-10 transition-all duration-200 ${
-                view === "table"
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-transparent text-gray-800 hover:bg-gray-100"
-              }`}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Nuevo */}
-          {!showDeleted && (
-            <Button
-              asChild
-              style={{
-                backgroundColor: "#235391",
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              <Link href="/catalogos/entes/new">Nuevo</Link>
-            </Button>
-          )}
-
-          {/* Eliminados (outline con hover como UsuariosPage) */}
+        <div className="flex items-center gap-3">
+          <ActionButtonsGroup
+            viewMode={view}
+            setViewMode={setView}
+            onExport={() => console.log("Exportar CSV (pendiente)")}
+            showExport={view === "table"}
+            newPath="/catalogos/entes/new"
+            table={table}
+            showDeleted={showDeleted}
+            setShowDeleted={setShowDeleted}
+          />
           <Button
+            size="icon"
             variant="outline"
-            className="cursor-pointer hover:shadow-sm transition"
+            title={showDeleted ? "Mostrar activos" : "Mostrar eliminados"}
             onClick={() => setShowDeleted(!showDeleted)}
-          >
-            {showDeleted ? "← Volver a Activos" : "Eliminados"}
-          </Button>
-
-          {/* Salir */}
-          <Button
-            asChild
+            className={`transition-all border-2 shadow-sm ${
+              showDeleted
+                ? "border-red-600 bg-red-50 hover:bg-red-100 text-red-700"
+                : "border-gray-300 hover:border-red-400 text-gray-600 hover:text-red-700"
+            }`}
             style={{
-              backgroundColor: "#db200b",
-              color: "white",
               cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <Link href="/dashboard">Salir</Link>
+            <CopyX className="w-5 h-5" />
           </Button>
         </div>
       </div>
@@ -257,7 +378,14 @@ export default function EntesPage() {
                 <p><strong>Siglas:</strong> {e.siglas || "—"}</p>
                 <p><strong>Clasificación:</strong> {e.clasificacion || "—"}</p>
                 <p><strong>Tipo:</strong> {e.ente_tipo_descripcion || "—"}</p>
-                <p><strong>Activo:</strong> {e.activo ? "✅ Sí" : "❌ No"}</p>
+                <p>
+                  <strong>{showDeleted ? "Estado:" : "Activo:"}</strong>{" "}
+                  {showDeleted
+                    ? "🗑️ Eliminado"
+                    : e.activo
+                    ? "✅ Sí"
+                    : "❌ No"}
+                </p>
 
                 <div className="flex justify-end gap-2 pt-2">
                   <Dialog>
@@ -269,6 +397,7 @@ export default function EntesPage() {
                           borderColor: "#235391",
                           color: "#235391",
                           cursor: "pointer",
+                          marginTop: "7px", // Alinear altura de botón ver servidores
                         }}
                         onClick={() => {
                           setEnteSeleccionado(e.descripcion);
@@ -300,166 +429,128 @@ export default function EntesPage() {
                       )}
                     </DialogContent>
                   </Dialog>
-                  {showDeleted ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      style={{
-                        borderColor: "#235391",
-                        color: "#235391",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => toggleEstado(e.id, true)}
-                    >
-                      ♻️ Reactivar
-                    </Button>
-                  ) : (
-                    <>
-                      <Button
-                        asChild
-                        size="sm"
-                        variant="outline"
-                        style={{
-                          borderColor: "#235391",
-                          color: "#235391",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Link href={`/catalogos/entes/edit/${e.id}`}>✏️ Editar</Link>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        style={{
-                          borderColor: "#db200b",
-                          color: "#db200b",
-                          cursor: "pointer",
-                        }}
-                        onClick={() => toggleEstado(e.id)}
-                      >
-                        🗑️ Eliminar
-                      </Button>
-                    </>
-                  )}
+                  <RowActionButtons
+                    id={e.id}
+                    editPath="/catalogos/entes/edit"
+                    onDelete={(id) => toggleEstado(id)}
+                    onRestore={(id) => toggleEstado(id, true)}
+                    showDeleted={showDeleted}
+                    onEdit={handleEditClick}
+                  />
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Descripción</TableHead>
-              <TableHead>Siglas</TableHead>
-              <TableHead>Clasificación</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Activo</TableHead>
-              <TableHead>Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {entesFiltrados.map((e) => (
-              <TableRow key={e.id}>
-                <TableCell>{e.id}</TableCell>
-                <TableCell>{e.descripcion}</TableCell>
-                <TableCell>{e.siglas}</TableCell>
-                <TableCell>{e.clasificacion}</TableCell>
-                <TableCell>{e.ente_tipo_descripcion}</TableCell>
-                <TableCell>{e.activo ? "✅" : "❌"}</TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          style={{
-                            borderColor: "#235391",
-                            color: "#235391",
-                            cursor: "pointer",
-                          }}
-                          onClick={() => {
-                            setEnteSeleccionado(e.descripcion);
-                            fetchServidores(e.id);
-                          }}
-                        >
-                          👥 Ver Servidores
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-3xl p-8">
-                        <DialogHeader className="pb-4 mb-2 border-b border-gray-200">
-                          <DialogTitle className="text-lg font-semibold leading-tight">
-                            Servidores públicos — {enteSeleccionado}
-                          </DialogTitle>
-                        </DialogHeader>
-                        {servidores.length === 0 ? (
-                          <p className="text-sm text-gray-500">No hay servidores registrados para este ente.</p>
-                        ) : (
-                          <ul className="text-sm space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                            {servidores.map((s) => (
-                              <li key={s.id} className="border-b pb-1">
-                                <strong>{s.nombre}</strong> — {s.cargo}
-                                {s.activo === false && (
-                                  <span className="ml-2 text-xs text-red-500">(Inactivo)</span>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </DialogContent>
-                    </Dialog>
-                    {showDeleted ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        style={{
-                          borderColor: "#235391",
-                          color: "#235391",
-                          cursor: "pointer",
-                        }}
-                        onClick={() => toggleEstado(e.id, true)}
+        <div className="w-full overflow-x-auto border rounded-lg bg-white shadow-sm">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map(headerGroup => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map(header => {
+                    const isSorted = header.column.getIsSorted();
+                    return (
+                      <TableHead
+                        key={header.id}
+                        onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
+                        style={{ cursor: header.column.getCanSort() ? "pointer" : undefined }}
+                        className={header.column.getCanSort() ? "hover:bg-gray-100 select-none" : ""}
                       >
-                        ♻️ Reactivar
-                      </Button>
-                    ) : (
-                      <>
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="outline"
-                          style={{
-                            borderColor: "#235391",
-                            color: "#235391",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <Link href={`/catalogos/entes/edit/${e.id}`}>
-                            ✏️ Editar
-                          </Link>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          style={{
-                            borderColor: "#db200b",
-                            color: "#db200b",
-                            cursor: "pointer",
-                          }}
-                          onClick={() => toggleEstado(e.id)}
-                        >
-                          🗑️ Eliminar
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                        <div className="flex items-center gap-1">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {isSorted === "asc" && <ChevronUp size={16} className="inline ml-1" />}
+                          {isSorted === "desc" && <ChevronDown size={16} className="inline ml-1" />}
+                        </div>
+                      </TableHead>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="text-center text-gray-400">
+                    No hay entes disponibles.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                table.getRowModel().rows.map(row => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map(cell => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       )}
+
+      {/* Dialog para edición de ente */}
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!open) { setIsEditDialogOpen(false); setEnteEditando(null); } }}>
+        <DialogContent className="max-w-3xl p-8">
+          <DialogHeader className="pb-4 mb-2 border-b border-gray-200">
+            <DialogTitle className="text-lg font-semibold leading-tight">
+              Editar Ente {enteEditando?.id}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div>
+              <label htmlFor="descripcion" className="block font-medium mb-1">Descripción</label>
+              <Input id="descripcion" {...register("descripcion")} />
+              {errors.descripcion && <p className="text-red-600 text-sm mt-1">{errors.descripcion.message}</p>}
+            </div>
+            <div>
+              <label htmlFor="siglas" className="block font-medium mb-1">Siglas</label>
+              <Input id="siglas" {...register("siglas")} />
+              {errors.siglas && <p className="text-red-600 text-sm mt-1">{errors.siglas.message}</p>}
+            </div>
+            <div>
+              <label htmlFor="clasificacion" className="block font-medium mb-1">Clasificación</label>
+              <select id="clasificacion" {...register("clasificacion")} className="w-full rounded border border-gray-300 px-3 py-2">
+                <option value="Centralizada">Centralizada</option>
+                <option value="Paraestatal">Paraestatal</option>
+                <option value="Desconcentrada">Desconcentrada</option>
+              </select>
+              {errors.clasificacion && <p className="text-red-600 text-sm mt-1">{errors.clasificacion.message}</p>}
+            </div>
+            <div>
+              <label htmlFor="id_ente_tipo" className="block font-medium mb-1">Tipo de ente</label>
+              <select id="id_ente_tipo" {...register("id_ente_tipo")} className="w-full rounded border border-gray-300 px-3 py-2">
+                <option value="">Seleccione un tipo</option>
+                {enteTipos.map((tipo) => (
+                  <option key={tipo.id} value={tipo.id}>{tipo.descripcion}</option>
+                ))}
+              </select>
+              {errors.id_ente_tipo && <p className="text-red-600 text-sm mt-1">{errors.id_ente_tipo.message}</p>}
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="activo"
+                {...register("activo")}
+                className="w-4 h-4"
+              />
+              <label htmlFor="activo" className="select-none">Activo</label>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <DialogClose asChild>
+                <Button variant="outline" type="button">
+                  Cancelar
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Guardando..." : "Guardar"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Command,
   CommandInput,
@@ -165,12 +166,21 @@ export default function NuevoProveedorPage() {
 
         {/* Persona Jurídica */}
         <div>
-          <Label>Persona Jurídica (opcional)</Label>
-          <Input
-            placeholder="Ejemplo: S.A. de C.V., S.C., etc."
+          <Label>Persona Jurídica</Label>
+          <RadioGroup
             value={personaJuridica}
-            onChange={(e) => setPersonaJuridica(e.target.value)}
-          />
+            onValueChange={setPersonaJuridica}
+            className="mt-2 space-y-2"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="PERSONA FISICA" id="fisica" />
+              <Label htmlFor="fisica" className="text-sm">PERSONA FÍSICA</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="PERSONA MORAL" id="moral" />
+              <Label htmlFor="moral" className="text-sm">PERSONA MORAL</Label>
+            </div>
+          </RadioGroup>
         </div>
 
         {/* Correo Electrónico */}

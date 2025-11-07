@@ -10,6 +10,7 @@ import { DateRange } from "react-day-picker";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
@@ -46,6 +47,7 @@ type Adjudicado = {
   ente: string;
   ente_clasificacion: string;
   e_tipo_licitacion: string;
+  modalidad_contratacion?: string;
   rubro: string;
   rfc: string;
   razon_social: string;
@@ -73,6 +75,12 @@ export default function AdjudicadosPage() {
   const columns = React.useMemo<ColumnDef<Adjudicado>[]>(
     () => [
       {
+        accessorKey: "id",
+        header: "ID",
+        cell: info => info.getValue(),
+        enableSorting: true,
+      },
+      {
         accessorKey: "ente",
         header: "Ente",
         cell: info => info.getValue(),
@@ -90,6 +98,12 @@ export default function AdjudicadosPage() {
             </>
           );
         },
+        enableSorting: true,
+      },
+      {
+        accessorKey: "modalidad_contratacion",
+        header: "Modalidad de contratación",
+        cell: info => info.row.original.modalidad_contratacion ?? info.row.original.e_tipo_licitacion ?? "—",
         enableSorting: true,
       },
       {
@@ -191,41 +205,47 @@ export default function AdjudicadosPage() {
   const [registrosOriginales, setRegistrosOriginales] = useState<Adjudicado[]>([]);
   const [filtro, setFiltro] = useState("");
 
-  // 🔍 Filtro simple
-  const normalize = (v: any) =>
-    (v ?? "")
-      .toString()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "");
-  const term = normalize(filtro);
+  // 🔍 Filtro simple (ahora usando useMemo)
+  const registrosFiltrados = React.useMemo(() => {
+    const normalize = (v: any) =>
+      (v ?? "")
+        .toString()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "");
+    const term = normalize(filtro);
 
-  const registrosFiltrados = registros.filter((r) =>
-    [
-      r.ente,
-      r.ente_clasificacion,
-      r.e_tipo_licitacion,
-      r.rubro,
-      r.rfc,
-      r.razon_social,
-      r.nombre_comercial,
-      r.fundamento,
-    ]
-      .map(normalize)
-      .join(" ")
-      .includes(term)
-  );
+    return registros.filter((r) =>
+      [
+        r.ente,
+        r.ente_clasificacion,
+        r.e_tipo_licitacion,
+        r.rubro,
+        r.rfc,
+        r.razon_social,
+        r.nombre_comercial,
+        r.fundamento,
+      ]
+        .map(normalize)
+        .join(" ")
+        .includes(term)
+    );
+  }, [registros, filtro]);
 
-  // TanStack Table instance
-  const table = useReactTable({
-    data: registrosFiltrados,
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    manualSorting: false, // Usa el sorting interno optimizado de TanStack
-  });
+    // ✅ Memorizar solo los datos y columnas, no el hook completo
+    const memoData = React.useMemo(() => registrosFiltrados, [registrosFiltrados]);
+    const memoColumns = React.useMemo(() => columns, [columns]);
+
+    // ✅ Crear instancia de TanStack Table al nivel superior (no dentro de otro hook)
+    const table = useReactTable({
+      data: memoData,
+      columns: memoColumns,
+      state: { sorting },
+      onSortingChange: setSorting,
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+      manualSorting: false,
+    });
   // Utilidad para formato de moneda
   const formatCurrency = (value?: number) => {
     if (value === undefined || value === null || isNaN(value)) return "";
@@ -243,6 +263,12 @@ export default function AdjudicadosPage() {
   // Eliminar fechaInicio y fechaFin, usar dateRange
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [idEnte, setIdEnte] = useState("-99");
+  // ✅ Control de montaje seguro para evitar render antes del DOM
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    const timer = requestAnimationFrame(() => setIsMounted(true));
+    return () => cancelAnimationFrame(timer);
+  }, []);
 
   // 🔹 Cargar adjudicados desde el backend
   const cargarAdjudicados = async () => {
@@ -327,7 +353,7 @@ export default function AdjudicadosPage() {
     const body = grupo.registros.map((r) => [
       r.ente ?? "",
       r.fundamento ?? "",
-      r.e_tipo_licitacion ?? "",
+      r.modalidad_contratacion ?? r.e_tipo_licitacion ?? "",
       r.r_fecha_emision ?? "",
       r.e_id_partida ?? "",
       `${r.id_rubro ?? ""} - ${r.rubro}`,
@@ -408,7 +434,7 @@ export default function AdjudicadosPage() {
     const body = registrosFiltrados.map((r) => [
       r.ente ?? "",
       r.fundamento ?? "",
-      r.e_tipo_licitacion ?? "",
+      r.modalidad_contratacion ?? r.e_tipo_licitacion ?? "",
       r.r_fecha_emision ?? "",
       r.e_id_partida ?? "",
       `${r.id_rubro ?? ""} - ${r.rubro}`,
@@ -463,6 +489,13 @@ export default function AdjudicadosPage() {
     doc.save("reporte_adjudicaciones.pdf");
   };
 
+  if (!isMounted) {
+    return (
+      <main className="max-w-7xl mx-auto p-6">
+        <p className="text-center text-gray-500">Cargando vista...</p>
+      </main>
+    );
+  }
 
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-6">
@@ -490,78 +523,15 @@ export default function AdjudicadosPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Botón Personalizar Columnas */}
-          {view === "table" && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="flex gap-2 items-center">
-                  <Settings2 size={16} />
-                  <span className="hidden sm:inline">Personalizar Columnas</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-h-80 overflow-auto">
-                {[
-                  "Ente",
-                  "Fundamento",
-                  "Estatus general",
-                  "Fecha de emisión",
-                  "Oficio de invitación",
-                  "Partida",
-                  "Rubro",
-                  "Monto del rubro",
-                  "Fuente de financiamiento",
-                  "Importe con IVA",
-                  "Adjudicado",
-                  "Observaciones",
-                ].map((columna, index) => (
-                  <DropdownMenuCheckboxItem
-                    key={index}
-                    checked={true}
-                    onCheckedChange={() => {}}
-                  >
-                    {columna}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {/* Botón Exportar a CSV */}
-          {view === "table" && (
-            <Button
-              variant="outline"
-              style={{ backgroundColor: "#10c706", color: "white" }}
-              onClick={() => console.log("Exportar CSV (implementación pendiente)")}
-            >
-              Exportar a .CSV
-            </Button>
-          )}
-
-          {/* Botones de cambio de vista */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setView("table")}
-            className={`rounded-full w-12 h-12 transition-all ${
-              view === "table"
-                ? "bg-blue-100 text-blue-600"
-                : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
-            }`}
-          >
-            <List className="h-5 w-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setView("cards")}
-            className={`rounded-full w-12 h-12 transition-all ${
-              view === "cards"
-                ? "bg-blue-100 text-blue-600"
-                : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
-            }`}
-          >
-            <LayoutGrid className="h-5 w-5" />
-          </Button>
+          <ActionButtonsGroup
+            viewMode={view}
+            setViewMode={setView}
+            onExport={() => console.log("Exportar CSV (implementación pendiente)")}
+            showExport={view === "table"}
+            newPath={undefined}
+            hideNew
+            table={table}
+          />
         </div>
       </div>
 
@@ -673,120 +643,122 @@ export default function AdjudicadosPage() {
         <p className="text-center text-gray-500">Cargando adjudicaciones...</p>
       ) : registrosFiltrados.length === 0 ? (
         <p className="text-center text-gray-600">No hay adjudicaciones en este rango.</p>
-      ) : view === "table" ? (
-        // 📋 Vista Tabla con TanStack Table
-        <>
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map(headerGroup => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map(header => {
-                    const isSorted = header.column.getIsSorted();
-                    return (
-                      <TableHead
-                        key={header.id}
-                        onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
-                        style={{
-                          cursor: header.column.getCanSort() ? "pointer" : undefined,
-                          userSelect: "none",
-                        }}
-                        className={header.column.getCanSort() ? "hover:bg-gray-100 select-none" : ""}
-                      >
-                        <div className="flex items-center gap-1">
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                          {isSorted === "asc" && <ChevronUp size={16} className="inline ml-1" />}
-                          {isSorted === "desc" && <ChevronDown size={16} className="inline ml-1" />}
-                        </div>
-                      </TableHead>
-                    );
-                  })}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.map(row => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map(cell => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </>
       ) : (
-        // 🏛️ Vista Tarjetas agrupadas por seguimiento
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {grupos.map((grupo) => {
-            // Tomar el primer registro para encabezados generales
-            const encabezado = grupo.registros[0];
-            return (
-              <Card
-                key={grupo.id}
-                className="border shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full"
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-semibold text-gray-800">
-                    {encabezado.ente}
-                    <span className="block text-sm text-gray-500">{encabezado.ente_clasificacion}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col flex-1 text-sm space-y-2 text-gray-700">
-                  <div className="flex-1">
-                    <p><strong>Oficio de invitación:</strong> {encabezado.e_oficio_invitacion ?? "—"}</p>
-                    <p><strong>Fecha de emisión:</strong> {encabezado.r_fecha_emision}</p>
-                    <p>
-                      <strong>Fundamento:</strong> {encabezado.fundamento}
-                      {encabezado.fundamiento_clasificacion ? ` (${encabezado.fundamiento_clasificacion})` : ""}
-                    </p>
-                    <p>
-                      <strong>Modalidad de contratación:</strong> {encabezado.e_tipo_licitacion}
-                    </p>
-                    <div className="overflow-x-auto mt-2">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Estatus</TableHead>
-                            <TableHead>Partida</TableHead>
-                            <TableHead>Rubro</TableHead>
-                            <TableHead>Monto del rubro</TableHead>
-                            <TableHead>Fuente de financiamiento</TableHead>
-                            <TableHead>Importe con IVA</TableHead>
-                            <TableHead>Adjudicado</TableHead>
-                            <TableHead>Observaciones</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {grupo.registros.map((r) => (
-                            <TableRow key={`${r.id}-${r.id_rubro}-${r.rfc}`}>
-                              <TableCell>{r.estatus || r.rubro_estatus || "—"}</TableCell>
-                              <TableCell>{r.e_id_partida ?? ""}</TableCell>
-                              <TableCell>{`${r.id_rubro ?? ""} - ${r.rubro}`}</TableCell>
-                              <TableCell>{formatCurrency(r.e_monto_presupuesto_suficiencia)}</TableCell>
-                              <TableCell>{r.ramo ?? ""}</TableCell>
-                              <TableCell>{formatCurrency(r.importe_ajustado_total)}</TableCell>
-                              <TableCell>{`${r.rfc} — ${r.razon_social ?? ""}`}</TableCell>
-                              <TableCell>{r.observaciones ?? ""}</TableCell>
+        <div>
+          {/* 📋 Vista Tabla */}
+          <div className={view === "table" ? "block" : "hidden"}>
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map(header => {
+                      const isSorted = header.column.getIsSorted();
+                      return (
+                        <TableHead
+                          key={header.id}
+                          onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
+                          style={{
+                            cursor: header.column.getCanSort() ? "pointer" : undefined,
+                            userSelect: "none",
+                          }}
+                          className={header.column.getCanSort() ? "hover:bg-gray-100 select-none" : ""}
+                        >
+                          <div className="flex items-center gap-1">
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            {isSorted === "asc" && <ChevronUp size={16} className="inline ml-1" />}
+                            {isSorted === "desc" && <ChevronDown size={16} className="inline ml-1" />}
+                          </div>
+                        </TableHead>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows.map(row => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map(cell => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* 🏛️ Vista Tarjetas */}
+          <div className={view === "cards" ? "grid gap-6 sm:grid-cols-2 lg:grid-cols-3" : "hidden"}>
+            {grupos.map((grupo) => {
+              const encabezado = grupo.registros[0];
+              return (
+                <Card
+                  key={grupo.id}
+                  className="border shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full"
+                >
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-semibold text-gray-800">
+                      {encabezado.ente}
+                      <span className="block text-sm text-gray-500">{encabezado.ente_clasificacion}</span>
+                    </CardTitle>
+                    <p className="text-xs text-gray-500 mt-1">ID: {grupo.id}</p>
+                  </CardHeader>
+                  <CardContent className="flex flex-col flex-1 text-sm space-y-2 text-gray-700">
+                    <div className="flex-1">
+                      <p><strong>Oficio de invitación:</strong> {encabezado.e_oficio_invitacion ?? "—"}</p>
+                      <p><strong>Fecha de emisión:</strong> {encabezado.r_fecha_emision}</p>
+                      <p>
+                        <strong>Fundamento:</strong> {encabezado.fundamento}
+                        {encabezado.fundamiento_clasificacion ? ` (${encabezado.fundamiento_clasificacion})` : ""}
+                      </p>
+                      <p>
+                        <strong>Modalidad de contratación:</strong> {encabezado.modalidad_contratacion ?? encabezado.e_tipo_licitacion ?? "—"}
+                      </p>
+                      <div className="overflow-x-auto mt-2">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Estatus</TableHead>
+                              <TableHead>Partida</TableHead>
+                              <TableHead>Rubro</TableHead>
+                              <TableHead>Monto del rubro</TableHead>
+                              <TableHead>Fuente de financiamiento</TableHead>
+                              <TableHead>Importe con IVA</TableHead>
+                              <TableHead>Adjudicado</TableHead>
+                              <TableHead>Observaciones</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {grupo.registros.map((r) => (
+                              <TableRow key={`${r.id}-${r.id_rubro}-${r.rfc}`}>
+                                <TableCell>{r.estatus || r.rubro_estatus || "—"}</TableCell>
+                                <TableCell>{r.e_id_partida ?? ""}</TableCell>
+                                <TableCell>{`${r.id_rubro ?? ""} - ${r.rubro}`}</TableCell>
+                                <TableCell>{formatCurrency(r.e_monto_presupuesto_suficiencia)}</TableCell>
+                                <TableCell>{r.ramo ?? ""}</TableCell>
+                                <TableCell>{formatCurrency(r.importe_ajustado_total)}</TableCell>
+                                <TableCell>{`${r.rfc} — ${r.razon_social ?? ""}`}</TableCell>
+                                <TableCell>{r.observaciones ?? ""}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
-                  </div>
-                  <div className="mt-auto">
-                    <Button
-                      className="w-full bg-[#235391] hover:bg-[#1e487d] text-white"
-                      onClick={() => handleExportSinglePDF(grupo)}
-                    >
-                      Guardar .PDF
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                    <div className="mt-auto">
+                      <Button
+                        className="w-full bg-[#235391] hover:bg-[#1e487d] text-white"
+                        onClick={() => handleExportSinglePDF(grupo)}
+                      >
+                        Guardar .PDF
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       )}
 

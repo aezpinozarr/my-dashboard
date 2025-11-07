@@ -1,14 +1,21 @@
 "use client";
 
 import * as React from "react";
+import { ChevronUp, ChevronDown, Settings2, CopyX } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
+import { RowActionButtons } from "@/components/shared/RowActionButtons";
+import { toast } from "sonner";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+  ColumnDef,
+  SortingState,
+  VisibilityState,
+} from "@tanstack/react-table";
 import {
   Table,
   TableBody,
@@ -17,18 +24,37 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { List, LayoutGrid } from "lucide-react";
-import { Input } from "@/components/ui/input"; // ✅ Import para la barra de búsqueda
-import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
 
+// ======================
+// 🔹 Tipado y configuración base
+// ======================
 type Rubro = {
   id: string;
   descripcion: string;
   activo: boolean;
 };
 
-// ✅ Constante global para API base — uniforme con tus demás páginas
 const API_BASE =
   typeof window !== "undefined"
     ? window.location.hostname.includes("railway")
@@ -42,25 +68,31 @@ export default function RubrosPage() {
   const [rubros, setRubros] = React.useState<Rubro[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState<"cards" | "table">("cards");
-  const [search, setSearch] = React.useState(""); // ✅ Estado para búsqueda
+  const [search, setSearch] = React.useState("");
+  const [showDeleted, setShowDeleted] = React.useState(false);
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+  const [rubroEditando, setRubroEditando] = React.useState<Rubro | null>(null);
+  const [descripcionEdit, setDescripcionEdit] = React.useState("");
 
   // ======================
   // 🔄 Cargar rubros
   // ======================
-  React.useEffect(() => {
-    const fetchRubros = async () => {
-      try {
-        const resp = await fetch(`${API_BASE}/catalogos/rubro?p_id=-99`);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const data = await resp.json();
-        setRubros(Array.isArray(data) ? data.filter((r) => r.activo) : []);
-      } catch (err) {
-        console.error("❌ Error cargando rubros:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchRubros = async () => {
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/rubro?p_id=-99`);
+      const data = await resp.json();
+      setRubros(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ Error cargando rubros:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  React.useEffect(() => {
     fetchRubros();
   }, []);
 
@@ -79,10 +111,7 @@ export default function RubrosPage() {
 
       if (!resp.ok) throw new Error(await resp.text());
       toast.success("🗑️ Rubro eliminado correctamente");
-
-      const resp2 = await fetch(`${API_BASE}/catalogos/rubro?p_id=-99`);
-      const data = await resp2.json();
-      setRubros(Array.isArray(data) ? data.filter((r) => r.activo) : []);
+      fetchRubros();
     } catch (err) {
       console.error("❌ Error al eliminar rubro:", err);
       toast.error("Error al eliminar rubro");
@@ -90,17 +119,116 @@ export default function RubrosPage() {
   };
 
   // ======================
-  // 🔍 Filtrar rubros según búsqueda
+  // ♻️ Reactivar rubro
+  // ======================
+  const reactivarRubro = async (id: string) => {
+    if (!confirm(`¿Deseas reactivar el rubro ${id}?`)) return;
+
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/rubro/recuperar`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+
+      if (!resp.ok) throw new Error(await resp.text());
+      toast.success("✅ Rubro reactivado correctamente");
+      fetchRubros();
+    } catch (err) {
+      console.error("❌ Error al reactivar rubro:", err);
+      toast.error("Error al reactivar rubro");
+    }
+  };
+
+  const handleEditClick = async (id: string) => {
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/rubro?p_id=${id}`);
+      const data = await resp.json();
+      if (Array.isArray(data) && data.length > 0) {
+        setRubroEditando(data[0]);
+        setDescripcionEdit(data[0].descripcion);
+        setIsEditDialogOpen(true);
+      }
+    } catch (err) {
+      console.error("❌ Error al cargar rubro:", err);
+      toast.error("Error al cargar datos del rubro");
+    }
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/rubro`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: rubroEditando?.id,
+          descripcion: descripcionEdit,
+        }),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      toast.success("✅ Rubro actualizado correctamente");
+      setIsEditDialogOpen(false);
+      setRubroEditando(null);
+      fetchRubros();
+    } catch (err) {
+      console.error("❌ Error al actualizar rubro:", err);
+      toast.error("Error al actualizar rubro");
+    }
+  };
+
+  // ======================
+  // 🔍 Filtrar rubros
   // ======================
   const rubrosFiltrados = React.useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return rubros;
-    return rubros.filter(
+    const filtrados = rubros.filter((r) => (showDeleted ? !r.activo : r.activo));
+    if (!term) return filtrados;
+    return filtrados.filter(
       (r) =>
         r.id.toLowerCase().includes(term) ||
         r.descripcion.toLowerCase().includes(term)
     );
-  }, [rubros, search]);
+  }, [rubros, search, showDeleted]);
+
+  // ======================
+  // 🧩 Columnas para TanStack Table
+  // ======================
+  const columns = React.useMemo<ColumnDef<Rubro>[]>(() => [
+    { accessorKey: "id", header: "ID" },
+    { accessorKey: "descripcion", header: "Descripción" },
+    {
+      accessorKey: "activo",
+      header: "Activo",
+      cell: ({ getValue }) => (getValue() ? "✅" : "❌"),
+    },
+    {
+      id: "acciones",
+      header: "Acciones",
+      cell: ({ row }) => (
+        <div className="flex justify-start -ml-4">
+          <RowActionButtons
+            id={row.original.id}
+            editPath=""
+            onEdit={() => handleEditClick(row.original.id)}
+            onDelete={() => eliminarRubro(row.original.id)}
+            onRestore={() => reactivarRubro(row.original.id)}
+            showDeleted={showDeleted}
+          />
+        </div>
+      ),
+    },
+  ], [showDeleted]);
+
+  const table = useReactTable({
+    data: rubrosFiltrados,
+    columns,
+    state: { sorting, columnVisibility },
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
 
   // ======================
   // 🎨 Render principal
@@ -122,58 +250,29 @@ export default function RubrosPage() {
             </p>
           </div>
         </div>
-
-        {/* 🔹 CONTROLES */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center space-x-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setView("cards")}
-              className={`rounded-full w-10 h-10 transition-all duration-200 ${
-                view === "cards"
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-transparent text-gray-800 hover:bg-gray-100"
-              }`}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setView("table")}
-              className={`rounded-full w-10 h-10 transition-all duration-200 ${
-                view === "table"
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-transparent text-gray-800 hover:bg-gray-100"
-              }`}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-
+        <div className="flex items-center gap-3">
+          <ActionButtonsGroup
+            viewMode={view}
+            setViewMode={setView}
+            onExport={() => console.log("Exportar CSV")}
+            showExport={view === "table"}
+            newPath="/catalogos/rubros/new"
+            table={table}
+            showDeleted={showDeleted}
+            setShowDeleted={setShowDeleted}
+          />
           <Button
-            asChild
-            style={{ backgroundColor: "#235391", color: "white" }}
-            className="cursor-pointer"
-          >
-            <Link href="/catalogos/rubros/new">Nuevo</Link>
-          </Button>
-
-          <Button
-            asChild
+            size="icon"
             variant="outline"
-            className="cursor-pointer hover:shadow-sm"
+            title={showDeleted ? "Mostrar activos" : "Mostrar eliminados"}
+            onClick={() => setShowDeleted(!showDeleted)}
+            className={`transition-all border-2 shadow-sm ${
+              showDeleted
+                ? "border-red-600 bg-red-50 hover:bg-red-100 text-red-700"
+                : "border-gray-300 hover:border-red-400 text-gray-600 hover:text-red-700"
+            }`}
           >
-            <Link href="/catalogos/rubros/delete">Eliminados</Link>
-          </Button>
-
-          <Button
-            asChild
-            style={{ backgroundColor: "#db200b", color: "white" }}
-            className="cursor-pointer"
-          >
-            <Link href="/dashboard">Salir</Link>
+            <CopyX className="w-5 h-5" />
           </Button>
         </div>
       </div>
@@ -193,88 +292,106 @@ export default function RubrosPage() {
       {loading ? (
         <p>Cargando...</p>
       ) : rubrosFiltrados.length === 0 ? (
-        <p>No hay rubros activos</p>
+        <p>No hay rubros disponibles</p>
       ) : view === "cards" ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {rubrosFiltrados.map((r) => (
             <Card
               key={r.id}
-              className="shadow hover:shadow-lg transition cursor-default"
+              className="shadow hover:shadow-lg transition border border-gray-200"
             >
               <CardHeader>
                 <CardTitle>{r.descripcion}</CardTitle>
               </CardHeader>
               <CardContent className="flex justify-between items-center">
                 <p className="text-sm text-gray-500">ID: {r.id}</p>
-                <div className="flex gap-2">
-                  <Button
-                    asChild
-                    size="sm"
-                    variant="outline"
-                    className="cursor-pointer"
-                    style={{ borderColor: "#235391", color: "#235391" }}
-                  >
-                    <Link href={`/catalogos/rubros/edit/${r.id}`}>
-                      ✏️ Editar
-                    </Link>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="cursor-pointer"
-                    style={{ borderColor: "#db200b", color: "#db200b" }}
-                    onClick={() => eliminarRubro(r.id)}
-                  >
-                    🗑️ Eliminar
-                  </Button>
-                </div>
+                <RowActionButtons
+                  id={r.id}
+                  editPath=""
+                  onEdit={() => handleEditClick(r.id)}
+                  onDelete={() => eliminarRubro(r.id)}
+                  onRestore={() => reactivarRubro(r.id)}
+                  showDeleted={showDeleted}
+                />
               </CardContent>
             </Card>
           ))}
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Descripción</TableHead>
-              <TableHead>Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rubrosFiltrados.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell>{r.id}</TableCell>
-                <TableCell>{r.descripcion}</TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button
-                      asChild
-                      size="sm"
-                      variant="outline"
-                      className="cursor-pointer"
-                      style={{ borderColor: "#235391", color: "#235391" }}
-                    >
-                      <Link href={`/catalogos/rubros/edit/${r.id}`}>
-                        ✏️ Editar
-                      </Link>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="cursor-pointer"
-                      style={{ borderColor: "#db200b", color: "#db200b" }}
-                      onClick={() => eliminarRubro(r.id)}
-                    >
-                      🗑️ Eliminar
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="w-full overflow-x-auto border rounded-lg bg-white shadow-sm">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map(headerGroup => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map(header => {
+                    const isSorted = header.column.getIsSorted();
+                    return (
+                      <TableHead
+                        key={header.id}
+                        onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
+                        style={{ cursor: header.column.getCanSort() ? "pointer" : undefined }}
+                        className={header.column.getCanSort() ? "hover:bg-gray-100 select-none" : ""}
+                      >
+                        <div className="flex items-center gap-1">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {isSorted === "asc" && <ChevronUp size={16} />}
+                          {isSorted === "desc" && <ChevronDown size={16} />}
+                        </div>
+                      </TableHead>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="text-center text-gray-400">
+                    No hay rubros disponibles.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                table.getRowModel().rows.map(row => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map(cell => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       )}
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader className="pb-4 mb-2 border-b border-gray-200">
+            <DialogTitle className="text-lg font-semibold leading-tight">
+              Editar Rubro {rubroEditando?.id}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdate} className="space-y-4">
+            <Input value={rubroEditando?.id || ""} disabled />
+            <Input
+              placeholder="Descripción"
+              value={descripcionEdit}
+              onChange={(e) => setDescripcionEdit(e.target.value)}
+              required
+            />
+            <div className="flex justify-end gap-2">
+              <DialogClose asChild>
+                <Button variant="outline" type="button">
+                  Cancelar
+                </Button>
+              </DialogClose>
+              <Button type="submit">Guardar Cambios</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

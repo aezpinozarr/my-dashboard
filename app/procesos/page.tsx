@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
 import { Button } from "@/components/ui/button";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { CheckCircle, Loader2, LayoutGrid, List, ChevronDown, ChevronUp, Settings2, ChevronRight } from "lucide-react";
+import { CheckCircle, Loader2, LayoutGrid, List, ChevronDown, ChevronUp, Settings2, ChevronRight, Download, PlusCircle, LogOut } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Shadcn Table + TanStack Table
@@ -418,83 +419,14 @@ export default function ProcesosPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          {/* Customize Columns (solo en modo tabla) */}
-          {viewMode === "table" && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="flex gap-2 items-center">
-                  <Settings2 size={16} />
-                  <span className="hidden sm:inline"> Personalizar Columnas</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-h-80 overflow-auto">
-                {table.getAllLeafColumns().map((column) =>
-                  column.id !== "expander" ? (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={() => column.toggleVisibility()}
-                    >
-                      {flexRender(column.columnDef.header, { column, table } as any)}
-                    </DropdownMenuCheckboxItem>
-                  ) : null
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {/* Botón Exportar a .CSV (solo en modo tabla) */}
-          {viewMode === "table" && (
-            <Button
-              variant="outline"
-              style={{ backgroundColor: "#10c706", color: "white" }}
-              onClick={() => console.log("Exportar CSV (implementación pendiente)")}
-            >
-              Exportar a .CSV
-            </Button>
-          )}
-          {/* Botones Nuevo y Salir */}
-          <Button
-            asChild
-            style={{ backgroundColor: "#235391", color: "white" }}
-          >
-            <Link href="/procesos/new">Nuevo</Link>
-          </Button>
-          <Button
-            asChild
-            style={{ backgroundColor: "#db200b", color: "white" }}
-          >
-            <Link href="/dashboard">Salir</Link>
-          </Button>
-          {/* Botones de cambio de vista (movidos al final) */}
-          <div className="flex gap-1 ml-4">
-            <Button
-              variant={viewMode === "table" ? "secondary" : "ghost"}
-              size="icon"
-              className={cn(
-                "rounded-full",
-                viewMode === "table" ? "bg-blue-100 text-blue-700" : ""
-              )}
-              aria-label="Vista tabla"
-              onClick={() => setViewMode("table")}
-            >
-              <List size={20} />
-            </Button>
-            <Button
-              variant={viewMode === "cards" ? "secondary" : "ghost"}
-              size="icon"
-              className={cn(
-                "rounded-full",
-                viewMode === "cards" ? "bg-blue-100 text-blue-700" : ""
-              )}
-              aria-label="Vista tarjetas"
-              onClick={() => setViewMode("cards")}
-            >
-              <LayoutGrid size={20} />
-            </Button>
-          </div>
-        </div>
+        <ActionButtonsGroup
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          onExport={() => console.log("Exportar CSV (implementación pendiente)")}
+          showExport={viewMode === "table"}
+          newPath="/procesos/new"
+          table={table} // ✅ pasa la instancia de la tabla
+        />
       </div>
 
       {/* --- VISTA TABLA --- */}
