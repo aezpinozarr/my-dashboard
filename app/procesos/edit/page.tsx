@@ -1,6 +1,7 @@
-"use client";
+ "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -173,7 +174,7 @@ interface FormData {
   filteredProvs?: any[];
 }
 
-export default function NuevoProcesoPage() {
+function NuevoProcesoPage() {
   const { user } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -2618,5 +2619,12 @@ export default function NuevoProcesoPage() {
 })()} {/* ← cierra el paso 4 */}
 
     </main>
+  );
+}
+export default function PageWrapper() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <NuevoProcesoPage />
+    </Suspense>
   );
 }
