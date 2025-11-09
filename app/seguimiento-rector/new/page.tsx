@@ -254,7 +254,13 @@ function RectorForm() {
 
   // ======================================================
   const [errores, setErrores] = useState<{ fecha_emision?: string; fecha_reunion?: string; hora_reunion?: string }>({});
-  const [form, setForm] = useState<{ fecha_emision?: string; fecha_reunion?: string; hora_reunion?: string }>({});
+  const [form, setForm] = useState<{
+    fecha_emision?: string;
+    fecha_reunion?: string;
+    hora_reunion?: string;
+    oficio?: string;
+    asunto?: string;
+  }>({});
   // Estado para errores de validación del formulario del paso 1
   const [formErrors, setFormErrors] = useState<{ [key: string]: boolean }>({});
   // Validación de campos obligatorios del paso 1
@@ -447,6 +453,54 @@ function RectorForm() {
       });
 
       setDetalleGeneral(data[0]);
+      // 🟦 Sincronizar los valores iniciales del formulario con los datos del seguimiento cargado
+      setForm({
+        oficio: data[0]?.r_suplencia_oficio_no || data[0]?.e_oficio_invitacion || "",
+        fecha_emision: data[0]?.r_fecha_emision
+          ? (() => {
+              const [yyyy, mm, dd] = data[0].r_fecha_emision.split("-");
+              return `${dd}/${mm}/${yyyy}`;
+            })()
+          : "",
+        fecha_reunion: data[0]?.e_fecha_y_hora_reunion
+          ? (() => {
+              const [f] = data[0].e_fecha_y_hora_reunion.split(/[T ]/);
+              const [yyyy, mm, dd] = f.split("-");
+              return `${dd}/${mm}/${yyyy}`;
+            })()
+          : "",
+        hora_reunion: data[0]?.e_fecha_y_hora_reunion
+          ? (() => {
+              const [, h] = data[0].e_fecha_y_hora_reunion.split(/[T ]/);
+              const [hh, min] = h.split(":");
+              return `${hh}:${min}`;
+            })()
+          : "",
+        asunto: data[0]?.r_asunto || data[0]?.e_asunto || "",
+      });
+      // 🟩 Sincronizar estatus y servidor público (asiste)
+      if (data[0]?.r_estatus) {
+        setEstatusGeneral(data[0].r_estatus);
+      }
+      if (data[0]?.r_id_servidor_publico_asiste) {
+        const servidor = servidores.find(
+          (s) => s.id === data[0].r_id_servidor_publico_asiste
+        );
+        if (servidor) {
+          setServidorSeleccionado(servidor);
+          setBusquedaServidor(servidor.nombre);
+        }
+      }
+      // 🟩 Mantener los campos actualizados localmente en detalleGeneral pero sin sobrescribir si ya hay datos locales
+      setDetalleGeneral((prev: any) => {
+        if (!data[0]) return prev;
+        return {
+          ...prev,
+          ...data[0],
+          e_oficio_invitacion: data[0].e_oficio_invitacion || prev?.e_oficio_invitacion,
+          e_asunto: data[0].e_asunto || prev?.e_asunto,
+        };
+      });
       // Lógica para poblar el estado form con fecha/hora de reunión si existen
       if (data[0] && data[0].e_fecha_y_hora_reunion) {
         // Formato esperado: "YYYY-MM-DDTHH:MM:SS" o "YYYY-MM-DD HH:MM:SS"
@@ -513,11 +567,13 @@ function RectorForm() {
         : null,
       p_r_asunto: formEl.asunto.value,
       p_r_fecha_y_hora_reunion: form.fecha_reunion && form.hora_reunion
-      ? `${form.fecha_reunion.split("/").reverse().join("-")}T${form.hora_reunion}:00`
-      : null,
+        ? `${form.fecha_reunion.split("/").reverse().join("-")}T${form.hora_reunion}:00`
+        : null,
+      // Añadido según instrucciones:
       p_r_estatus: estatusGeneral,
-      p_r_id_usuario_registra: user?.id || 1,
       p_r_id_servidor_publico_asiste: servidorSeleccionado?.id || null,
+      // Mantener las demás propiedades ya existentes:
+      p_r_id_usuario_registra: user?.id || 1,
       p_r_observaciones: mostrarObservaciones ? observaciones : "",
       p_r_con_observaciones: mostrarObservaciones,
     };
@@ -537,6 +593,16 @@ function RectorForm() {
       }
 
       toast.success("✅ Captura registrada correctamente");
+
+      // ✅ Mantener campos actualizados localmente en detalleGeneral
+      setDetalleGeneral((prev: any) => ({
+        ...prev,
+        e_oficio_invitacion: formEl.oficio.value,
+        e_asunto: formEl.asunto.value,
+        e_fecha_y_hora_reunion: form.fecha_reunion && form.hora_reunion
+          ? `${form.fecha_reunion.split("/").reverse().join("-")}T${form.hora_reunion}:00`
+          : prev.e_fecha_y_hora_reunion,
+      }));
 
       // 🔍 Obtener el usuario tipo ENTE que registró el seguimiento
       let idUsuarioEnte: number | null = null;
@@ -587,6 +653,46 @@ const url = `${API_BASE}/seguridad/notificaciones/?p_accion=CREAR&p_id_usuario_o
     }
   };
 
+// ======================================================
+// 6️⃣ Finalizar proceso (llama al SP sp_rector_seguimiento_gestion_estatus)
+// ======================================================
+const finalizarProceso = async () => {
+  if (!selectedId) {
+    toast.error("❌ No se encontró el ID del seguimiento");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/rector/seguimiento-gestion-estatus/${selectedId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("❌ Error al finalizar proceso:", data);
+      toast.error("No se pudo finalizar el proceso");
+      return;
+    }
+
+    toast.success("✅ Proceso finalizado y estatus actualizado a REVISADO");
+
+    // ✅ Actualizar visualmente el estatus en el frontend
+    setEstatusGeneral("REVISADO");
+    setDetalleGeneral((prev: any) => ({
+      ...prev,
+      r_estatus: "REVISADO",
+    }));
+
+    // Redirigir al listado de seguimientos después de unos segundos
+    setTimeout(() => router.push("/seguimiento-rector"), 1000);
+
+  } catch (err) {
+    console.error("❌ Error de red al finalizar proceso:", err);
+    toast.error("Error de conexión con el servidor");
+  }
+};
 // ======================================================
 // 4️⃣.b Adjudicar proveedor (SP: sp_rector_seguimiento_gestion_proveedor_adjudicado)
 // ======================================================
@@ -823,6 +929,19 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
     }
   }, [searchParams]);
 
+  // Bloque para sincronizar el servidor seleccionado si existe en detalleGeneral
+  useEffect(() => {
+    if (detalleGeneral?.r_id_servidor_publico_asiste && servidores.length > 0) {
+      const servidor = servidores.find(
+        (s) => s.id === detalleGeneral.r_id_servidor_publico_asiste
+      );
+      if (servidor) {
+        setServidorSeleccionado(servidor);
+        setBusquedaServidor(servidor.nombre);
+      }
+    }
+  }, [detalleGeneral, servidores]);
+
   // Nueva función para guardar fila en la tabla inferior (con validación visual)
   const handleGuardar = () => {
     // Validar campos obligatorios
@@ -918,16 +1037,16 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
               <strong>Estatus actual:</strong>
               <span
                 className={`px-3 py-1 text-sm font-semibold rounded-md ${
-                  detalleGeneral.r_estatus === "PREREGISTRADO"
+                  (estatusGeneral || detalleGeneral.r_estatus) === "PREREGISTRADO"
                     ? "bg-yellow-100 text-yellow-800"
-                    : detalleGeneral.r_estatus === "REVISADO"
+                    : (estatusGeneral || detalleGeneral.r_estatus) === "REVISADO"
                     ? "bg-green-100 text-green-800"
-                    : detalleGeneral.r_estatus === "CANCELADO"
+                    : (estatusGeneral || detalleGeneral.r_estatus) === "CANCELADO"
                     ? "bg-red-100 text-red-800"
                     : "bg-gray-100 text-gray-800"
                 }`}
               >
-                {detalleGeneral.r_estatus || "—"}
+                {estatusGeneral || detalleGeneral.r_estatus || "—"}
               </span>
             </div>
             <div className="mt-[-19px]">
@@ -952,6 +1071,8 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                 <Label className="text-gray-700 font-medium">Oficio</Label>
                 <Input
                   name="oficio"
+                  value={form.oficio ?? detalleGeneral?.e_oficio_invitacion ?? ""}
+                  onChange={(e) => setForm({ ...form, oficio: e.target.value })}
                   placeholder="Número de oficio"
                   className={`w-[320px] shadow-sm ${formErrors.oficio ? "border-red-500" : ""}`}
                 />
@@ -1076,6 +1197,8 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
               <Label>Asunto</Label>
               <textarea
                 name="asunto"
+                value={form.asunto ?? detalleGeneral?.e_asunto ?? ""}
+                onChange={(e) => setForm({ ...form, asunto: e.target.value })}
                 placeholder="Escribe el asunto..."
                 className={`w-full border rounded-md p-2 resize-none ${formErrors.asunto ? "border-red-500" : ""}`}
                 rows={2}
@@ -1699,7 +1822,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                                 <p><strong>Proveedor:</strong> {`${row.proveedor?.rfc || ""} ${row.proveedor?.razon_social || ""}`}</p>
                                 <p><strong>Monto IVA:</strong> {formatMXN(row.importeTotal)}</p>
                                 <p><strong>Estatus:</strong> {row.estatus || "—"}</p>
-                                <p><strong>Fundamento:</strong><br />{fundamentoObj ? fundamentoObj.descripcion : "—"}</p>
+                                <p><strong>Fundamento:</strong> {fundamentoObj ? fundamentoObj.descripcion : "—"}</p>
                               </Card>
                             );
                           })}
@@ -1709,46 +1832,21 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                 </AccordionItem>
               ))}
             </Accordion>
-            {/* Botones de navegación entre pasos */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-end mt-6">
-              <div className="relative">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-blue-600 text-blue-600 hover:bg-blue-50"
-                  onClick={() => setStep(1)}
-                >
-                  ← Regresar al paso 1
-                </Button>
-              </div>
-              <div className="relative">
-                <Button
-                  type="button"
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                  onMouseEnter={() => setShowTooltipFinalizar(true)}
-                  onMouseLeave={() => setShowTooltipFinalizar(false)}
-                  onClick={e => {
-                    // Simular submit del form principal
-                    const formEl = document.querySelector('form');
-                    if (formEl) {
-                      // @ts-ignore
-                      formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
-                    }
-                    // ✅ Redirigir al finalizar
-                    router.push("/seguimiento-rector");
-                  }}
-                >
-                  Finalizar proceso
-                </Button>
-                {showTooltipFinalizar && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
-                    Terminar proceso y guardar cambios
-                  </div>
-                )}
-              </div>
-            </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Botón Finalizar proceso en paso 2 */}
+      {pasoActual === 2 && estatusGeneral === "REVISADO" && (
+        <div className="flex justify-end mt-6">
+          <Button
+            type="button"
+            className="bg-green-600 hover:bg-green-700 text-white"
+            onClick={finalizarProceso}
+          >
+            Finalizar proceso
+            </Button>
+        </div>
       )}
     </main>
   );

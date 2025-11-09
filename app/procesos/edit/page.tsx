@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -176,7 +176,13 @@ interface FormData {
 export default function NuevoProcesoPage() {
   const { user } = useUser();
   const router = useRouter();
-  const [step, setStep] = React.useState(1);
+  const searchParams = useSearchParams();
+  const idFromUrl = searchParams.get("id");
+  const stepFromUrl = searchParams.get("step");
+  const [step, setStep] = React.useState(() => {
+  const s = stepFromUrl ? parseInt(stepFromUrl, 10) : 1;
+  return Number.isNaN(s) || s < 1 || s > 4 ? 1 : s;
+  });
   const [loading, setLoading] = React.useState(false);
   const [errores, setErrores] = React.useState<Record<string, string>>({});
   // Estado global para errores visuales de partidas (paso 2)
@@ -213,8 +219,17 @@ export default function NuevoProcesoPage() {
     e_importe_total: "",
     p_e_id_rubro_partida: "",
   });
-  const [folio, setFolio] = React.useState<number | null>(null);
-  const [folioSeguimiento, setFolioSeguimiento] = React.useState<number | null>(null);
+  
+  const [folio, setFolio] = React.useState<number | null>(() => {
+  const id = idFromUrl ? parseInt(idFromUrl, 10) : NaN;
+  return Number.isNaN(id) ? null : id;
+  });
+
+
+  const [folioSeguimiento, setFolioSeguimiento] = React.useState<number | null>(() => {
+  const id = idFromUrl ? parseInt(idFromUrl, 10) : NaN;
+  return Number.isNaN(id) ? null : id;
+  });
 
   // Paso 1: Dialogos y formulario para servidores públicos
   const [verServidoresDialogOpen, setVerServidoresDialogOpen] = React.useState(false);
@@ -241,64 +256,153 @@ export default function NuevoProcesoPage() {
       e_monto_presupuesto_suficiencia: "",
     },
   ]);
+
+  // ✅ Detectar cambios en partidas guardadas (reactivar botón "Guardar partida")
+  React.useEffect(() => {
+    setPartidas((prevPartidas) => {
+      let huboCambios = false;
+      const nuevasPartidas = prevPartidas.map((p) => {
+        if (!p.id) return p; // no modificar las que ya están sin guardar
+        const partidaCatalogo = catalogoPartidas.find((c) => String(c.id) === String(p.e_id_partida));
+        const fuenteCatalogo = fuentes.find((f) => String(f.id) === String(p.e_id_fuente_financiamiento));
+        const claveCap = partidaCatalogo?.id_capitulo || "";
+        const capitulo = partidaCatalogo?.capitulo || "";
+        const fuenteDesc = fuenteCatalogo?.descripcion || "";
+        const fuenteEtq = fuenteCatalogo?.etiquetado || "";
+        const fuenteFondo = fuenteCatalogo?.fondo || "";
+
+        const algoCambio =
+          p.clave_capitulo !== claveCap ||
+          p.capitulo !== capitulo ||
+          p.fuente_descripcion !== fuenteDesc ||
+          p.fuente_etiquetado !== fuenteEtq ||
+          p.fuente_fondo !== fuenteFondo ||
+          !p.e_no_requisicion ||
+          !p.e_id_partida ||
+          !p.e_id_fuente_financiamiento;
+
+        if (algoCambio) {
+          huboCambios = true;
+          return { ...p, id: null };
+        }
+        return p;
+      });
+
+      return huboCambios ? nuevasPartidas : prevPartidas;
+    });
+  }, [catalogoPartidas, fuentes]);
+
+  // ✅ Sincroniza automáticamente los campos derivados (capítulo y fuente)
+  React.useEffect(() => {
+    if (!catalogoPartidas.length || !fuentes.length || !partidas.length) return;
+
+    setPartidas((prevPartidas) => {
+      let huboCambios = false;
+      const nuevas = prevPartidas.map((p) => {
+        const partidaInfo = catalogoPartidas.find(
+          (item) => String(item.id) === String(p.e_id_partida)
+        );
+        const fuenteInfo = fuentes.find(
+          (item) => String(item.id) === String(p.e_id_fuente_financiamiento)
+        );
+
+        const actualizada = {
+          ...p,
+          clave_capitulo: partidaInfo?.id_capitulo || "",
+          capitulo: partidaInfo?.capitulo || "",
+          fuente_descripcion: fuenteInfo?.descripcion || "",
+          fuente_etiquetado: fuenteInfo?.etiquetado || "",
+          fuente_fondo: fuenteInfo?.fondo || "",
+        };
+
+        if (JSON.stringify(actualizada) !== JSON.stringify(p)) {
+          huboCambios = true;
+          return actualizada;
+        }
+        return p;
+      });
+
+      return huboCambios ? nuevas : prevPartidas;
+    });
+  }, [catalogoPartidas, fuentes, partidas]);
   // Estado para habilitar o no el botón "Nueva partida"
   const [puedeAgregarPartida, setPuedeAgregarPartida] = React.useState(false);
-  // Paso 2: Guardar la partida actual (por índice) y habilitar "Nueva partida"
-  const handleGuardarPartidaActual = async (index: number) => {
-    // Validar que la partida correspondiente tenga todos los campos obligatorios
-    const partidaActual = partidas[index];
-    if (
-      !partidaActual.e_no_requisicion ||
-      !partidaActual.e_id_partida ||
-      !partidaActual.e_id_fuente_financiamiento
-    ) {
-      toast.warning("Completa todos los campos obligatorios de la partida antes de guardar.");
-      return;
-    }
+  // Paso 2: Guardar la partida actual (implementación actualizada)
+  const handleGuardarPartidaActual = async (p: any) => {
     try {
-      const folioGuardado =
+      // 🔍 Detectar si la partida es nueva o existente (conversión a número)
+      const esNuevo = !p.id || Number(p.id) === 0 ? true : false;
+
+      // 🧩 Determinar el seguimiento asociado (del paso 1 o sesión)
+      const seguimientoId =
         folioSeguimiento ||
         folio ||
         Number(sessionStorage.getItem("folioSeguimiento"));
-      if (!folioGuardado) {
+
+      if (!seguimientoId) {
         toast.info("Primero debes completar el Paso 1 antes de continuar.");
         return;
       }
+
+      // 📨 Construir el payload para el backend
       const payload = {
-        p_accion: "NUEVO",
-        p_id_seguimiento: folioGuardado,
-        p_id: 0,
-        p_e_no_requisicion: String(partidaActual.e_no_requisicion ?? "").trim(),
-        p_e_id_partida: String(partidaActual.e_id_partida ?? "").trim(),
-        p_e_id_fuente_financiamiento: String(partidaActual.e_id_fuente_financiamiento ?? "").trim(),
+        p_accion: esNuevo ? "NUEVO" : "EDITAR",
+        p_id_seguimiento: seguimientoId,
+        p_id: Number(p.id) || 0,
+        p_e_no_requisicion: p.e_no_requisicion || "",
+        p_e_id_partida: p.e_id_partida || "",
+        p_e_id_fuente_financiamiento: p.e_id_fuente_financiamiento || "",
       };
-      const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+
+      console.log("📦 Enviando payload a backend:", payload);
+
+      // 🚀 Llamada al endpoint PUT
+      const resp = await fetch(
+        `${API_BASE}/procesos/editar/ente-seguimiento-partida-captura`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+
       const data = await resp.json();
+      console.log("🧩 Respuesta backend:", data);
+
       if (!resp.ok) {
+        console.error("❌ Error al guardar la partida:", data);
         toast.error("Error al guardar la partida");
-        setPuedeAgregarPartida(false);
         return;
       }
-      // Si la respuesta es correcta, guardar id en la partida y habilitar el botón "Nueva partida"
-      if (data.resultado) {
+
+      const nuevoId = data.result || data.resultado || data;
+
+      if (nuevoId && Number(nuevoId) > 0) {
+        // 🔁 Actualiza el estado de partidas con el nuevo o actualizado ID
         setPartidas((prev) =>
-          prev.map((x, idx) =>
-            idx === index ? { ...x, id: data.resultado } : x
+          prev.map((x) =>
+            x.id === p.id || !x.id ? { ...x, id: Number(nuevoId) } : x
           )
         );
-        toast.success("Partida guardada correctamente");
+
+        console.log(
+          esNuevo
+            ? `✅ Partida creada correctamente (ID ${nuevoId})`
+            : `✅ Partida actualizada correctamente (ID ${nuevoId})`
+        );
+
+        toast.success(
+          esNuevo
+            ? "Partida creada correctamente"
+            : "Partida actualizada correctamente"
+        );
+
+        // ✅ Desbloquear botón de nueva partida
         setPuedeAgregarPartida(true);
-      } else {
-        toast.error("Error al guardar la partida");
-        setPuedeAgregarPartida(false);
       }
-    } catch (err) {
-      toast.error("Error al guardar la partida");
-      setPuedeAgregarPartida(false);
+    } catch (error) {
+      console.error("💥 Error en handleGuardarPartidaActual:", error);
+      toast.error("Error inesperado al guardar la partida");
     }
   };
 
@@ -483,6 +587,77 @@ export default function NuevoProcesoPage() {
     })();
   }, [user?.id_ente]);
 
+  // Cargar datos del seguimiento (modo edición) para Paso 1
+  React.useEffect(() => {
+    if (!folio) return;
+
+    (async () => {
+      try {
+        const resp = await fetch(`${API_BASE}/procesos/editar/seguimiento?p_id=${folio}`);
+        if (!resp.ok) {
+          console.error("❌ Error al cargar seguimiento para edición");
+          return;
+        }
+
+        const data = await resp.json();
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!row) return;
+
+        // Convertir fecha/hora ISO → dd/mm/yyyy y HH:MM
+        let fecha = "";
+        let hora = "";
+        if (row.e_fecha_y_hora_reunion) {
+          const dt = new Date(row.e_fecha_y_hora_reunion);
+          const dd = String(dt.getDate()).padStart(2, "0");
+          const mm = String(dt.getMonth() + 1).padStart(2, "0");
+          const yyyy = dt.getFullYear();
+          const hh = String(dt.getHours()).padStart(2, "0");
+          const min = String(dt.getMinutes()).padStart(2, "0");
+          fecha = `${dd}/${mm}/${yyyy}`;
+          hora = `${hh}:${min}`;
+        }
+
+        setForm((prev) => ({
+          ...prev,
+          oficio_invitacion: row.e_oficio_invitacion || "",
+          servidor_publico_cargo: row.e_servidor_publico_cargo || "",
+          // tipo_evento si viene del backend, si no mantiene el que ya tenga
+          tipo_evento: row.e_tipo_evento?.toString() || prev.tipo_evento,
+          tipo_licitacion: row.e_tipo_licitacion || "",
+          tipo_licitacion_notas: row.e_tipo_licitacion_notas || "",
+          fecha,
+          hora,
+        }));
+
+        // Preseleccionar servidor público si coincide
+        if (row.e_id_servidor_publico_emite && servidores.length > 0) {
+          const serv = servidores.find(
+            (s: any) => String(s.id) === String(row.e_id_servidor_publico_emite)
+          );
+          if (serv) {
+            setServidorSeleccionado(serv);
+            setBusquedaServidor(serv.nombre || "");
+          }
+        }
+
+        // Preseleccionar número de sesión si coincide
+        if (row.e_tipo_licitacion_no_veces && numerosSesion.length > 0) {
+          const ses = numerosSesion.find(
+            (n: any) => String(n.id) === String(row.e_tipo_licitacion_no_veces)
+          );
+          if (ses) {
+            setSesionSeleccionada(ses);
+            setBusquedaSesion(ses.descripcion || "");
+          }
+        }
+      } catch (err) {
+        console.error("❌ Error al cargar seguimiento para edición:", err);
+      }
+    })();
+  }, [folio, servidores, numerosSesion]);
+
+
+
   React.useEffect(() => {
     if (!form.tipo_evento) {
       setTiposLicitacion([]);
@@ -501,7 +676,7 @@ export default function NuevoProcesoPage() {
   /* ========================================
      🔹 Guardar Paso 1
   ======================================== */
-  const handleGuardarPaso1 = async () => {
+    const handleGuardarPaso1 = async () => {
     // Incluye todos los campos requeridos
     const requiredFields = [
       "oficio_invitacion",
@@ -513,7 +688,6 @@ export default function NuevoProcesoPage() {
     ];
     const newErrors: any = {};
 
-    // Verificar campos vacíos (mensaje uniforme)
     (requiredFields as Array<keyof FormData>).forEach((field) => {
       if (!form[field]) newErrors[field as string] = "Este campo es obligatorio";
     });
@@ -529,21 +703,16 @@ export default function NuevoProcesoPage() {
     }
 
     setErrores({});
-    if (!user) return;
-
-    // Detectar si es edición o nuevo
-    const accion = folio ? "EDITAR" : "NUEVO";
-    const idProceso = folio || 0;
+    if (!user || !folio) return;
 
     const fechaHora = toIsoLocalDateTime(form.fecha, form.hora);
     setLoading(true);
     try {
-      const resp = await fetch(`${API_BASE}/procesos/seguimiento/ente/`, {
-        method: "POST",
+      const resp = await fetch(`${API_BASE}/procesos/editar/ente-seguimiento-captura`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          p_accion: accion,
-          p_id: idProceso,
+          p_id: folio,
           p_e_id_ente: String(user.id_ente),
           p_e_oficio_invitacion: form.oficio_invitacion,
           p_e_id_servidor_publico_emite: Number(servidorSeleccionado.id),
@@ -556,13 +725,6 @@ export default function NuevoProcesoPage() {
         }),
       });
       const data = await resp.json();
-      console.log("📘 Resultado backend Paso 1 (guardar oficio):", data);
-      if (data?.resultado) {
-        setFolioSeguimiento(data.resultado);
-        console.log("✅ ID de seguimiento asignado:", data.resultado);
-      } else {
-        console.warn("⚠️ El backend no devolvió un resultado válido:", data);
-      }
       if (!resp.ok) {
         console.error("⚠️ Backend error:", data);
         throw new Error(
@@ -572,29 +734,12 @@ export default function NuevoProcesoPage() {
         );
       }
 
-      setFolio(data.resultado);
-      // ✅ Reiniciar pasos dependientes al actualizar el folio
-      setPartidas([
-        {
-          id: null,
-          e_no_requisicion: "",
-          e_id_partida: "",
-          partida_descripcion: "",
-          clave_capitulo: "",
-          capitulo: "",
-          e_id_fuente_financiamiento: "",
-          fuente_descripcion: "",
-          fuente_etiquetado: "",
-          fuente_fondo: "",
-          e_monto_presupuesto_suficiencia: "",
-        },
-      ]);
-      setPresupuestosRubro([]);
-      setProveedores([]);
-      toast.success("Paso 1 guardado correctamente");
-      setStep(2);
+      toast.success("Paso 1 actualizado correctamente");
+      // En edición NO reiniciamos partidas ni proveedores
+      if (step < 2) setStep(2);
     } catch (err) {
       console.error(err);
+      toast.error("No se pudo actualizar el Paso 1");
     } finally {
       setLoading(false);
     }
@@ -603,32 +748,72 @@ export default function NuevoProcesoPage() {
   /* ========================================
      🔹 Cargar catálogos paso 2
   ======================================== */
+    /* ========================================
+     🔹 Cargar catálogos + partidas paso 2 (edición)
+  ======================================== */
   React.useEffect(() => {
     if (step !== 2) return;
+
     (async () => {
       try {
         const [fResp, pResp] = await Promise.all([
           fetch(`${API_BASE}/catalogos/fuentes-financiamiento?p_id=-99&p_id_ramo=-99`).then((r) => r.json()),
-            fetch(`${API_BASE}/catalogos/partidas?p_id=-99&p_id_capitulo=-99&p_tipo=PROVEEDURIA`).then((r) => r.json()),
-
+          fetch(`${API_BASE}/catalogos/partidas?p_id=-99&p_id_capitulo=-99&p_tipo=PROVEEDURIA`).then((r) => r.json()),
         ]);
         setFuentes(Array.isArray(fResp) ? fResp : []);
         setCatalogoPartidas(Array.isArray(pResp) ? pResp : []);
-        // ✅ Si ya existe un folio, consultar las partidas registradas previamente
+
         if (folio) {
           try {
-            const res = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                p_accion: "CONSULTAR",
-                p_id_seguimiento: folio,
-                p_e_id_partida: -99,
-              }),
-            });
+            const res = await fetch(
+              `${API_BASE}/procesos/editar/seguimiento-partida?p_id=-99&p_id_seguimiento=${folio}`
+            );
             const data = await res.json();
             if (Array.isArray(data) && data.length > 0) {
-              setPartidas(data);
+              const enriquecidas = data.map((p: any) => {
+                const infoPartida = catalogoPartidas.find(
+                  (c) => String(c.id) === String(p.e_id_partida)
+                );
+                const infoFuente = fuentes.find(
+                  (f) => String(f.id) === String(p.e_id_fuente_financiamiento)
+                );
+                return {
+                  ...p,
+                  id: p.id, // ✅ conservar el id real del registro existente
+                  // ✅ valores derivados de la partida
+                  partida_descripcion: infoPartida?.descripcion || p.partida_descripcion || "",
+                  clave_capitulo: infoPartida?.id_capitulo || "",
+                  capitulo: infoPartida?.capitulo || "",
+                  // ✅ valores derivados de la fuente
+                  fuente_descripcion: infoFuente?.descripcion || "",
+                  fuente_etiquetado: infoFuente?.etiquetado || "",
+                  fuente_fondo: infoFuente?.fondo || "",
+                  // ✅ mostrar los IDs como texto también, para que el CommandInput se inicialice bien
+                  e_id_partida: infoPartida ? String(infoPartida.id) : String(p.e_id_partida || ""),
+                  e_id_fuente_financiamiento: infoFuente
+                    ? String(infoFuente.id)
+                    : String(p.e_id_fuente_financiamiento || ""),
+                };
+              });
+              setPartidas(enriquecidas);
+              setPuedeAgregarPartida(true);
+            } else {
+              setPartidas([
+                {
+                  id: null,
+                  e_no_requisicion: "",
+                  e_id_partida: "",
+                  partida_descripcion: "",
+                  clave_capitulo: "",
+                  capitulo: "",
+                  e_id_fuente_financiamiento: "",
+                  fuente_descripcion: "",
+                  fuente_etiquetado: "",
+                  fuente_fondo: "",
+                  e_monto_presupuesto_suficiencia: "",
+                },
+              ]);
+              setPuedeAgregarPartida(false);
             }
           } catch (err) {
             console.error("❌ Error al recargar partidas existentes:", err);
@@ -638,7 +823,7 @@ export default function NuevoProcesoPage() {
         console.error("❌ Error al cargar catálogos del paso 2:", err);
       }
     })();
-  }, [step]);
+  }, [step, folio]);
 
   /* ========================================
      🔹 Guardar Paso 2 (envía montos al paso 3)
@@ -850,7 +1035,7 @@ export default function NuevoProcesoPage() {
           <>
             <div className="flex items-center gap-3 mb-6">
               <Button asChild variant="outline">
-                <Link href="/dashboard">←</Link>
+                <Link href="/procesos">←</Link>
               </Button>
               <h1 className="text-2xl font-bold">Paso 1: Oficio de invitación</h1>
             </div>
@@ -918,14 +1103,14 @@ export default function NuevoProcesoPage() {
                   <Label>Servidor público (emite)</Label>
                   <div className={errores.servidor_publico_cargo ? "border border-red-500 rounded-md p-1" : ""}>
                     <Command>
-                      <CommandInput
-                        placeholder="Escribe para buscar…"
-                        value={busquedaServidor}
-                        onValueChange={(val) => {
-                          setBusquedaServidor(val);
-                          setMostrarServidores(true);
-                        }}
-                      />
+                    <CommandInput
+                      placeholder="Escribe para buscar…"
+                      value={busquedaServidor}
+                      onValueChange={(val) => {
+                        setBusquedaServidor(val);
+                        setMostrarServidores(val.trim() !== "");
+                      }}
+                    />
                       {mostrarServidores && (
                         <CommandList>
                           {busquedaServidor.trim() !== "" ? (
@@ -1177,7 +1362,7 @@ export default function NuevoProcesoPage() {
                         value={busquedaSesion}
                         onValueChange={(val) => {
                           setBusquedaSesion(val);
-                          setMostrarSesiones(true);
+                          setMostrarSesiones(val.trim() !== "");
                         }}
                       />
                       {mostrarSesiones && (
@@ -1245,9 +1430,58 @@ export default function NuevoProcesoPage() {
 
       {/* Paso 2 */}
       {step === 2 && (() => {
+        // Nueva función para guardar/actualizar una partida individual
+        const handleGuardarPartidaActual = async (p: any) => {
+          try {
+            const folioGuardado =
+              folioSeguimiento || folio || Number(sessionStorage.getItem("folioSeguimiento"));
+            if (!folioGuardado) {
+              toast.info("Primero debes completar el Paso 1 antes de continuar.");
+              return;
+            }
+            const esNuevo = !p.id || p.id === 0;
+            const method = esNuevo ? "POST" : "PUT";
+            const url = esNuevo
+              ? `${API_BASE}/procesos/seguimiento/partida-ente/`
+              : `${API_BASE}/procesos/editar/ente-seguimiento-partida-captura`;
+            const payload = {
+              p_accion: esNuevo ? "NUEVO" : "EDITAR",
+              p_id_seguimiento: folioGuardado,
+              p_id: p.id || 0,
+              p_e_no_requisicion: String(p.e_no_requisicion ?? "").trim(),
+              p_e_id_partida: String(p.e_id_partida ?? "").trim(),
+              p_e_id_fuente_financiamiento: String(p.e_id_fuente_financiamiento ?? "").trim(),
+            };
+            const resp = await fetch(url, {
+              method,
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+              toast.error("Error al guardar la partida");
+              return;
+            }
+            if (data.resultado || data > 0) {
+              setPartidas(prev =>
+                prev.map(x =>
+                  x.e_id_partida === p.e_id_partida
+                    ? { ...x, id: data.resultado || data }
+                    : x
+                )
+              );
+              if (esNuevo) {
+                toast.success("Partida guardada correctamente");
+              } else {
+                toast.success("Partida actualizada correctamente");
+              }
+            }
+          } catch (err) {
+            toast.error("Error al guardar la partida");
+          }
+        };
         // Reemplaza handleGuardarPartidas con validación visual (usando erroresPartida/setErroresPartida global)
         const handleGuardarPartidasValidado = async () => {
-          // Validación visual de campos obligatorios en cada partida
           const nuevosErrores: Record<string, string> = {};
           partidas.forEach((p, i) => {
             if (!p.e_no_requisicion) {
@@ -1271,88 +1505,16 @@ export default function NuevoProcesoPage() {
 
           try {
             const folioGuardado =
-              folioSeguimiento || Number(sessionStorage.getItem("folioSeguimiento"));
+              folioSeguimiento || folio || Number(sessionStorage.getItem("folioSeguimiento"));
             if (!folioGuardado) {
               console.error("⚠️ No hay folio de seguimiento disponible");
               toast.info("Primero debes completar el Paso 1 antes de continuar.");
               return;
             }
 
-            console.log("📘 Usando folio de seguimiento para guardar partidas:", folioGuardado);
-
             for (const p of partidas) {
-              const checkResp = await fetch(
-                `${API_BASE}/procesos/seguimiento/partida/?p_id=-99&p_id_seguimiento=${folioGuardado}`
-              );
-              let existente: any = [];
-              try {
-                existente = await checkResp.json();
-              } catch {
-                existente = [];
-              }
-
-              const idExistente =
-                Array.isArray(existente)
-                  ? (existente.find((item: any) => String(item.e_id_partida) === String(p.e_id_partida))?.id ?? null)
-                  : null;
-
-              const partidaExiste =
-                Array.isArray(existente) &&
-                existente.some(
-                  (item: any) =>
-                    String(item.e_id_partida) === String(p.e_id_partida) &&
-                    String(item.id_seguimiento ?? item.p_id_seguimiento) === String(folioGuardado)
-                );
-
-              if (partidaExiste) {
-                toast.error(`⚠️ La partida ${p.e_id_partida} ya fue registrada en este seguimiento`);
-                return;
-              }
-
-              const accion = idExistente ? "EDITAR" : "NUEVO";
-              const idRegistro = idExistente || 0;
-
-              const payload = {
-                p_accion: String(accion).toUpperCase(),
-                p_id_seguimiento: folioGuardado,
-                p_id: Number(idRegistro) || 0,
-                p_e_no_requisicion: String(p.e_no_requisicion ?? "").trim(),
-                p_e_id_partida: String(p.e_id_partida ?? "").trim(),
-                p_e_id_fuente_financiamiento: String(p.e_id_fuente_financiamiento ?? "").trim(),
-              };
-
-              console.log("📦 Enviando payload a backend (partida-ente):", payload);
-
-              const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-
-              let data;
-              try {
-                data = await resp.json();
-              } catch {
-                data = {};
-              }
-
-              if (!resp.ok) {
-                console.error("❌ Error detallado del backend:", data);
-                toast.error(data.detail || "No se pudo registrar la partida del ente");
-                return;
-              }
-
-              if (data.resultado) {
-                setPartidas((prev) =>
-                  prev.map((x) =>
-                    x.e_id_partida === p.e_id_partida ? { ...x, id: data.resultado } : x
-                  )
-                );
-                toast.success(`Partida ${p.e_id_partida} guardada correctamente`);
-                setPuedeAgregarPartida(true);
-              }
+              await handleGuardarPartidaActual(p);
             }
-
             toast.success("Presupuesto guardado correctamente");
             setStep(3);
           } catch (err) {
@@ -1360,7 +1522,6 @@ export default function NuevoProcesoPage() {
             toast.error("Error al guardar presupuesto");
           }
         };
-
         // Nueva función handleNextStep para avanzar al paso 3, guardando partidas nuevas si es necesario
         const handleNextStep = async () => {
           try {
@@ -1385,7 +1546,7 @@ export default function NuevoProcesoPage() {
             <CardContent className="space-y-5 mt-4">
               <div className="flex items-center gap-3 mb-6">
                 <Button asChild variant="outline">
-                  <Link href="/dashboard">←</Link>
+                  <Link href="/procesos">←</Link>
                 </Button>
                 <h1 className="text-2xl font-bold">Paso 2: Partidas</h1>
               </div>
@@ -1395,7 +1556,7 @@ export default function NuevoProcesoPage() {
               </div>
 
               {partidas.map((p, i) => {
-                const isLast = partidas.length === 1;
+                // Permitir eliminar cualquier partida, incluso la única
                 return (
                   <Card key={i} className="p-4 space-y-4 border border-gray-200 relative">
                     {/* Identificador de partida */}
@@ -1404,62 +1565,88 @@ export default function NuevoProcesoPage() {
                     </div>
                     <button
                       type="button"
-                      aria-label={isLast ? "No se puede eliminar la última partida" : "Eliminar partida"}
-                      className={
-                        `absolute right-3 top-3 z-10 rounded-full p-2 transition-all duration-200
-                        ${isLast
-                          ? "bg-gray-200/80 cursor-not-allowed opacity-70"
-                          : "bg-red-500/20 hover:bg-red-600/70 cursor-pointer hover:scale-110"
-                        }`
-                      }
+                      aria-label="Eliminar partida"
+                      className="absolute right-3 top-3 z-10 rounded-full p-2 transition-all duration-200 bg-red-500/20 hover:bg-red-600/70 cursor-pointer hover:scale-110"
                       onClick={async () => {
-                        if (!isLast) {
-                          const partidaAEliminar = partidas[i];
-                          if (!partidaAEliminar?.id) {
-                            // Si aún no está guardada en BD, sólo la quitamos del estado
-                            setPartidas(partidas.filter((_, idx) => idx !== i));
-                            toast.info(`Partida #${i + 1} eliminada localmente (no guardada aún)`);
+                        const partidaAEliminar = partidas[i];
+                        if (!partidaAEliminar?.id) {
+                          // Si aún no está guardada en BD, sólo la quitamos del estado
+                          const nuevas = partidas.filter((_, idx) => idx !== i);
+                          // Si se elimina la última, crear una nueva vacía
+                          if (nuevas.length === 0) {
+                            setPartidas([
+                              {
+                                id: null,
+                                e_no_requisicion: "",
+                                e_id_partida: "",
+                                partida_descripcion: "",
+                                clave_capitulo: "",
+                                capitulo: "",
+                                e_id_fuente_financiamiento: "",
+                                fuente_descripcion: "",
+                                fuente_etiquetado: "",
+                                fuente_fondo: "",
+                                e_monto_presupuesto_suficiencia: "",
+                              },
+                            ]);
+                          } else {
+                            setPartidas(nuevas);
+                          }
+                          toast.info(`Partida #${i + 1} eliminada localmente (no guardada aún)`);
+                          return;
+                        }
+
+                        try {
+                          const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              p_accion: "ELIMINAR",
+                              p_id: partidaAEliminar.id,
+                              p_id_seguimiento: folioSeguimiento || folio || Number(sessionStorage.getItem("folioSeguimiento")),
+                              p_e_no_requisicion: "",
+                              p_e_id_partida: "",
+                              p_e_id_fuente_financiamiento: "",
+                            }),
+                          });
+
+                          const data = await resp.json();
+                          if (!resp.ok) {
+                            console.error("❌ Error al eliminar partida:", data);
+                            toast.error("No se pudo eliminar la partida del servidor.");
                             return;
                           }
 
-                          try {
-                            const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                p_accion: "ELIMINAR",
-                                p_id: partidaAEliminar.id,
-                                p_id_seguimiento: folioSeguimiento || folio,
-                                p_e_id_partida: partidaAEliminar.e_id_partida,
-                                p_e_no_requisicion: partidaAEliminar.e_no_requisicion,
-                                p_e_id_fuente_financiamiento: partidaAEliminar.e_id_fuente_financiamiento,
-                              }),
-                            });
-
-                            const data = await resp.json();
-                            if (!resp.ok) {
-                              console.error("❌ Error al eliminar partida:", data);
-                              toast.error("No se pudo eliminar la partida del servidor.");
-                              return;
-                            }
-
-                            toast.success(`Partida #${i + 1} eliminada correctamente`);
-                            setPartidas(partidas.filter((_, idx) => idx !== i));
-                          } catch (err) {
-                            console.error("❌ Error al eliminar partida:", err);
-                            toast.error("Error de conexión al eliminar la partida.");
+                          toast.success(`Partida #${i + 1} eliminada correctamente`);
+                          const nuevas = partidas.filter((_, idx) => idx !== i);
+                          // Si se elimina la última, crear una nueva vacía
+                          if (nuevas.length === 0) {
+                            setPartidas([
+                              {
+                                id: null,
+                                e_no_requisicion: "",
+                                e_id_partida: "",
+                                partida_descripcion: "",
+                                clave_capitulo: "",
+                                capitulo: "",
+                                e_id_fuente_financiamiento: "",
+                                fuente_descripcion: "",
+                                fuente_etiquetado: "",
+                                fuente_fondo: "",
+                                e_monto_presupuesto_suficiencia: "",
+                              },
+                            ]);
+                          } else {
+                            setPartidas(nuevas);
                           }
+                        } catch (err) {
+                          console.error("❌ Error al eliminar partida:", err);
+                          toast.error("Error de conexión al eliminar la partida.");
                         }
                       }}
-                      disabled={isLast}
                       tabIndex={0}
-                      onMouseEnter={e => {
-                        if (isLast) {
-                          (e.currentTarget as HTMLElement).setAttribute('title', 'Debe haber al menos una partida');
-                        }
-                      }}
                     >
-                      <Trash2 className={`w-7 h-7 ${isLast ? "text-gray-400" : "text-red-600 hover:text-white"}`} />
+                      <Trash2 className="w-7 h-7 text-red-600 hover:text-white" />
                     </button>
 
                     <div>
@@ -1469,7 +1656,7 @@ export default function NuevoProcesoPage() {
                         onChange={(e) =>
                           setPartidas((prev) =>
                             prev.map((x, idx) =>
-                              idx === i ? { ...x, e_no_requisicion: e.target.value } : x
+                              idx === i ? { ...x, e_no_requisicion: e.target.value, id: null } : x
                             )
                           )
                         }
@@ -1491,7 +1678,7 @@ export default function NuevoProcesoPage() {
                           onValueChange={(val) =>
                             setPartidas((prev) =>
                               prev.map((x, idx) =>
-                                idx === i ? { ...x, e_id_partida: val } : x
+                                idx === i ? { ...x, e_id_partida: val, id: null } : x
                               )
                             )
                           }
@@ -1519,6 +1706,7 @@ export default function NuevoProcesoPage() {
                                               partida_descripcion: row.descripcion ?? "",
                                               clave_capitulo: row.id_capitulo ?? "",
                                               capitulo: row.capitulo ?? "",
+                                              id: null,
                                             }
                                           : x
                                       )
@@ -1561,7 +1749,7 @@ export default function NuevoProcesoPage() {
                           onValueChange={(val) =>
                             setPartidas((prev) =>
                               prev.map((x, idx) =>
-                                idx === i ? { ...x, e_id_fuente_financiamiento: val } : x
+                                idx === i ? { ...x, e_id_fuente_financiamiento: val, id: null } : x
                               )
                             )
                           }
@@ -1591,6 +1779,7 @@ export default function NuevoProcesoPage() {
                                               fuente_descripcion: f.descripcion ?? "",
                                               fuente_etiquetado: f.etiquetado ?? "",
                                               fuente_fondo: f.fondo ?? "",
+                                              id: null,
                                             }
                                           : x
                                       )
@@ -1628,22 +1817,18 @@ export default function NuevoProcesoPage() {
                     </div>
                   </div>
 
-                  {/* Botón Guardar partida por cada partida */}
+                  {/* Botón Guardar/Actualizar partida por cada partida */}
                   <div className="flex justify-end">
                     <Button
                       variant="outline"
                       style={{
-                        backgroundColor: p.id ? "#6c757d" : "#235391",
+                        backgroundColor: "#235391",
                         color: "white",
-                        borderColor: p.id ? "#6c757d" : "#235391",
-                        cursor: p.id ? "not-allowed" : "pointer",
+                        borderColor: "#235391"
                       }}
-                      disabled={!!p.id}
-                      onClick={() => {
-                        if (!p.id) handleGuardarPartidaActual(i);
-                      }}
+                      onClick={() => handleGuardarPartidaActual(p)}
                     >
-                      {p.id ? "Partida guardada" : "Guardar partida"}
+                      Guardar / Actualizar
                     </Button>
                   </div>
 
@@ -1706,6 +1891,10 @@ export default function NuevoProcesoPage() {
                       <TooltipTrigger asChild>
                         <Button
                           onClick={async () => {
+                            if (partidas.length === 0) {
+                              toast.warning("Debes añadir al menos una partida antes de continuar.");
+                              return;
+                            }
                             // Verificar si hay partidas nuevas sin guardar
                             const hayPartidasSinGuardar = partidas.some((p) => !p.id);
 
@@ -1758,7 +1947,7 @@ export default function NuevoProcesoPage() {
       <CardContent className="space-y-5 mt-4">
         <div className="flex items-center gap-3 mb-6">
           <Button asChild variant="outline">
-            <Link href="/dashboard">←</Link>
+            <Link href="/procesos">←</Link>
           </Button>
           <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
         </div>
@@ -2116,7 +2305,7 @@ export default function NuevoProcesoPage() {
       </div>
         <div className="flex items-center gap-3 mb-6">
           <Button asChild variant="outline">
-            <Link href="/dashboard">←</Link>
+            <Link href="/procesos">←</Link>
           </Button>
           <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
         </div>

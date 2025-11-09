@@ -6,7 +6,7 @@ import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
 import { Button } from "@/components/ui/button";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { CheckCircle, Loader2, LayoutGrid, List, ChevronDown, ChevronUp, Settings2, ChevronRight, Download, PlusCircle, LogOut } from "lucide-react";
+import { CheckCircle, Loader2, LayoutGrid, List, ChevronDown, ChevronUp, Settings2, ChevronRight, Download, PlusCircle, LogOut, MoreVertical } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Shadcn Table + TanStack Table
@@ -18,7 +18,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
   useReactTable,
@@ -275,6 +275,40 @@ export default function ProcesosPage() {
     }).format(n);
   };
 
+  // Contextual menu for actions
+  // Needs router for push navigation
+  const { useRouter } = require('next/navigation');
+  const router = useRouter();
+
+  // Contextual menu component for actions
+  function RowActionsMenu({ id, estatus }: { id: number; estatus?: string | null }) {
+    if (estatus !== 'PREREGISTRADO') return null;
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+            <MoreVertical size={18} />
+            <span className="sr-only">Más acciones</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => router.push(`/procesos/edit?id=${id}&step=1`)}>
+            Editar paso 1: Oficio de invitación
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push(`/procesos/edit?id=${id}&step=2`)}>
+            Editar paso 2: Partidas
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push(`/procesos/edit?id=${id}&step=3`)}>
+            Editar paso 3: Rubros
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push(`/procesos/edit?id=${id}&step=4`)}>
+            Editar paso 4: Proveedor
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
   const columns = React.useMemo<ColumnDef<Seguimiento>[]>(
     () => [
       {
@@ -361,6 +395,14 @@ export default function ProcesosPage() {
         header: "Fecha de reunión",
         cell: ({ getValue }: { getValue: () => any }) => getValue() || "—",
         size: 140,
+      },
+      // Acciones contextual menu column
+      {
+        id: "acciones",
+        header: "Acciones",
+        cell: ({ row }) => <RowActionsMenu id={row.original.id} estatus={row.original.r_estatus} />,
+        enableSorting: false,
+        size: 60,
       },
     ],
     [expandedRows]
@@ -734,23 +776,29 @@ export default function ProcesosPage() {
                   isOpen ? "shadow-md border-blue-300" : "border-gray-200"
                 }`}
               >
+                {/* Menú contextual fuera del AccordionTrigger */}
+                <div className="flex justify-end p-2">
+                  <RowActionsMenu id={item.id} estatus={item.r_estatus} />
+                </div>
                 <AccordionTrigger className="p-0 focus-visible:ring-0">
-                  <div className="cursor-pointer p-5 grid grid-cols-1 md:grid-cols-3 gap-4 w-full pr-8 transition-none bg-gray-50">
-                    <div className="font-semibold text-gray-700">{item.id}</div>
-                    <div className="text-gray-700 truncate">{item.e_oficio_invitacion || "—"}</div>
-                    <div className="text-gray-700 truncate">{item.ente || "—"}</div>
-                    <div className="md:col-span-3 mt-4 bg-white border border-gray-200 rounded-md p-4 shadow-sm">
-                      <h3 className="text-gray-800 font-semibold mb-3">
-                        Datos del Ente
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-700 text-sm">
-                        <p><strong>Clasificación:</strong> {item.ente_clasificacion || "—"}</p>
-                        <p><strong>Tipo de Evento:</strong> {item.e_tipo_evento || "—"}</p>
-                        <p><strong>Tipo de Licitación:</strong> {item.e_tipo_licitacion || "—"}</p>
-                        <p><strong>No. de veces:</strong> {item.tipo_licitacion_no_veces_descripcion || "—"}</p>
-                        <p><strong>Servidor Público que emite:</strong> {item.servidor_publico_emite || "—"}</p>
-                        <p><strong>Cargo:</strong> {item.e_servidor_publico_cargo || "—"}</p>
-                        <p><strong>Fecha de reunión:</strong> {item.e_fecha_y_hora_reunion || "—"}</p>
+                  <div className="relative">
+                    <div className="cursor-pointer p-5 grid grid-cols-1 md:grid-cols-3 gap-4 w-full pr-8 transition-none bg-gray-50">
+                      <div className="font-semibold text-gray-700">{item.id}</div>
+                      <div className="text-gray-700 truncate">{item.e_oficio_invitacion || "—"}</div>
+                      <div className="text-gray-700 truncate">{item.ente || "—"}</div>
+                      <div className="md:col-span-3 mt-4 bg-white border border-gray-200 rounded-md p-4 shadow-sm">
+                        <h3 className="text-gray-800 font-semibold mb-3">
+                          Datos del Ente
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-700 text-sm">
+                          <p><strong>Clasificación:</strong> {item.ente_clasificacion || "—"}</p>
+                          <p><strong>Tipo de Evento:</strong> {item.e_tipo_evento || "—"}</p>
+                          <p><strong>Tipo de Licitación:</strong> {item.e_tipo_licitacion || "—"}</p>
+                          <p><strong>No. de veces:</strong> {item.tipo_licitacion_no_veces_descripcion || "—"}</p>
+                          <p><strong>Servidor Público que emite:</strong> {item.servidor_publico_emite || "—"}</p>
+                          <p><strong>Cargo:</strong> {item.e_servidor_publico_cargo || "—"}</p>
+                          <p><strong>Fecha de reunión:</strong> {item.e_fecha_y_hora_reunion || "—"}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
