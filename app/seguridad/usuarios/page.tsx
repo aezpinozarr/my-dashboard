@@ -318,10 +318,14 @@ export default function UsuariosPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
           <Link href="/dashboard">
-            <Button variant="outline" className="cursor-pointer">
-              ←
-            </Button>
-          </Link>
+          <Button
+            variant="outline"
+            style={{ backgroundColor: "#db200b", color: "white" }}
+            className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+          >
+            ←
+          </Button>
+        </Link>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold">Usuarios</h1>
@@ -539,10 +543,22 @@ export default function UsuariosPage() {
                 </label>
               </div>
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                >
                   Cancelar
                 </Button>
-                <Button type="submit">Guardar</Button>
+                <Button
+                  type="submit"
+                  style={{ backgroundColor: "#34e004", color: "white" }}
+                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                >
+                  Guardar
+                </Button>
               </div>
             </form>
           )}

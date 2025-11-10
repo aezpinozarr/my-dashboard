@@ -303,7 +303,11 @@ export default function EntesPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
           <Link href="/dashboard">
-            <Button variant="outline" className="cursor-pointer">
+            <Button
+              variant="outline"
+              className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+              style={{ backgroundColor: "#db200b", color: "white" }}
+            >
               ←
             </Button>
           </Link>
@@ -334,9 +338,8 @@ export default function EntesPage() {
               showDeleted
                 ? "border-red-600 bg-red-50 hover:bg-red-100 text-red-700"
                 : "border-gray-300 hover:border-red-400 text-gray-600 hover:text-red-700"
-            }`}
+            } transition-transform duration-150 ease-in-out hover:scale-105 cursor-pointer cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110`}
             style={{
-              cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -396,13 +399,13 @@ export default function EntesPage() {
                         style={{
                           borderColor: "#235391",
                           color: "#235391",
-                          cursor: "pointer",
                           marginTop: "7px", // Alinear altura de botón ver servidores
                         }}
                         onClick={() => {
                           setEnteSeleccionado(e.descripcion);
                           fetchServidores(e.id);
                         }}
+                        className="transition-transform duration-150 ease-in-out hover:scale-105 cursor-pointer cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
                       >
                         👥 Ver Servidores
                       </Button>
@@ -540,11 +543,20 @@ export default function EntesPage() {
             </div>
             <div className="flex justify-end gap-2 pt-4">
               <DialogClose asChild>
-                <Button variant="outline" type="button">
+                <Button
+                  type="button"
+                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  className="transition-transform duration-150 ease-in-out hover:scale-105 cursor-pointer cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                >
                   Cancelar
                 </Button>
               </DialogClose>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                style={{ backgroundColor: "#34e004", color: "white" }}
+                className="transition-transform duration-150 ease-in-out hover:scale-105 cursor-pointer cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+              >
                 {isSubmitting ? "Guardando..." : "Guardar"}
               </Button>
             </div>

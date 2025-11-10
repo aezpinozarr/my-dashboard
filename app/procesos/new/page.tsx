@@ -849,7 +849,7 @@ export default function NuevoProcesoPage() {
       {step === 1 && (
           <>
             <div className="flex items-center gap-3 mb-6">
-              <Button asChild variant="outline">
+              <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
                 <Link href="/dashboard">←</Link>
               </Button>
               <h1 className="text-2xl font-bold">Paso 1: Oficio de invitación</h1>
@@ -1065,6 +1065,14 @@ export default function NuevoProcesoPage() {
                           }}
                         >
                           <div>
+                            <Label>Ente perteneciente</Label>
+                            <Input
+                              value={enteDescripcion || "Cargando..."}
+                              disabled
+                              className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                            />
+                          </div>
+                          <div>
                             <Label>Nombre</Label>
                             <Input
                               value={nuevoServidorNombre}
@@ -1082,16 +1090,15 @@ export default function NuevoProcesoPage() {
                           </div>
                           <DialogFooter className="mt-2">
                             <Button
-                              variant="outline"
                               type="button"
+                              className="bg-[#db200b] text-white hover:bg-[#b81a09]"
                               onClick={() => setAddServidorDialogOpen(false)}
                             >
                               Cancelar
                             </Button>
                             <Button
-                              variant="outline"
-                              className="border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
                               type="submit"
+                              className="bg-[#34e004] text-white hover:bg-[#2bc103]"
                               disabled={addServidorLoading}
                             >
                               {addServidorLoading ? (
@@ -1384,7 +1391,7 @@ export default function NuevoProcesoPage() {
           <Card>
             <CardContent className="space-y-5 mt-4">
               <div className="flex items-center gap-3 mb-6">
-                <Button asChild variant="outline">
+                <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
                   <Link href="/dashboard">←</Link>
                 </Button>
                 <h1 className="text-2xl font-bold">Paso 2: Partidas</h1>
@@ -1757,7 +1764,7 @@ export default function NuevoProcesoPage() {
     <Card>
       <CardContent className="space-y-5 mt-4">
         <div className="flex items-center gap-3 mb-6">
-          <Button asChild variant="outline">
+          <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
             <Link href="/dashboard">←</Link>
           </Button>
           <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
@@ -2115,11 +2122,11 @@ export default function NuevoProcesoPage() {
         />
       </div>
         <div className="flex items-center gap-3 mb-6">
-          <Button asChild variant="outline">
-            <Link href="/dashboard">←</Link>
-          </Button>
-          <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
-        </div>
+        <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
+          <Link href="/dashboard">←</Link>
+        </Button>
+        <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
+      </div>
 
         {/* Formulario para añadir proveedor */}
         <div className="p-4 rounded border border-gray-200 bg-gray-50 mb-4">

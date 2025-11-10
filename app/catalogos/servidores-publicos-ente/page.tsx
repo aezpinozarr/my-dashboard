@@ -192,8 +192,14 @@ export default function ServidoresPage() {
         {/* Título y regreso */}
         <div className="flex items-center gap-3">
           <Link href="/dashboard">
-            <Button variant="outline">←</Button>
-          </Link>
+          <Button
+            variant="outline"
+            style={{ backgroundColor: "#db200b", color: "white" }}
+            className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+          >
+            ←
+          </Button>
+        </Link>
           <div>
             <h1 className="text-2xl font-bold">Servidores Públicos</h1>
             <p className="text-gray-600 text-sm">

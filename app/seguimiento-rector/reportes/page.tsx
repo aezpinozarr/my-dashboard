@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import Link from "next/link";
 
 // TanStack Table imports
 import {
@@ -503,13 +504,15 @@ export default function AdjudicadosPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex flex-col">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="flex items-center justify-center w-10 h-10 rounded-lg shadow-md bg-white hover:bg-gray-100 transition cursor-pointer"
-              aria-label="Volver al dashboard"
-            >
-              ←
-            </button>
+            <Link href="/dashboard">
+              <Button
+                variant="outline"
+                style={{ backgroundColor: "#db200b", color: "white" }}
+                className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+              >
+                ←
+              </Button>
+            </Link>
             <h1 className="text-2xl font-bold text-gray-900">Reporte de Adjudicaciones</h1>
           </div>
           <p className="text-gray-600 text-sm ml-[52px]">

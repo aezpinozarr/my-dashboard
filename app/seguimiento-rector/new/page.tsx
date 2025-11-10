@@ -906,11 +906,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
       return newState;
     });
 
-    // Recargar detalle visual sin perder posición ni accordion
-    const scrollPos = window.scrollY;
-    await cargarDetalle(selectedId);
-    setAccordionOpen(partidaAbierta);
-    setTimeout(() => window.scrollTo({ top: scrollPos, behavior: "instant" }), 0);
+    // 🔄 Ya no recargamos detalle después de adjudicar para evitar que desaparezca el card de "Seleccionar proceso de adjudicación"
   } catch (err: any) {
     console.error("❌ Error adjudicando proveedor:", err);
     toast.error(`❌ Error al adjudicar: ${err.message || "Revisa consola o backend"}`);
@@ -996,6 +992,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                 variant="outline"
                 size="icon"
                 type="button"
+                style={{ backgroundColor: "#db200b", color: "white" }}
                 onClick={() => router.push("/seguimiento-rector")}
                 className="rounded-md shadow-sm cursor-pointer"
               >
@@ -1840,12 +1837,22 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
       {pasoActual === 2 && estatusGeneral === "REVISADO" && (
         <div className="flex justify-end mt-6">
           <Button
-            type="button"
-            className="bg-green-600 hover:bg-green-700 text-white"
-            onClick={finalizarProceso}
-          >
-            Finalizar proceso
-            </Button>
+          variant="outline"
+          onClick={() => setStep((prev) => Math.max(prev - 1, 1))}
+          style={{ backgroundColor: "#db200b", color: "white" }}
+          className="cursor-pointer hover:brightness-110"
+        >
+          ← Regresar al paso anterior
+        </Button>
+
+
+          <Button
+          onClick={finalizarProceso}
+          style={{ backgroundColor: "#34e004", color: "black" }}
+          className="cursor-pointer hover:brightness-110"
+        >
+          Finalizar proceso
+        </Button>
         </div>
       )}
     </main>

@@ -158,16 +158,20 @@ export default function ServidoresPublicosPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
           <Link href="/dashboard">
-            <Button variant="outline" style={{ cursor: "pointer" }}>
-              ←
-            </Button>
-          </Link>
+          <Button
+            variant="outline"
+            style={{ backgroundColor: "#db200b", color: "white" }}
+            className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+          >
+            ←
+          </Button>
+        </Link>
           <div>
             <h1 className="text-2xl font-bold">
               Catálogo de Servidores Públicos
             </h1>
             <p className="text-gray-600 text-sm">
-              Consulta, crea, edita o recupera los servidores registrados.
+              Consulta, crea, o edita los servidores registrados.
             </p>
           </div>
         </div>
@@ -329,11 +333,17 @@ export default function ServidoresPublicosPage() {
                   type="button"
                   variant="outline"
                   onClick={() => setIsEditDialogOpen(false)}
+                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" className="bg-[#235391] text-white">
-                  Guardar Cambios
+                <Button
+                  type="submit"
+                  style={{ backgroundColor: "#34e004", color: "white" }}
+                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                >
+                  Guardar
                 </Button>
               </div>
             </form>

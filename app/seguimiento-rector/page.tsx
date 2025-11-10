@@ -285,22 +285,15 @@ export default function SeguimientoRectorPage() {
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="flex items-center justify-center w-10 h-10 rounded-lg shadow-md bg-white hover:bg-gray-100 transition cursor-pointer"
-            aria-label="Volver al dashboard"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-              className="w-5 h-5 text-black"
+          <Link href="/dashboard">
+            <Button
+              variant="outline"
+              style={{ backgroundColor: "#db200b", color: "white" }}
+              className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
+              ←
+            </Button>
+          </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Seguimiento Rector — Preregistrados</h1>
             <p className="text-gray-600 text-sm">

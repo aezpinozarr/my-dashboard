@@ -6,7 +6,7 @@ import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
 import { Button } from "@/components/ui/button";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { CheckCircle, Loader2, LayoutGrid, List, ChevronDown, ChevronUp, Settings2, ChevronRight, Download, PlusCircle, LogOut, MoreVertical } from "lucide-react";
+import { CheckCircle, Loader2, LayoutGrid, List, ChevronDown, ChevronUp, Settings2, ChevronRight, Download, PlusCircle, LogOut, CircleEllipsis } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Shadcn Table + TanStack Table
@@ -29,6 +29,8 @@ import {
   SortingState,
   VisibilityState,
 } from "@tanstack/react-table";
+
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 const API_BASE =
   typeof window !== "undefined"
@@ -69,6 +71,8 @@ interface Seguimiento {
   proveedores: string | null;
   id_seguimiento_partida_rubro?: number | null;
   presupuestos?: {
+     id_partida?: number | null;
+    id_rubro?: number | null;
     partida: string | null;
     capitulo: string | null;
     clasificacion: string | null;
@@ -123,6 +127,7 @@ export default function ProcesosPage() {
     { id: "tipo_gasto", header: "Tipo de Gasto" },
     { id: "f_financiamiento", header: "Fuente Financiamiento" },
     { id: "rubro", header: "Rubro" },
+    { id: "estatus", header: "Estatus" },
     { id: "e_monto_presupuesto_suficiencia", header: "Monto" },
     { id: "proveedores", header: "Proveedores" },
   ];
@@ -147,6 +152,10 @@ export default function ProcesosPage() {
           ? jsonRector
           : jsonRector.data || [];
 
+        // 🧩 Logs de depuración para verificar los nombres reales de los campos
+        console.log("🧩 Ejemplo de objeto enteData:", enteData[0]);
+        console.log("🧩 Ejemplo de objeto rectorData:", rectorData[0]);
+
         // 🔹 Creamos un mapa con los datos del ente
         const enteMap = new Map<number, any>();
         for (const item of enteData) {
@@ -161,6 +170,7 @@ export default function ProcesosPage() {
           const enteItem = enteMap.get(id) || {};
           return { ...enteItem, ...rectorItem };
         });
+        console.log("🧾 Ejemplo de objeto combinado:", merged[0]);
 
         // 🔹 Agregamos los del ente que no tienen datos del rector
         for (const [id, enteItem] of enteMap.entries()) {
@@ -200,8 +210,12 @@ export default function ProcesosPage() {
 
               sameRubro.proveedores = mergedProviders.join("; ");
             } else {
+              // 🧠 Item original antes del push:
+              console.log("🧠 Item original antes del push:", item);
               // Si no existe ese rubro aún, agrégalo como nuevo
               existing.presupuestos.push({
+                e_id_partida: item.e_id_partida ?? null,
+                e_id_rubro: item.e_id_rubro ?? null,
                 partida: item.partida,
                 capitulo: item.capitulo,
                 clasificacion: item.clasificacion,
@@ -221,6 +235,8 @@ export default function ProcesosPage() {
               ...item,
               presupuestos: [
                 {
+                  e_id_partida: item.e_id_partida ?? null,
+                  e_id_rubro: item.e_id_rubro ?? null,
                   partida: item.partida,
                   capitulo: item.capitulo,
                   clasificacion: item.clasificacion,
@@ -239,7 +255,10 @@ export default function ProcesosPage() {
         }
 
         // 🔹 Convertimos el mapa en un array consolidado
+        // 🔹 Convertimos el mapa en un array consolidado
         const groupedData = Array.from(groupedMap.values());
+        console.log("✅ Resultado final de groupedData:", groupedData);
+
         setData(groupedData);
         // setData(merged);
       } catch (err) {
@@ -286,8 +305,12 @@ export default function ProcesosPage() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
-            <MoreVertical size={18} />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 p-0 -mt-1"  // 🔹 sube el icono ligeramente
+          >
+            <CircleEllipsis size={18} className="text-gray-600 hover:text-blue-600 transition-colors" />
             <span className="sr-only">Más acciones</span>
           </Button>
         </DropdownMenuTrigger>
@@ -314,27 +337,58 @@ export default function ProcesosPage() {
       {
         id: "expander",
         header: "",
-        cell: ({ row }) => (
-          <button
-            aria-label={expandedRows[row.original.id] ? "Cerrar detalle" : "Abrir detalle"}
-            className={cn(
-              "transition-colors rounded p-1 text-gray-500 hover:text-blue-700 focus-visible:ring-1 focus-visible:ring-blue-400",
-              "outline-none"
-            )}
-            onClick={() =>
-              setExpandedRows((prev) => ({
-                ...prev,
-                [row.original.id]: !prev[row.original.id],
-              }))
-            }
-            tabIndex={0}
-            type="button"
-          >
-            {expandedRows[row.original.id] ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-          </button>
-        ),
+        cell: ({ row }) => {
+          // Estatus color
+          const value = row.original.r_estatus;
+          let color = "bg-gray-300";
+          if (value === "PREREGISTRADO") color = "bg-yellow-400";
+          else if (value === "REVISADO") color = "bg-green-500";
+          else if (value === "CANCELADO") color = "bg-red-500";
+          const tooltipText =
+            value === "PREREGISTRADO"
+              ? "PREREGISTRADO"
+              : value === "REVISADO"
+              ? "REVISADO"
+              : value === "CANCELADO"
+              ? "CANCELADO"
+              : "Sin estatus";
+          return (
+            <div className="flex items-center gap-2 items-baseline mt-[2px]">
+              <button
+                aria-label={expandedRows[row.original.id] ? "Cerrar detalle" : "Abrir detalle"}
+                className={cn(
+                  "transition-colors rounded p-1 text-gray-500 hover:text-blue-700 focus-visible:ring-1 focus-visible:ring-blue-400",
+                  "outline-none cursor-pointer hover:bg-gray-100",
+                  "translate-y-[-2px]"
+                )}
+                onClick={() =>
+                  setExpandedRows((prev) => ({
+                    ...prev,
+                    [row.original.id]: !prev[row.original.id],
+                  }))
+                }
+                tabIndex={0}
+                type="button"
+                style={{ minWidth: 28, minHeight: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                {expandedRows[row.original.id] ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </button>
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={`w-3 h-3 rounded-full ${color} cursor-pointer transition-colors translate-y-[-2px]`} />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {tooltipText}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <RowActionsMenu id={row.original.id} estatus={row.original.r_estatus} />
+            </div>
+          );
+        },
         enableSorting: false,
-        size: 40,
+        size: 60,
       },
       {
         accessorKey: "id",
@@ -396,14 +450,6 @@ export default function ProcesosPage() {
         cell: ({ getValue }: { getValue: () => any }) => getValue() || "—",
         size: 140,
       },
-      // Acciones contextual menu column
-      {
-        id: "acciones",
-        header: "Acciones",
-        cell: ({ row }) => <RowActionsMenu id={row.original.id} estatus={row.original.r_estatus} />,
-        enableSorting: false,
-        size: 60,
-      },
     ],
     [expandedRows]
   );
@@ -448,10 +494,14 @@ export default function ProcesosPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
           <Link href="/dashboard">
-            <Button variant="outline" style={{ cursor: "pointer" }}>
-              ←
-            </Button>
-          </Link>
+          <Button
+            variant="outline"
+            style={{ backgroundColor: "#db200b", color: "white" }}
+            className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+          >
+            ←
+          </Button>
+        </Link>
           <div>
             <h1 className="text-2xl font-bold">
               Detalle de Procesos
@@ -704,40 +754,50 @@ export default function ProcesosPage() {
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
-                                        {row.original.presupuestos && row.original.presupuestos.length > 0 ? (
-                                          row.original.presupuestos.map((pres, idx) => (
-                                            <TableRow key={idx}>
-                                              {columnsPresupuesto
-                                                .filter(col => columnVisibilityPresupuesto[col.id] ?? true)
-                                                .map(col => (
-                                                  <TableCell key={col.id} className="px-2 py-1 text-sm whitespace-nowrap">
-                                                    {col.id === "e_monto_presupuesto_suficiencia"
-                                                      ? formatMXN((pres as Record<string, any>)[col.id])
-                                                      : col.id === "proveedores"
-                                                      ? (pres.proveedores
-                                                          ? (
-                                                            <ul className="list-disc pl-4">
-                                                              {pres.proveedores.split(";").map((prov, i) => (
-                                                                <li key={i}>{prov.trim()}</li>
-                                                              ))}
-                                                            </ul>
-                                                          )
-                                                          : "—")
-                                                      : (pres as Record<string, any>)[col.id] ?? "—"}
-                                                  </TableCell>
-                                                ))}
+                                        {(() => {
+                                          // 🔍 Presupuestos del seguimiento:
+                                          console.log("🔍 Presupuestos del seguimiento:", row.original.presupuestos);
+                                          return row.original.presupuestos && row.original.presupuestos.length > 0 ? (
+                                            row.original.presupuestos.map((pres, idx) => (
+                                              <TableRow key={idx}>
+                                                {columnsPresupuesto
+                                                  .filter(col => columnVisibilityPresupuesto[col.id] ?? true)
+                                                  .map(col => (
+                                                    <TableCell key={col.id} className="px-2 py-1 text-sm whitespace-nowrap">
+                                                      {col.id === "e_monto_presupuesto_suficiencia"
+                                                        ? formatMXN((pres as Record<string, any>)[col.id])
+                                                        : col.id === "proveedores"
+                                                        ? (pres.proveedores
+                                                            ? (
+                                                              <ul className="list-disc pl-4">
+                                                                {pres.proveedores.split(";").map((prov, i) => (
+                                                                  <li key={i}>{prov.trim()}</li>
+                                                                ))}
+                                                              </ul>
+                                                            )
+                                                            : "—")
+                                                        : col.id === "partida"
+                                                        ? `${(pres as any)?.e_id_partida ? "#" + (pres as any).e_id_partida + " - " : ""}${pres.partida || "—"}`
+                                                        : col.id === "rubro"
+                                                        ? `${(pres as any)?.e_id_rubro ? "#" + (pres as any).e_id_rubro + " - " : ""}${pres.rubro || "—"}`
+                                                        : col.id === "estatus"
+                                                        ? (row.original as any).estatus || "—"
+                                                        : (pres as Record<string, any>)[col.id] ?? "—"}
+                                                    </TableCell>
+                                                  ))}
+                                              </TableRow>
+                                            ))
+                                          ) : (
+                                            <TableRow>
+                                              <TableCell
+                                                colSpan={columnsPresupuesto.filter(col => columnVisibilityPresupuesto[col.id] ?? true).length}
+                                                className="text-center text-gray-500 italic px-2 py-1 text-sm"
+                                              >
+                                                No hay datos presupuestales disponibles.
+                                              </TableCell>
                                             </TableRow>
-                                          ))
-                                        ) : (
-                                          <TableRow>
-                                            <TableCell
-                                              colSpan={columnsPresupuesto.filter(col => columnVisibilityPresupuesto[col.id] ?? true).length}
-                                              className="text-center text-gray-500 italic px-2 py-1 text-sm"
-                                            >
-                                              No hay datos presupuestales disponibles.
-                                            </TableCell>
-                                          </TableRow>
-                                        )}
+                                          );
+                                        })()}
                                       </TableBody>
                                     </Table>
                                   </div>
@@ -783,6 +843,34 @@ export default function ProcesosPage() {
                 <AccordionTrigger className="p-0 focus-visible:ring-0">
                   <div className="relative">
                     <div className="cursor-pointer p-5 grid grid-cols-1 md:grid-cols-3 gap-4 w-full pr-8 transition-none bg-gray-50">
+                      <div className="flex items-center justify-center">
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                className={`w-3 h-3 rounded-full cursor-pointer ${
+                                  item.r_estatus === "PREREGISTRADO"
+                                    ? "bg-yellow-400"
+                                    : item.r_estatus === "REVISADO"
+                                    ? "bg-green-500"
+                                    : item.r_estatus === "CANCELADO"
+                                    ? "bg-red-500"
+                                    : "bg-gray-300"
+                                }`}
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">
+                              {item.r_estatus === "PREREGISTRADO"
+                                ? "PREREGISTRADO"
+                                : item.r_estatus === "REVISADO"
+                                ? "REVISADO"
+                                : item.r_estatus === "CANCELADO"
+                                ? "CANCELADO"
+                                : "Sin estatus"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                       <div className="font-semibold text-gray-700">{item.id}</div>
                       <div className="text-gray-700 truncate">{item.e_oficio_invitacion || "—"}</div>
                       <div className="text-gray-700 truncate">{item.ente || "—"}</div>

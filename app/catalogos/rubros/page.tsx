@@ -239,7 +239,9 @@ export default function RubrosPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
           <Link href="/dashboard">
-            <Button variant="outline" className="cursor-pointer">
+            <Button variant="outline" 
+                style={{ backgroundColor: "#db200b", color: "white" }}
+                className="cursor-pointer">
               ←
             </Button>
           </Link>
@@ -383,11 +385,22 @@ export default function RubrosPage() {
             />
             <div className="flex justify-end gap-2">
               <DialogClose asChild>
-                <Button variant="outline" type="button">
+                <Button
+                  variant="outline"
+                  type="button"
+                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                >
                   Cancelar
                 </Button>
               </DialogClose>
-              <Button type="submit">Guardar Cambios</Button>
+              <Button
+                type="submit"
+                style={{ backgroundColor: "#34e004", color: "white" }}
+                className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+              >
+                Guardar
+              </Button>
             </div>
           </form>
         </DialogContent>
