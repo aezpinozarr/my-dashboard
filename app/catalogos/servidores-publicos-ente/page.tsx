@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { VisibilityState } from "@tanstack/react-table";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -11,14 +12,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Input } from "@/components/ui/input"; // ✅ Barra de búsqueda
+  Input
+} from "@/components/ui/input"; // ✅ Barra de búsqueda
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +21,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"; // ✅ Menú de opciones
 import { MoreHorizontal, List, LayoutGrid } from "lucide-react"; // Ícono “...”
+import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
+import { DataTable } from "@/components/shared/DataTable";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { toast } from "sonner";
 
 const API_BASE =
   typeof window !== "undefined"
@@ -47,12 +58,28 @@ type Servidor = {
   ente_clasificacion: string;
 };
 
+type Ente = {
+  id: number;
+  nombre: string;
+  siglas: string;
+  clasificacion: string;
+  descripcion?: string;
+};
+
 export default function ServidoresPage() {
   const [servidores, setServidores] = React.useState<Servidor[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState<"cards" | "table">("cards");
   const [search, setSearch] = React.useState(""); // ✅ Estado de búsqueda
+  const [tableInstance, setTableInstance] = React.useState<any>(null);
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const router = useRouter();
+
+  const [openVincular, setOpenVincular] = React.useState(false);
+  const [selectedServidor, setSelectedServidor] = React.useState<Servidor | null>(null);
+  const [entes, setEntes] = React.useState<Ente[]>([]);
+  const [searchEnte, setSearchEnte] = React.useState("");
+  const [loadingEntes, setLoadingEntes] = React.useState(false);
 
   // ======================
   // Cargar servidores públicos
@@ -77,6 +104,55 @@ export default function ServidoresPage() {
   }, []);
 
   // ======================
+  // Cargar todos los entes públicos
+  // ======================
+  const fetchEntes = async () => {
+    setLoadingEntes(true);
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/entes?p_id=-99&p_descripcion=-99`);
+      const data = await resp.json();
+      setEntes(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ Error cargando entes:", err);
+      setEntes([]);
+    } finally {
+      setLoadingEntes(false);
+    }
+  };
+
+  // ======================
+  // Vincular servidor a ente
+  // ======================
+  const vincularServidor = async (id_ente: number) => {
+    if (!selectedServidor) return;
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/ente-servidor-publico/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id_ente,
+          id_servidor_publico: selectedServidor.id,
+        }),
+      });
+      if (!resp.ok) {
+        throw new Error("Error al vincular");
+      }
+      // Actualizar lista de servidores para reflejar el cambio
+      fetchServidores();
+      setOpenVincular(false);
+      setSelectedServidor(null);
+      setSearchEnte("");
+      const enteVinculado = entes.find((e) => e.id === id_ente);
+      toast.success(" Vinculación exitosa con el ente " + (enteVinculado?.descripcion || id_ente));
+    } catch (err) {
+      console.error("Error vinculando servidor:", err);
+      toast.error("Error al vincular servidor");
+    }
+  };
+
+  // ======================
   // 🔍 Filtro de búsqueda
   // ======================
   const servidoresFiltrados = React.useMemo(() => {
@@ -97,13 +173,19 @@ export default function ServidoresPage() {
   // 🔗 Función de vincular
   // ======================
   const handleVincular = (id: number) => {
-    router.push(`/catalogos/servidores-publicos-ente/vincular/${id}`);
+    const servidor = servidores.find((s) => s.id === id);
+    if (servidor) {
+      setSelectedServidor(servidor);
+      setOpenVincular(true);
+      fetchEntes();
+    }
   };
 
   // ======================
   // 🎨 Render principal
   // ======================
   return (
+    <>
     <main className="max-w-7xl mx-auto p-6 space-y-6">
       {/* 🔹 ENCABEZADO */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -120,43 +202,19 @@ export default function ServidoresPage() {
           </div>
         </div>
 
-        {/* Controles derechos */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center space-x-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setView("cards")}
-              className={`rounded-full w-10 h-10 transition-all duration-200 ${
-                view === "cards"
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-transparent text-gray-800 hover:bg-gray-100"
-              }`}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setView("table")}
-              className={`rounded-full w-10 h-10 transition-all duration-200 ${
-                view === "table"
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-transparent text-gray-800 hover:bg-gray-100"
-              }`}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* 🔴 Botón de salir */}
-          <Button
-            asChild
-            style={{ backgroundColor: "#db200b", color: "white" }}
-          >
-            <Link href="/dashboard">Salir</Link>
-          </Button>
-        </div>
+        <ActionButtonsGroup
+          viewMode={view}
+          setViewMode={setView}
+          showDeleted={false}
+          setShowDeleted={() => {}}
+          newPath="/catalogos/servidores-publicos-ente/new"
+          onExport={() => {}}
+          showExport={false}
+          hideNew={true}
+          table={tableInstance}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+        />
       </div>
 
       {/* 🔍 BARRA DE BÚSQUEDA */}
@@ -230,48 +288,98 @@ export default function ServidoresPage() {
           ))}
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Cargo</TableHead>
-              <TableHead>Activo</TableHead>
-              <TableHead>Ente</TableHead>
-              <TableHead>Siglas</TableHead>
-              <TableHead>Clasificación</TableHead>
-              <TableHead>Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {servidoresFiltrados.map((s, index) => (
-              <TableRow key={`${s.id}-${index}`}>
-                <TableCell>{s.id}</TableCell>
-                <TableCell>{s.nombre}</TableCell>
-                <TableCell>{s.cargo}</TableCell>
-                <TableCell>{s.activo ? "✅" : "❌"}</TableCell>
-                <TableCell>{s.ente_publico || "Sin asociar"}</TableCell>
-                <TableCell>{s.ente_siglas || "—"}</TableCell>
-                <TableCell>{s.ente_clasificacion || "—"}</TableCell>
-                <TableCell>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleVincular(s.id)}
-                    className="cursor-pointer"
-                    style={{
-                      borderColor: "#235391",
-                      color: "#235391",
-                    }}
-                  >
-                    Vincular
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataTable
+        data={servidoresFiltrados}
+        columns={[
+          { header: "ID", accessorKey: "id" },
+          { header: "Nombre", accessorKey: "nombre" },
+          { header: "Cargo", accessorKey: "cargo" },
+          {
+            header: "Activo",
+            accessorKey: "activo",
+            cell: ({ row }) => (row.original.activo ? "✅" : "❌"),
+          },
+          { header: "Ente", accessorKey: "ente_publico" },
+          { header: "Siglas", accessorKey: "ente_siglas" },
+          { header: "Clasificación", accessorKey: "ente_clasificacion" },
+          {
+            header: "Acciones",
+            cell: ({ row }) => (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleVincular(row.original.id)}
+                className="cursor-pointer"
+                style={{ borderColor: "#235391", color: "#235391" }}
+              >
+                Vincular
+              </Button>
+            ),
+          },
+        ]}
+        columnVisibility={columnVisibility} // ✅ ahora controlas desde el page
+        setColumnVisibility={setColumnVisibility} // ✅ setter reactivo
+        onTableInit={setTableInstance}
+      />
       )}
     </main>
+
+    <Dialog open={openVincular} onOpenChange={setOpenVincular}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>
+            Vincular servidor: {selectedServidor?.nombre}
+          </DialogTitle>
+        </DialogHeader>
+        <Command>
+          <CommandInput
+            placeholder="Buscar ente público..."
+            value={searchEnte}
+            onValueChange={(val) => {
+              setSearchEnte(val);
+            }}
+            autoFocus
+          />
+          <CommandList>
+            {searchEnte.trim() === "" ? (
+              <div className="p-2 text-center">Escribe para buscar un ente público...</div>
+            ) : loadingEntes ? (
+              <div className="p-2 text-center">Cargando...</div>
+            ) : entes.filter((ente) =>
+                  (ente.descripcion || "").toLowerCase().includes(searchEnte.toLowerCase()) ||
+                  (ente.siglas || "").toLowerCase().includes(searchEnte.toLowerCase()) ||
+                  (ente.clasificacion || "").toLowerCase().includes(searchEnte.toLowerCase()) ||
+                  (ente.descripcion || "").toLowerCase().includes(searchEnte.toLowerCase())
+                ).length === 0 ? (
+              <CommandEmpty>No se encontraron entes.</CommandEmpty>
+            ) : (
+              entes
+                .filter((ente) =>
+                  (ente.descripcion || "").toLowerCase().includes(searchEnte.toLowerCase()) ||
+                  (ente.siglas || "").toLowerCase().includes(searchEnte.toLowerCase()) ||
+                  (ente.clasificacion || "").toLowerCase().includes(searchEnte.toLowerCase()) ||
+                  (ente.descripcion || "").toLowerCase().includes(searchEnte.toLowerCase())
+                )
+                .map((ente) => (
+                  <CommandItem
+                    key={ente.id}
+                    onSelect={() => {
+                      vincularServidor(ente.id);
+                    }}
+                  >
+                    <div className="flex flex-col">
+                      <span>{ente.descripcion}</span>
+                      <small className="text-muted-foreground">
+                        {ente.siglas} - {ente.clasificacion}
+                      </small>
+                    </div>
+                  </CommandItem>
+                ))
+            )}
+          </CommandList>
+        </Command>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

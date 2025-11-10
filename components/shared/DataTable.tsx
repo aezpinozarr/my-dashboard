@@ -13,12 +13,15 @@ import {
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
+
 interface DataTableProps<TData> {
   data: TData[];
   columns: ColumnDef<TData>[];
   emptyMessage?: string;
   isLoading?: boolean;
-  onTableReady?: (table: any) => void;
+  onTableInit?: (table: any) => void;
+  columnVisibility: VisibilityState; // ✅ viene del page.tsx
+  setColumnVisibility: React.Dispatch<React.SetStateAction<VisibilityState>>; // ✅ viene del page.tsx
 }
 
 export function DataTable<TData>({
@@ -26,30 +29,27 @@ export function DataTable<TData>({
   columns,
   emptyMessage = "No hay registros disponibles.",
   isLoading = false,
-  onTableReady,
+  onTableInit,
+  columnVisibility,
+  setColumnVisibility, // ✅ ahora lo recibimos como prop
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
 
-  const table = useReactTable({
-    data,
-    columns,
-    state: { sorting, columnVisibility },
-    onSortingChange: setSorting,
-    onColumnVisibilityChange: setColumnVisibility,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+const table = useReactTable({
+  data,
+  columns,
+  state: { sorting, columnVisibility }, // ✅ usa el que viene por prop
+  onSortingChange: setSorting,
+  onColumnVisibilityChange: setColumnVisibility, // ✅ también viene por prop
+  getCoreRowModel: getCoreRowModel(),
+  getSortedRowModel: getSortedRowModel(),
+});
 
   React.useEffect(() => {
-    if (onTableReady) {
-      onTableReady({
-        ...table,
-        columnVisibility,
-        setColumnVisibility,
-      });
+    if (onTableInit) {
+      onTableInit(table);
     }
-  }, [onTableReady, table, columnVisibility]);
+  }, [onTableInit, table, columnVisibility, sorting]);
 
   if (isLoading) {
     return <p className="text-gray-500 text-sm p-4">Cargando datos...</p>;

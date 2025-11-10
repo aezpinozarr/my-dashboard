@@ -14,6 +14,7 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { toast } from "sonner";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 type Ente = {
   id: string;
@@ -169,7 +170,12 @@ export default function NuevoUsuarioPage() {
           <Command className="border rounded-md">
             <CommandInput
               placeholder="Escribe para buscar..."
-              onValueChange={handleBuscarEnte}
+              value={enteSeleccionado ? enteSeleccionado.descripcion : form.p_id_ente}
+              onValueChange={(valor) => {
+                setForm({ ...form, p_id_ente: valor });
+                setEnteSeleccionado(null);
+                handleBuscarEnte(valor);
+              }}
             />
             <CommandList>
               <CommandGroup heading="Coincidencias">
@@ -185,7 +191,7 @@ export default function NuevoUsuarioPage() {
                     onSelect={() => {
                       setEnteSeleccionado(e);
                       setForm({ ...form, p_id_ente: e.id });
-                      setEntesFiltrados([]); // Limpia la lista
+                      setEntesFiltrados([]);
                     }}
                   >
                     {e.descripcion}
@@ -204,14 +210,22 @@ export default function NuevoUsuarioPage() {
         {/* TIPO USUARIO */}
         <div>
           <Label>Tipo de usuario</Label>
-          <Input
-            placeholder="Ejemplo: ENTE o RECTOR"
-            value={form.p_tipo}
-            onChange={(e) =>
-              setForm({ ...form, p_tipo: e.target.value.toUpperCase() })
-            }
-            required
-          />
+          <div className="mt-2">
+            <RadioGroup
+              value={form.p_tipo}
+              onValueChange={(value) => setForm({ ...form, p_tipo: value })}
+              className="flex flex-col gap-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="ENTE" id="ente" />
+                <Label htmlFor="ente" className="text-sm font-medium">ENTE</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="RECTOR" id="rector" />
+                <Label htmlFor="rector" className="text-sm font-medium">RECTOR</Label>
+              </div>
+            </RadioGroup>
+          </div>
         </div>
 
         <Button

@@ -29,6 +29,8 @@ interface Props {
   table?: any; // ✅ nueva prop para recibir la instancia de la tabla
   showDeleted: boolean;
   setShowDeleted: React.Dispatch<React.SetStateAction<boolean>>;
+  columnVisibility?: Record<string, boolean>;
+  setColumnVisibility?: (v: Record<string, boolean>) => void;
 }
 
 export function ActionButtonsGroup({
@@ -39,6 +41,8 @@ export function ActionButtonsGroup({
   newPath,
   hideNew,
   table,
+  columnVisibility,
+  setColumnVisibility,
 }: Props) {
   return (
     <div className="flex flex-col items-end gap-2">
@@ -137,8 +141,18 @@ export function ActionButtonsGroup({
                       column.id !== "expander" ? (
                         <DropdownMenuCheckboxItem
                           key={column.id}
-                          checked={column.getIsVisible()}
-                          onCheckedChange={() => column.toggleVisibility()}
+                          checked={columnVisibility && column.id in columnVisibility
+                            ? columnVisibility[column.id]
+                            : column.getIsVisible()}
+                          onCheckedChange={(checked) => {
+                            if (setColumnVisibility) {
+                              setColumnVisibility({
+                                ...columnVisibility,
+                                [column.id]: checked,
+                              });
+                            }
+                            column.toggleVisibility(checked);
+                          }}
                         >
                           {column.columnDef.header as string}
                         </DropdownMenuCheckboxItem>

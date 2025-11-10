@@ -4,6 +4,17 @@
 import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
+import { RowActionButtons } from "@/components/shared/RowActionButtons";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  ColumnDef,
+  SortingState,
+  VisibilityState,
+  flexRender,
+} from "@tanstack/react-table";
 import {
   Card,
   CardHeader,
@@ -18,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { DataTable } from "@/components/shared/DataTable";
 import { List, LayoutGrid } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input"; // ✅ Campo de búsqueda
@@ -244,6 +256,62 @@ export default function UsuariosPage() {
   // ======================
   // Render principal
   // ======================
+  const [showDeleted, setShowDeleted] = React.useState(false);
+  const [tableInstance, setTableInstance] = React.useState<any>(null);
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+
+  // TanStack Table columns
+  const columns = React.useMemo<ColumnDef<Usuario>[]>(() => [
+    {
+      header: "ID",
+      accessorKey: "id",
+      cell: info => info.getValue(),
+    },
+    {
+      header: "Usuario",
+      accessorKey: "username",
+      cell: info => info.getValue(),
+    },
+    {
+      header: "Nombre",
+      accessorKey: "nombre",
+      cell: info => info.getValue() || "Sin nombre",
+    },
+    {
+      header: "Tipo",
+      accessorKey: "tipo",
+      cell: info => info.getValue() || "—",
+    },
+    {
+        header: "Acciones",
+        id: "acciones",
+        cell: ({ row }) => (
+          <div className="flex justify-start -ml-4">
+            <RowActionButtons
+              id={String(row.original.id)}
+              editPath={`/seguridad/usuarios/edit/${row.original.id}`}
+              onEdit={() => handleEditUser(row.original.id)}
+              onDelete={() => eliminarUsuario(row.original.id)}
+            />
+          </div>
+        ),
+        enableSorting: false,
+        size: 80,
+      },
+
+  ], []);
+
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const table = useReactTable({
+    data: usuariosFiltrados,
+    columns,
+    state: { sorting, columnVisibility },
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-6">
       {/* ENCABEZADO */}
@@ -264,45 +332,20 @@ export default function UsuariosPage() {
             </p>
           </div>
         </div>
-
         {/* CONTROLES */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center space-x-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setView("cards")}
-              className={`rounded-full w-10 h-10 transition-all duration-200 ${
-                view === "cards"
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-transparent text-gray-800 hover:bg-gray-100"
-              }`}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setView("table")}
-              className={`rounded-full w-10 h-10 transition-all duration-200 ${
-                view === "table"
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-transparent text-gray-800 hover:bg-gray-100"
-              }`}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-          <Button
-            asChild
-            style={{ backgroundColor: "#235391", color: "white" }}
-          >
-            <Link href="/seguridad/usuarios/new">Nuevo</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/seguridad/usuarios/deleted">Eliminados</Link>
-          </Button>
-        </div>
+        <ActionButtonsGroup
+          viewMode={view}
+          setViewMode={setView}
+          onExport={() => console.log("Exportar CSV")}
+          showExport={true}
+          newPath="/seguridad/usuarios/new"
+          hideNew={false}
+          table={tableInstance}
+          showDeleted={showDeleted}
+          setShowDeleted={setShowDeleted}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+        />
       </div>
 
       {/* 🔍 Barra de búsqueda */}
@@ -333,70 +376,24 @@ export default function UsuariosPage() {
                   <p className="text-sm text-gray-500">@{u.username}</p>
                   <p className="text-xs text-gray-400">Tipo: {u.tipo || "—"}</p>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    style={{ borderColor: "#235391", color: "#235391" }}
-                    onClick={() => handleEditUser(u.id)}
-                  >
-                    ✏️
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    style={{ borderColor: "#db200b", color: "#db200b" }}
-                    onClick={() => eliminarUsuario(u.id)}
-                  >
-                    🗑️
-                  </Button>
-                </div>
+                <RowActionButtons
+                  id={String(u.id)}
+                  editPath={`/seguridad/usuarios/edit/${u.id}`}
+                  onEdit={() => handleEditUser(u.id)}
+                  onDelete={() => eliminarUsuario(u.id)}
+                />
               </CardContent>
             </Card>
           ))}
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Usuario</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {usuariosFiltrados.map((u) => (
-              <TableRow key={`row-${u.id}-${u.username}`}>
-                <TableCell>{u.id}</TableCell>
-                <TableCell>{u.username}</TableCell>
-                <TableCell>{u.nombre || "Sin nombre"}</TableCell>
-                <TableCell>{u.tipo || "—"}</TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      style={{ borderColor: "#235391", color: "#235391" }}
-                      onClick={() => handleEditUser(u.id)}
-                    >
-                      ✏️
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      style={{ borderColor: "#db200b", color: "#db200b" }}
-                      onClick={() => eliminarUsuario(u.id)}
-                    >
-                      🗑️
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataTable
+          data={usuariosFiltrados}
+          columns={columns}
+          onTableInit={setTableInstance}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+        />
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
