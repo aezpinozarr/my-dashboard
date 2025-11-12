@@ -1383,6 +1383,24 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                           if (selectedRubroId != null) {
                             setSelectedProveedor((prev) => ({ ...prev, [selectedRubroId]: val }));
                           }
+                          // Autocompletar importe ajustado automáticamente con el importe cotizado
+                          if (selectedRubroId != null) {
+                            const rubroSel = p.rubros.find((r) => Number(r.id_rubro) === Number(selectedRubroId));
+                            const proveedorSel = rubroSel?.proveedores.find(
+                              (prov) => prov.id?.toString() === val || prov.rfc === val
+                            );
+
+                            if (proveedorSel) {
+                              const sinIva = proveedorSel.importeSinIvaOriginal;
+                              const total = proveedorSel.importeTotalOriginal;
+
+                              // ✅ Autocompletar importe ajustado automáticamente
+                              setImportes((prev) => ({
+                                ...prev,
+                                [selectedRubroId]: { sinIva, total },
+                              }));
+                            }
+                          }
                           setValidationErrors((prev) => ({ ...prev, proveedor: false }));
                         }}
                         disabled={!selectedRubroId}
@@ -1426,6 +1444,14 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                             setEstatusLocal(val);
                             if (selectedRubroId != null) {
                               setSelectedEstatus((prev) => ({ ...prev, [selectedRubroId]: val }));
+                            }
+                            // ✅ Si el estatus cambia a CANCELADO o DESIERTO, limpiar el fundamento seleccionado
+                            if (["CANCELADO", "DESIERTO"].includes(val) && selectedRubroId != null) {
+                              setSelectedFundamento((prev) => {
+                                const newState = { ...prev };
+                                delete newState[selectedRubroId];
+                                return newState;
+                              });
                             }
                             setValidationErrors((prev) => ({ ...prev, estatus: false }));
                           }}
@@ -1548,7 +1574,6 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                       <div>
                         <Label>Importe ajustado</Label>
                         <Input
-                          disabled={!["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)}
                           value={
                             selectedRubroId != null && importes[selectedRubroId]?.sinIva
                               ? formatMXN(importes[selectedRubroId].sinIva)
@@ -1839,8 +1864,8 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
           <Button
           variant="outline"
           onClick={() => setStep((prev) => Math.max(prev - 1, 1))}
-          style={{ backgroundColor: "#db200b", color: "white" }}
-          className="cursor-pointer hover:brightness-110"
+          className="cursor-pointer"
+
         >
           ← Regresar al paso anterior
         </Button>
@@ -1848,7 +1873,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
 
           <Button
           onClick={finalizarProceso}
-          style={{ backgroundColor: "#34e004", color: "black" }}
+          style={{ backgroundColor: "#db200b", color: "white" }}
           className="cursor-pointer hover:brightness-110"
         >
           Finalizar proceso

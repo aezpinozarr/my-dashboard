@@ -205,6 +205,11 @@ export default function ServidoresPage() {
             <p className="text-gray-600 text-sm">
               Consulta de servidores públicos y sus entes asociados
             </p>
+            {servidoresFiltrados.length > 0 && (
+              <p className="text-muted-foreground text-sm">
+                Mostrando {servidoresFiltrados.length} registro{servidoresFiltrados.length !== 1 && "s"}.
+              </p>
+            )}
           </div>
         </div>
 

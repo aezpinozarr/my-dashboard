@@ -509,6 +509,11 @@ export default function ProcesosPage() {
             <p className="text-gray-600 text-sm">
               Consulta todos los seguimientos registrados por tu ente.
             </p>
+            {data.length > 0 && (
+              <p className="text-muted-foreground text-sm" style={{ textAlign: "left" }}>
+                Mostrando {data.length} registro{data.length !== 1 && "s"}.
+              </p>
+            )}
           </div>
         </div>
         <ActionButtonsGroup

@@ -2,7 +2,10 @@
 "use client";
 
 import * as React from "react";
-// import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
+import { toast } from "sonner";
+import { z } from "zod";
+import { ZodError } from "zod";
+import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,6 +58,15 @@ type ServidorPublico = {
 };
 
 // ======================
+// 🔹 Esquema de validación con Zod para nuevo/editar servidor
+// ======================
+const servidorSchema = z.object({
+  nombre: z.string().min(1, "El nombre es requerido"),
+  cargo: z.string().min(1, "El cargo es requerido"),
+  activo: z.boolean(),
+});
+
+// ======================
 // 🔹 Componente principal
 // ======================
 export default function ServidoresPublicosPage() {
@@ -63,10 +75,19 @@ export default function ServidoresPublicosPage() {
   const [view, setView] = React.useState<"cards" | "table">("cards");
   const [search, setSearch] = React.useState(""); // ✅ Búsqueda
   const [showDeleted, setShowDeleted] = React.useState(false); // ✅ Ver eliminados
-  const [tableInstance, setTableInstance] = React.useState<any>(null);
+
 
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
   const [selectedServidor, setSelectedServidor] = React.useState<ServidorPublico | null>(null);
+
+  // Nuevo diálogo y estado para creación
+  const [isNewDialogOpen, setIsNewDialogOpen] = React.useState(false);
+  const [newServidor, setNewServidor] = React.useState<{ nombre: string; cargo: string; activo: boolean }>({
+    nombre: "",
+    cargo: "",
+    activo: true,
+  });
+  const [newFormErrors, setNewFormErrors] = React.useState<{ nombre?: string; cargo?: string }>({});
 
   // ======================
   // Cargar servidores públicos
@@ -77,7 +98,7 @@ export default function ServidoresPublicosPage() {
       const data = await resp.json();
       setServidores(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("❌ Error cargando servidores públicos:", err);
+      console.error("Error cargando servidores públicos:", err);
     } finally {
       setLoading(false);
     }
@@ -92,7 +113,7 @@ export default function ServidoresPublicosPage() {
   // ======================
   const toggleEstadoServidor = async (id: number, activar = false) => {
     const accion = activar ? "reactivar" : "eliminar";
-    if (!confirm(`¿Seguro que deseas ${accion} este servidor público?`)) return;
+    if (!window.confirm(`¿Seguro que deseas ${accion} este servidor público?`)) return;
 
     try {
       const resp = await fetch(`${API_BASE}/catalogos/servidores-publicos/${id}`, {
@@ -100,7 +121,7 @@ export default function ServidoresPublicosPage() {
       });
 
       if (!resp.ok) throw new Error(await resp.text());
-      alert(
+      toast.success(
         activar
           ? "♻️ Servidor público reactivado correctamente"
           : "🗑️ Servidor público eliminado correctamente"
@@ -108,7 +129,7 @@ export default function ServidoresPublicosPage() {
       fetchServidores();
     } catch (err) {
       console.error(`❌ Error al ${accion} servidor público:`, err);
-      alert(`Error al ${accion} servidor público`);
+      toast.error(`Error al ${accion} servidor público`);
     }
   };
 
@@ -143,11 +164,14 @@ export default function ServidoresPublicosPage() {
   // ======================
   // Instancia de tabla TanStack
   // ======================
-  // const table = useReactTable({
-  //   data: servidoresFiltrados,
-  //   columns,
-  //   getCoreRowModel: getCoreRowModel(),
-  // });
+  const [columnVisibility, setColumnVisibility] = React.useState({});
+  const table = useReactTable({
+    data: servidoresFiltrados,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    state: { columnVisibility },
+    onColumnVisibilityChange: setColumnVisibility,
+  });
 
   // ======================
   // 🎨 Render principal
@@ -173,6 +197,11 @@ export default function ServidoresPublicosPage() {
             <p className="text-gray-600 text-sm">
               Consulta, crea, o edita los servidores registrados.
             </p>
+            {servidoresFiltrados.length > 0 && (
+              <p className="text-muted-foreground text-sm">
+                Mostrando {servidoresFiltrados.length} registro{servidoresFiltrados.length !== 1 && "s"}.
+              </p>
+            )}
           </div>
         </div>
 
@@ -183,10 +212,14 @@ export default function ServidoresPublicosPage() {
             onExport={() => console.log("Exportar CSV (pendiente)")}
             showExport={view === "table"}
             newPath="/catalogos/servidores-publicos/new"
-            // table={table}
             showDeleted={showDeleted}
             setShowDeleted={setShowDeleted}
-            table={tableInstance}
+            table={table}
+            onNewClick={() => {
+              setNewServidor({ nombre: "", cargo: "", activo: true });
+              setNewFormErrors({});
+              setIsNewDialogOpen(true);
+            }}
           />
         </div>
       </div>
@@ -241,7 +274,7 @@ export default function ServidoresPublicosPage() {
                       }}
                       onClick={() => toggleEstadoServidor(s.id, true)}
                     >
-                      ♻️ Reactivar
+                      Reactivar
                     </Button>
                   ) : (
                     <RowActionButtons
@@ -265,11 +298,13 @@ export default function ServidoresPublicosPage() {
             data={servidoresFiltrados}
             columns={columns}
             isLoading={loading}
-            onTableReady={setTableInstance}
+            columnVisibility={columnVisibility}
+            setColumnVisibility={setColumnVisibility}
           />
         </div>
       )}
 
+      {/* Dialogo para editar servidor */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -286,11 +321,11 @@ export default function ServidoresPublicosPage() {
                     body: JSON.stringify(selectedServidor),
                   });
                   if (!res.ok) throw new Error(await res.text());
-                  alert("✅ Servidor actualizado correctamente");
+                  toast.success("✅ Servidor actualizado correctamente");
                   setIsEditDialogOpen(false);
                   fetchServidores();
                 } catch (err) {
-                  alert("❌ Error actualizando servidor");
+                  toast.error("Error actualizando servidor");
                 }
               }}
               className="space-y-4"
@@ -348,6 +383,108 @@ export default function ServidoresPublicosPage() {
               </div>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogo para nuevo servidor */}
+      <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nuevo Servidor Público</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setNewFormErrors({});
+              try {
+                const parsed = servidorSchema.parse(newServidor);
+                // POST nuevo servidor
+                const res = await fetch(`${API_BASE}/catalogos/servidores-publicos/`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(parsed),
+                });
+                if (!res.ok) throw new Error(await res.text());
+                toast.success("Servidor creado correctamente");
+                setIsNewDialogOpen(false);
+                fetchServidores();
+              } catch (err) {
+                if (err instanceof ZodError) {
+                  const fieldErrors: { nombre?: string; cargo?: string } = {};
+                  (err as ZodError).issues.forEach((e) => {
+                    if (e.path[0] === "nombre") fieldErrors.nombre = e.message;
+                    if (e.path[0] === "cargo") fieldErrors.cargo = e.message;
+                  });
+                  setNewFormErrors(fieldErrors);
+                } else {
+                  toast.error("Error creando servidor");
+                }
+              }
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <Label>Nombre</Label>
+              <Input
+                value={newServidor.nombre}
+                onChange={(e) =>
+                  setNewServidor({ ...newServidor, nombre: e.target.value })
+                }
+                required
+                aria-invalid={!!newFormErrors.nombre}
+                aria-describedby="nombre-error"
+              />
+              {newFormErrors.nombre && (
+                <p className="text-red-600 text-sm mt-1" id="nombre-error">{newFormErrors.nombre}</p>
+              )}
+            </div>
+
+            <div>
+              <Label>Cargo</Label>
+              <Input
+                value={newServidor.cargo}
+                onChange={(e) =>
+                  setNewServidor({ ...newServidor, cargo: e.target.value })
+                }
+                required
+                aria-invalid={!!newFormErrors.cargo}
+                aria-describedby="cargo-error"
+              />
+              {newFormErrors.cargo && (
+                <p className="text-red-600 text-sm mt-1" id="cargo-error">{newFormErrors.cargo}</p>
+              )}
+            </div>
+
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={newServidor.activo}
+                onChange={(e) =>
+                  setNewServidor({ ...newServidor, activo: e.target.checked })
+                }
+              />{" "}
+              Activo
+            </label>
+
+            <div className="flex justify-end gap-3 pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsNewDialogOpen(false)}
+                style={{ backgroundColor: "#db200b", color: "white" }}
+                className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                style={{ backgroundColor: "#34e004", color: "white" }}
+                className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+              >
+                Guardar
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </main>

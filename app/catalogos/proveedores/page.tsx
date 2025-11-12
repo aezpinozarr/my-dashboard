@@ -18,6 +18,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  ColumnDef,
+  getSortedRowModel,
+  SortingState,
+  VisibilityState,
+} from "@tanstack/react-table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { List, LayoutGrid, CopyX } from "lucide-react";
 import { Input } from "@/components/ui/input"; // ✅ Barra de búsqueda
@@ -84,6 +93,30 @@ export default function ProveedoresPage() {
   const [showDeleted, setShowDeleted] = React.useState(false); // ✅ Mostrar eliminados
 
   // Estados para edición en diálogo
+  // ======================
+  // Estado para diálogo de nuevo proveedor
+  // ======================
+  const [isNewDialogOpen, setIsNewDialogOpen] = React.useState(false);
+  const [nuevoProveedor, setNuevoProveedor] = React.useState<{
+    rfc: string;
+    razon_social: string;
+    nombre_comercial: string;
+    persona_juridica: string;
+    correo_electronico: string;
+    id_entidad_federativa: number | null;
+    entidad_federativa: string;
+  }>({
+    rfc: "",
+    razon_social: "",
+    nombre_comercial: "",
+    persona_juridica: "",
+    correo_electronico: "",
+    id_entidad_federativa: null,
+    entidad_federativa: "",
+  });
+  const [nuevoSelectedEntidad, setNuevoSelectedEntidad] = React.useState<EntidadFederativa | null>(null);
+  const [nuevoSearchEntidad, setNuevoSearchEntidad] = React.useState("");
+  const [savingNew, setSavingNew] = React.useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
   const [proveedorEditando, setProveedorEditando] = React.useState<Proveedor | null>(null);
   const [entidades, setEntidades] = React.useState<EntidadFederativa[]>([]);
@@ -93,6 +126,74 @@ export default function ProveedoresPage() {
   const [savingEdit, setSavingEdit] = React.useState(false);
 
   // ======================
+  // Abrir diálogo de nuevo proveedor desde ActionButtonsGroup
+  // ======================
+  // Se intercepta el click del botón "+" de ActionButtonsGroup
+  const handleNewProveedorClick = () => {
+    // Limpiar estados
+    setNuevoProveedor({
+      rfc: "",
+      razon_social: "",
+      nombre_comercial: "",
+      persona_juridica: "",
+      correo_electronico: "",
+      id_entidad_federativa: null,
+      entidad_federativa: "",
+    });
+    setNuevoSelectedEntidad(null);
+    setNuevoSearchEntidad("");
+    setIsNewDialogOpen(true);
+  };
+
+  // ======================
+  // Guardar nuevo proveedor
+  // ======================
+  const handleNuevoProveedorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Validaciones
+    if (!nuevoProveedor.rfc.trim()) {
+      toast.error("El RFC es obligatorio");
+      return;
+    }
+    if (!nuevoProveedor.razon_social.trim()) {
+      toast.error("La razón social es obligatoria");
+      return;
+    }
+    if (!nuevoProveedor.persona_juridica) {
+      toast.error("Debe seleccionar persona jurídica");
+      return;
+    }
+    const entidadId = nuevoSelectedEntidad?.id || nuevoProveedor.id_entidad_federativa;
+    if (!entidadId) {
+      toast.error("Debe seleccionar una entidad federativa");
+      return;
+    }
+    setSavingNew(true);
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/proveedor`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rfc: nuevoProveedor.rfc.trim(),
+          razon_social: nuevoProveedor.razon_social.trim(),
+          nombre_comercial: nuevoProveedor.nombre_comercial.trim(),
+          persona_juridica: nuevoProveedor.persona_juridica,
+          correo_electronico: nuevoProveedor.correo_electronico.trim(),
+          id_entidad_federativa: entidadId,
+          entidad_federativa: nuevoSelectedEntidad?.descripcion || "",
+        }),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      toast.success("Proveedor creado correctamente");
+      setIsNewDialogOpen(false);
+      fetchProveedores();
+    } catch (err) {
+      console.error("Error creando proveedor:", err);
+      toast.error("Error creando proveedor");
+    } finally {
+      setSavingNew(false);
+    }
+  };
   // Cargar proveedores
   // ======================
   const fetchProveedores = async () => {
@@ -101,7 +202,7 @@ export default function ProveedoresPage() {
       const data = await resp.json();
       setProveedores(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("❌ Error cargando proveedores:", err);
+      console.error("Error cargando proveedores:", err);
     } finally {
       setLoading(false);
     }
@@ -147,12 +248,12 @@ export default function ProveedoresPage() {
       if (!resp.ok) throw new Error(await resp.text());
       toast.success(
         activar
-          ? "♻️ Proveedor reactivado correctamente"
-          : "🗑️ Proveedor eliminado correctamente"
+          ? "Proveedor reactivado correctamente"
+          : "Proveedor eliminado correctamente"
       );
       fetchProveedores();
     } catch (err) {
-      console.error(`❌ Error al ${accion} proveedor:`, err);
+      console.error(`Error al ${accion} proveedor:`, err);
       toast.error(`Error al ${accion} proveedor`);
     }
   };
@@ -210,7 +311,7 @@ export default function ProveedoresPage() {
         toast.error("Proveedor no encontrado");
       }
     } catch (err) {
-      console.error("❌ Error cargando proveedor para edición:", err);
+      console.error("Error cargando proveedor para edición:", err);
       toast.error("Error cargando proveedor");
     }
   };
@@ -255,12 +356,74 @@ export default function ProveedoresPage() {
       setIsEditDialogOpen(false);
       fetchProveedores();
     } catch (err) {
-      console.error("❌ Error actualizando proveedor:", err);
+      console.error("Error actualizando proveedor:", err);
       toast.error("Error actualizando proveedor");
     } finally {
       setSavingEdit(false);
     }
   };
+
+  // ======================
+  // TanStack Table config
+  // ======================
+  const columns = React.useMemo<ColumnDef<Proveedor>[]>(
+    () => [
+      {
+        accessorKey: "rfc",
+        header: "RFC",
+        cell: ({ row }) => row.original.rfc,
+      },
+      {
+        accessorKey: "razon_social",
+        header: "Razón Social",
+        cell: ({ row }) => row.original.razon_social,
+      },
+      {
+        accessorKey: "correo_electronico",
+        header: "Correo",
+        cell: ({ row }) => row.original.correo_electronico,
+      },
+      {
+        accessorKey: "entidad_federativa",
+        header: "Entidad",
+        cell: ({ row }) => row.original.entidad_federativa,
+      },
+      {
+        id: "acciones",
+        header: "Acciones",
+        cell: ({ row }) => (
+          <div className="flex justify-start -ml-4">
+            <RowActionButtons
+              id={row.original.rfc}
+              editPath="/catalogos/proveedores/edit"
+              onEdit={handleEditClick}
+              onDelete={(id) => toggleEstadoProveedor(id)}
+              onRestore={(id) => toggleEstadoProveedor(id, true)}
+              showDeleted={showDeleted}
+            />
+          </div>
+        ),
+        enableSorting: false,
+      },
+    ],
+    [showDeleted]
+  );
+
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+
+  const table = useReactTable({
+    data: proveedoresFiltrados,
+    columns,
+    state: {
+      sorting,
+      columnVisibility,
+    },
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
 
   // ======================
   // Render principal
@@ -284,6 +447,12 @@ export default function ProveedoresPage() {
             <p className="text-gray-600 text-sm">
               Consulta, crea, edita o recupera proveedores registrados.
             </p>
+            {proveedoresFiltrados.length > 0 && (
+              <p className="text-muted-foreground text-sm">
+                Mostrando {proveedoresFiltrados.length} registro
+                {proveedoresFiltrados.length !== 1 && "s"}.
+              </p>
+            )}
           </div>
         </div>
 
@@ -294,9 +463,11 @@ export default function ProveedoresPage() {
             setViewMode={setView}
             onExport={() => console.log("Exportar CSV (pendiente)")}
             showExport={view === "table"}
-            newPath="/catalogos/proveedores/new"
+            newPath={undefined} // Evita navegación, usaremos el diálogo
             showDeleted={showDeleted}
             setShowDeleted={setShowDeleted}
+            table={table}
+            onNewClick={handleNewProveedorClick}
           />
           <Button
             size="icon"
@@ -318,6 +489,165 @@ export default function ProveedoresPage() {
             <CopyX className="w-5 h-5" />
           </Button>
         </div>
+      {/* Dialogo de nuevo proveedor */}
+      <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Nuevo Proveedor</DialogTitle>
+            <DialogDescription>
+              Ingresa los datos para registrar un nuevo proveedor.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleNuevoProveedorSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="nuevo_rfc" className="block text-sm font-medium leading-6 text-gray-900">
+                RFC <span className="text-red-600">*</span>
+              </label>
+              <Input
+                id="nuevo_rfc"
+                type="text"
+                value={nuevoProveedor.rfc}
+                onChange={e => setNuevoProveedor(prev => ({ ...prev, rfc: e.target.value }))}
+                required
+                className="mt-1"
+                maxLength={13}
+                autoComplete="off"
+              />
+            </div>
+            <div>
+              <label htmlFor="nuevo_razon_social" className="block text-sm font-medium leading-6 text-gray-900">
+                Razón Social <span className="text-red-600">*</span>
+              </label>
+              <Input
+                id="nuevo_razon_social"
+                type="text"
+                value={nuevoProveedor.razon_social}
+                onChange={e => setNuevoProveedor(prev => ({ ...prev, razon_social: e.target.value }))}
+                required
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label htmlFor="nuevo_nombre_comercial" className="block text-sm font-medium leading-6 text-gray-900">
+                Nombre Comercial
+              </label>
+              <Input
+                id="nuevo_nombre_comercial"
+                type="text"
+                value={nuevoProveedor.nombre_comercial}
+                onChange={e => setNuevoProveedor(prev => ({ ...prev, nombre_comercial: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium leading-6 text-gray-900 mb-2">
+                Persona Jurídica <span className="text-red-600">*</span>
+              </label>
+              <RadioGroup
+                value={nuevoProveedor.persona_juridica}
+                onValueChange={value =>
+                  setNuevoProveedor(prev => ({ ...prev, persona_juridica: value }))
+                }
+                className="space-y-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="PERSONA FISICA" id="nuevo_fisica" />
+                  <label htmlFor="nuevo_fisica" className="text-sm">PERSONA FÍSICA</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="PERSONA MORAL" id="nuevo_moral" />
+                  <label htmlFor="nuevo_moral" className="text-sm">PERSONA MORAL</label>
+                </div>
+              </RadioGroup>
+            </div>
+            <div>
+              <label htmlFor="nuevo_correo_electronico" className="block text-sm font-medium leading-6 text-gray-900">
+                Correo Electrónico
+              </label>
+              <Input
+                id="nuevo_correo_electronico"
+                type="email"
+                value={nuevoProveedor.correo_electronico}
+                onChange={e => setNuevoProveedor(prev => ({ ...prev, correo_electronico: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium leading-6 text-gray-900 mb-1">
+                Entidad Federativa <span className="text-red-600">*</span>
+              </label>
+              <Command>
+                <CommandInput
+                  placeholder="Buscar entidad..."
+                  value={nuevoSearchEntidad}
+                  onValueChange={setNuevoSearchEntidad}
+                />
+                <CommandGroup className="max-h-48 overflow-y-auto">
+                  {nuevoSearchEntidad.trim() === "" ? (
+                    <div className="px-2 py-2 text-gray-500 text-sm">
+                      Escribe para buscar entidades...
+                    </div>
+                  ) : (
+                    (() => {
+                      const resultados = entidades.filter(e =>
+                        e.descripcion.toLowerCase().includes(nuevoSearchEntidad.toLowerCase())
+                      );
+                      if (resultados.length === 0) {
+                        return <CommandEmpty>No se encontró entidad.</CommandEmpty>;
+                      }
+                      return resultados.map((e, idx) => (
+                        <CommandItem
+                          key={`${e.id}-${idx}`}
+                          onSelect={() => {
+                            setNuevoSelectedEntidad(e);
+                            setNuevoSearchEntidad(e.descripcion);
+                            setNuevoProveedor(prev => ({
+                              ...prev,
+                              id_entidad_federativa: e.id,
+                              entidad_federativa: e.descripcion,
+                            }));
+                          }}
+                          className={`cursor-pointer ${
+                            nuevoSelectedEntidad?.id === e.id ? "bg-accent/50" : ""
+                          }`}
+                        >
+                          {e.descripcion}
+                        </CommandItem>
+                      ));
+                    })()
+                  )}
+                </CommandGroup>
+              </Command>
+              <p className="mt-1 text-sm text-gray-500">
+                {nuevoSelectedEntidad
+                  ? `Seleccionado: ${nuevoSelectedEntidad.descripcion}`
+                  : nuevoProveedor.entidad_federativa
+                  ? `Actual: ${nuevoProveedor.entidad_federativa}`
+                  : "Ninguna entidad seleccionada"}
+              </p>
+            </div>
+            <DialogFooter className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsNewDialogOpen(false)}
+                style={{ backgroundColor: "#db200b", color: "white" }}
+                className="cursor-pointer"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={savingNew}
+                style={{ backgroundColor: "#34e004", color: "white" }}
+                className="cursor-pointer"
+              >
+                {savingNew ? "Guardando..." : "Guardar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       </div>
 
       {/* 🔍 BARRA DE BÚSQUEDA */}
@@ -372,39 +702,73 @@ export default function ProveedoresPage() {
           ))}
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>RFC</TableHead>
-              <TableHead>Razón Social</TableHead>
-              <TableHead>Correo</TableHead>
-              <TableHead>Entidad</TableHead>
-              <TableHead>Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {proveedoresFiltrados.map((p) => (
-              <TableRow key={p.rfc}>
-                <TableCell>{p.rfc}</TableCell>
-                <TableCell>{p.razon_social}</TableCell>
-                <TableCell>{p.correo_electronico}</TableCell>
-                <TableCell>{p.entidad_federativa}</TableCell>
-                <TableCell>
-                  <div className="flex justify-start -ml-4">
-                    <RowActionButtons
-                      id={p.rfc}
-                      editPath="/catalogos/proveedores/edit"
-                      onEdit={handleEditClick}
-                      onDelete={(id) => toggleEstadoProveedor(id)}
-                      onRestore={(id) => toggleEstadoProveedor(id, true)}
-                      showDeleted={showDeleted}
-                    />
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="w-full overflow-x-auto border rounded-lg bg-white shadow-sm">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      colSpan={header.colSpan}
+                      className={
+                        header.column.getCanSort()
+                          ? "hover:bg-gray-100 select-none cursor-pointer transition"
+                          : ""
+                      }
+                      onClick={
+                        header.column.getCanSort()
+                          ? header.column.getToggleSortingHandler()
+                          : undefined
+                      }
+                    >
+                      <div className="flex items-center gap-1">
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getCanSort() ? (
+                          <span className="ml-1 text-gray-500 flex flex-col justify-center">
+                            {header.column.getIsSorted() === "asc" ? (
+                              <ChevronUp className="w-4 h-4 inline-block" />
+                            ) : header.column.getIsSorted() === "desc" ? (
+                              <ChevronDown className="w-4 h-4 inline-block" />
+                            ) : (
+                              <span className="w-4 h-4" />
+                            )}
+                          </span>
+                        ) : null}
+                      </div>
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={table.getAllLeafColumns().length}
+                    className="py-8 text-center text-gray-500"
+                  >
+                    No hay proveedores disponibles
+                  </TableCell>
+                </TableRow>
+              ) : (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className={row.original.activo ? "" : "bg-red-50"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {/* Dialogo de edición */}
@@ -560,7 +924,7 @@ export default function ProveedoresPage() {
                 variant="outline"
                 onClick={() => setIsEditDialogOpen(false)}
                 style={{ backgroundColor: "#db200b", color: "white" }}
-                className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                className="cursor-pointer"
               >
                 Cancelar
               </Button>
@@ -568,7 +932,7 @@ export default function ProveedoresPage() {
                 type="submit"
                 disabled={savingEdit}
                 style={{ backgroundColor: "#34e004", color: "white" }}
-                className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                className="cursor-pointer"
               >
                 {savingEdit ? "Guardando..." : "Guardar"}
               </Button>
@@ -579,3 +943,5 @@ export default function ProveedoresPage() {
     </main>
   );
 }
+// Iconos de ordenamiento
+import { ChevronUp, ChevronDown } from "lucide-react";

@@ -77,6 +77,11 @@ export default function RubrosPage() {
   const [rubroEditando, setRubroEditando] = React.useState<Rubro | null>(null);
   const [descripcionEdit, setDescripcionEdit] = React.useState("");
 
+  // Nuevo diálogo para crear rubro
+  const [isNewDialogOpen, setIsNewDialogOpen] = React.useState(false);
+  const [newId, setNewId] = React.useState("");
+  const [newDescripcion, setNewDescripcion] = React.useState("");
+
   // ======================
   // 🔄 Cargar rubros
   // ======================
@@ -95,6 +100,21 @@ export default function RubrosPage() {
   React.useEffect(() => {
     fetchRubros();
   }, []);
+
+  // Cuando se abre el diálogo nuevo, calcular el siguiente ID
+  React.useEffect(() => {
+    if (isNewDialogOpen) {
+      // Obtener el máximo id numérico y sumar 1
+      const maxIdNum = rubros.reduce((max, r) => {
+        const num = parseInt(r.id, 10);
+        return isNaN(num) ? max : Math.max(max, num);
+      }, 0);
+      const nextIdNum = maxIdNum + 1;
+      const nextIdStr = nextIdNum.toString().padStart(3, "0");
+      setNewId(nextIdStr);
+      setNewDescripcion("");
+    }
+  }, [isNewDialogOpen, rubros]);
 
   // ======================
   // 🗑️ Eliminar rubro
@@ -177,6 +197,28 @@ export default function RubrosPage() {
     }
   };
 
+  // Nuevo: manejar creación de rubro
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/rubro`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: newId,
+          descripcion: newDescripcion,
+        }),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      toast.success("Rubro creado correctamente");
+      setIsNewDialogOpen(false);
+      fetchRubros();
+    } catch (err) {
+      console.error("Error al crear rubro:", err);
+      toast.error("Error al crear rubro");
+    }
+  };
+
   // ======================
   // 🔍 Filtrar rubros
   // ======================
@@ -250,6 +292,11 @@ export default function RubrosPage() {
             <p className="text-gray-600 text-sm">
               Consulta, crea o edita rubros disponibles.
             </p>
+            {rubrosFiltrados.length > 0 && (
+              <p className="text-muted-foreground text-sm">
+                Mostrando {rubrosFiltrados.length} registro{rubrosFiltrados.length !== 1 && "s"}.
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -262,6 +309,7 @@ export default function RubrosPage() {
             table={table}
             showDeleted={showDeleted}
             setShowDeleted={setShowDeleted}
+            onNewClick={() => setIsNewDialogOpen(true)}
           />
           <Button
             size="icon"
@@ -276,6 +324,63 @@ export default function RubrosPage() {
           >
             <CopyX className="w-5 h-5" />
           </Button>
+          {/* Diálogo para crear nuevo rubro */}
+          <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
+            <DialogContent className="max-w-md p-6">
+              <DialogHeader className="pb-4 mb-2 border-b border-gray-200">
+                <DialogTitle className="text-lg font-semibold leading-tight">
+                  Nuevo Rubro
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreate} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-rubro-id">
+                    ID del Rubro
+                  </label>
+                  <Input
+                    id="new-rubro-id"
+                    value={newId}
+                    readOnly
+                    tabIndex={-1}
+                    autoFocus={false}
+                    onFocus={(e) => e.target.blur()}
+                    className="bg-[#f5f5f5] text-[#6b7280] focus:ring-0 focus:outline-none cursor-not-allowed"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-rubro-descripcion">
+                    Descripción
+                  </label>
+                  <Input
+                    id="new-rubro-descripcion"
+                    placeholder="Descripción"
+                    value={newDescripcion}
+                    onChange={(e) => setNewDescripcion(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <DialogClose asChild>
+                    <Button
+                      variant="outline"
+                      type="button"
+                      style={{ backgroundColor: "#db200b", color: "white" }}
+                      className="cursor-pointer"
+                    >
+                      Cancelar
+                    </Button>
+                  </DialogClose>
+                  <Button
+                    type="submit"
+                    style={{ backgroundColor: "#34e004", color: "white" }}
+                    className="cursor-pointer"
+                  >
+                    Guardar
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

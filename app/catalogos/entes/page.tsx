@@ -44,7 +44,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 
-import { useForm } from "react-hook-form";
+import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
@@ -112,6 +112,8 @@ export default function EntesPage() {
   const [enteEditando, setEnteEditando] = React.useState<Ente | null>(null);
 
   const [enteTipos, setEnteTipos] = React.useState<EnteTipo[]>([]);
+  // Estado para el diálogo de nuevo ente
+  const [isNewDialogOpen, setIsNewDialogOpen] = React.useState(false);
 
   const fetchEnteTipos = async () => {
     try {
@@ -316,6 +318,11 @@ export default function EntesPage() {
             <p className="text-gray-600 text-sm">
               Consulta, crea, edita o recupera entes registrados en el sistema.
             </p>
+            {entesFiltrados.length > 0 && (
+              <p className="text-muted-foreground text-sm">
+                Mostrando {entesFiltrados.length} registro{entesFiltrados.length !== 1 && "s"}.
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -324,10 +331,10 @@ export default function EntesPage() {
             setViewMode={setView}
             onExport={() => console.log("Exportar CSV (pendiente)")}
             showExport={view === "table"}
-            newPath="/catalogos/entes/new"
             table={table}
             showDeleted={showDeleted}
             setShowDeleted={setShowDeleted}
+            onNewClick={() => setIsNewDialogOpen(true)}
           />
           <Button
             size="icon"
@@ -563,6 +570,201 @@ export default function EntesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog para crear nuevo ente */}
+      <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
+        <DialogContent className="max-w-lg p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">Nuevo Ente</DialogTitle>
+            <p className="text-sm text-gray-500">Registra un nuevo ente público.</p>
+          </DialogHeader>
+          <NewEnteDialogForm
+            enteTipos={enteTipos}
+            setIsNewDialogOpen={setIsNewDialogOpen}
+            fetchEntes={fetchEntes}
+          />
+        </DialogContent>
+      </Dialog>
     </main>
+  );
+}
+// ========== Nuevo diálogo funcional para crear entes ==========
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
+
+type NewEnteDialogFormProps = {
+  enteTipos: EnteTipo[];
+  setIsNewDialogOpen: (open: boolean) => void;
+  fetchEntes: () => void;
+};
+
+function NewEnteDialogForm({ enteTipos, setIsNewDialogOpen, fetchEntes }: NewEnteDialogFormProps) {
+  const [tiposFiltrados, setTiposFiltrados] = React.useState<EnteTipo[]>(enteTipos);
+  const [isCommandOpen, setIsCommandOpen] = React.useState(false);
+  const [selectedTipo, setSelectedTipo] = React.useState<string>("");
+  const { register, handleSubmit, setValue, formState: { errors, isSubmitting }, reset } = useForm<z.infer<typeof enteSchema>>({
+    resolver: zodResolver(enteSchema),
+    defaultValues: {
+      descripcion: "",
+      siglas: "",
+      clasificacion: undefined,
+      id_ente_tipo: "",
+      activo: true,
+    },
+  });
+
+  React.useEffect(() => {
+    setTiposFiltrados(enteTipos);
+  }, [enteTipos]);
+
+  const onSubmit: SubmitHandler<z.infer<typeof enteSchema>> = async (data) => {
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/entes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      toast.success("Ente creado correctamente");
+      setIsNewDialogOpen(false);
+      fetchEntes();
+      reset();
+      setSelectedTipo("");
+      setIsCommandOpen(false);
+    } catch (e: any) {
+      toast.error(`❌ Error: ${e?.message ?? e}`);
+    }
+  };
+
+  // Mantener sincrónico el texto seleccionado si el id cambia por reset
+  React.useEffect(() => {
+    setTimeout(() => {
+      const currentTipoId =
+        (document.querySelector('[name="id_ente_tipo"]') as HTMLInputElement)?.value || "";
+      if (!currentTipoId) {
+        setSelectedTipo("");
+        return;
+      }
+      const tipo = enteTipos.find((t) => t.id === currentTipoId);
+      if (tipo) setSelectedTipo(tipo.descripcion);
+    }, 0);
+    // eslint-disable-next-line
+  }, [reset]);
+
+  return (
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="space-y-4"
+    >
+      <div>
+        <label className="block text-sm font-medium mb-1">Descripción</label>
+        <Input placeholder="Nombre del ente" {...register("descripcion")} />
+        {errors.descripcion && (
+          <p className="text-sm text-red-600">{errors.descripcion.message}</p>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Siglas</label>
+        <Input placeholder="Ejemplo: SEGOB, SEE..." {...register("siglas")} />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Clasificación</label>
+        <select
+          {...register("clasificacion")}
+          className="border rounded-md p-2 w-full"
+          defaultValue=""
+        >
+          <option value="" disabled>Selecciona una opción...</option>
+          <option value="Centralizada">Centralizada</option>
+          <option value="Paraestatal">Paraestatal</option>
+          <option value="Desconcentrada">Desconcentrada</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Tipo de ente</label>
+        <Command className="border rounded-md">
+          <CommandInput
+            placeholder="Buscar tipo de ente..."
+            value={selectedTipo}
+            onValueChange={(val) => {
+              setSelectedTipo(val);
+              // Solo abrir el listado si el usuario escribe algo
+              if (val.length > 0) {
+                setIsCommandOpen(true);
+              } else {
+                setIsCommandOpen(false);
+              }
+              const filtrados = enteTipos.filter((t) =>
+                t.descripcion.toLowerCase().includes(val.toLowerCase())
+              );
+              setTiposFiltrados(filtrados);
+            }}
+            onFocus={() => {
+              // Solo abrir si hay valor escrito
+              if (selectedTipo.length > 0) setIsCommandOpen(true);
+            }}
+            autoComplete="off"
+            // Para evitar que el input muestre el id seleccionado, solo la descripción
+          />
+          {isCommandOpen && (
+            <CommandList>
+              <CommandGroup heading="Coincidencias">
+                {tiposFiltrados.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-gray-500">Sin resultados</div>
+                ) : (
+                  tiposFiltrados.map((t) => (
+                    <CommandItem
+                      key={t.id}
+                      onSelect={() => {
+                        setSelectedTipo(t.descripcion);
+                        setValue("id_ente_tipo", t.id, { shouldValidate: true });
+                        setIsCommandOpen(false);
+                      }}
+                    >
+                      {t.descripcion}
+                    </CommandItem>
+                  ))
+                )}
+              </CommandGroup>
+            </CommandList>
+          )}
+        </Command>
+        {errors.id_ente_tipo && (
+          <p className="text-sm text-red-600">{errors.id_ente_tipo.message}</p>
+        )}
+      </div>
+
+      <label className="flex items-center gap-2">
+        <input type="checkbox" {...register("activo")} defaultChecked />
+        Activo
+      </label>
+
+      <div className="flex justify-end gap-2 pt-3">
+        <DialogClose asChild>
+          <Button
+            type="button"
+            style={{ backgroundColor: "#db200b", color: "white" }}
+            className="cursor-pointer"
+          >
+            Cancelar
+          </Button>
+        </DialogClose>
+        <Button
+          type="submit"
+          style={{ backgroundColor: "#34e004", color: "white" }}
+          className="cursor-pointer"
+        >
+          Guardar
+        </Button>
+      </div>
+    </form>
   );
 }

@@ -169,10 +169,18 @@ interface FormData {
   e_importe_sin_iva: string;
   e_importe_total: string;
   p_e_id_rubro_partida: string;
+  rubro_partida_texto?: string;
   error?: boolean;
   filteredProvs?: any[];
 }
 
+
+interface Proveedor {
+  rfc: string;
+  razon_social: string;
+  correo_electronico: string;
+  entidad_federativa: string;
+}
 export default function NuevoProcesoPage() {
   const { user } = useUser();
   const router = useRouter();
@@ -181,6 +189,7 @@ export default function NuevoProcesoPage() {
   const [errores, setErrores] = React.useState<Record<string, string>>({});
   // Estado global para errores visuales de partidas (paso 2)
   const [erroresPartida, setErroresPartida] = React.useState<Record<string, string>>({});
+  
 
   // Paso 1
   const [enteDescripcion, setEnteDescripcion] = React.useState("");
@@ -321,27 +330,81 @@ export default function NuevoProcesoPage() {
 
   // Paso 4: Proveedores añadidos
   const [proveedores, setProveedores] = React.useState<any[]>([]);
+  const [entidades, setEntidades] = React.useState<any[]>([]);
+  const [selectedEntidadId, setSelectedEntidadId] = React.useState<string>("");
+  // Estado para buscar y mostrar entidades federativas
+  const [entidadQuery, setEntidadQuery] = React.useState("");
+  const [mostrarListaEntidades, setMostrarListaEntidades] = React.useState(false);
+
+  // Mantener sincronizado el ID seleccionado
+  const selectedEntidadRef = React.useRef<string>("");
+  React.useEffect(() => {
+    selectedEntidadRef.current = selectedEntidadId;
+  }, [selectedEntidadId]);
+
+// Cargar entidades federativas al abrir el paso
+React.useEffect(() => {
+  const fetchEntidades = async () => {
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/entidad-federativa?p_id=-99`);
+      const data = await resp.json();
+      if (Array.isArray(data)) setEntidades(data);
+    } catch (err) {
+      console.error("❌ Error cargando entidades:", err);
+    }
+  };
+  fetchEntidades();
+}, []);
   // Paso 4: Catálogo de proveedores del backend (solo para búsqueda)
   const [catalogoProveedores, setCatalogoProveedores] = React.useState<any[]>([]);
   // Paso 4 - errores de proveedor
   const [erroresProveedor, setErroresProveedor] = React.useState<Record<string, string>>({});
 
   const [mostrarLista, setMostrarLista] = React.useState(true);
+  const [showVerProveedoresDialog, setShowVerProveedoresDialog] = React.useState(false);
+  const [showNuevoProveedorDialog, setShowNuevoProveedorDialog] = React.useState(false);
+  const [proveedoresDialog, setProveedoresDialog] = React.useState<Proveedor[]>([]);
+  const [searchTerm, setSearchTerm] = React.useState("");
 
   // Paso 4: Cargar todos los proveedores al entrar al paso 4 (solo catálogo de backend)
-  React.useEffect(() => {
-    if (step === 4) {
-      (async () => {
-        try {
-          const resp = await fetch(`${API_BASE}/catalogos/proveedor/?p_rfc=-99`);
-          const data = await resp.json();
-          setCatalogoProveedores(Array.isArray(data) ? data : []);
-        } catch (err) {
-          console.error("Error al cargar proveedores:", err);
-        }
-      })();
+  // Paso 4: Cargar todos los proveedores al entrar al paso 4 (solo catálogo de backend)
+React.useEffect(() => {
+  if (step === 4) {
+    (async () => {
+      try {
+        const resp = await fetch(`${API_BASE}/catalogos/proveedor?p_rfc=-99`);
+        const data = await resp.json();
+        setCatalogoProveedores(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("❌ Error al cargar proveedores:", err);
+      }
+    })();
+  }
+}, [step]);
+
+// Cargar proveedores solo cuando se abre el diálogo "Ver proveedores"
+React.useEffect(() => {
+  if (showVerProveedoresDialog) {
+    fetch(`${API_BASE}/catalogos/proveedor?p_rfc=-99`)
+      .then((r) => r.json())
+      .then(setProveedoresDialog)
+      .catch((err) => console.error("❌ Error cargando proveedores:", err));
+  }
+}, [showVerProveedoresDialog]);
+
+React.useEffect(() => {
+  const fetchEntidades = async () => {
+    try {
+      const resp = await fetch(`${API_BASE}/catalogos/entidad-federativa?p_id=-99`);
+      const data = await resp.json();
+      if (Array.isArray(data)) setEntidades(data);
+    } catch (err) {
+      console.error("❌ Error cargando entidades:", err);
     }
-  }, [step]);
+  };
+  fetchEntidades();
+}, []);
+
 
   // Paso 4: Ref para RFC input
   const rfcInputRef = React.useRef<any>(null);
@@ -609,29 +672,25 @@ export default function NuevoProcesoPage() {
       try {
         const [fResp, pResp] = await Promise.all([
           fetch(`${API_BASE}/catalogos/fuentes-financiamiento?p_id=-99&p_id_ramo=-99`).then((r) => r.json()),
-            fetch(`${API_BASE}/catalogos/partidas?p_id=-99&p_id_capitulo=-99&p_tipo=PROVEEDURIA`).then((r) => r.json()),
-
+          fetch(`${API_BASE}/catalogos/partidas?p_id=-99&p_id_capitulo=-99&p_tipo=PROVEEDURIA`).then((r) => r.json()),
         ]);
         setFuentes(Array.isArray(fResp) ? fResp : []);
         setCatalogoPartidas(Array.isArray(pResp) ? pResp : []);
         // ✅ Si ya existe un folio, consultar las partidas registradas previamente
-        if (folio) {
-          try {
-            const res = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                p_accion: "CONSULTAR",
-                p_id_seguimiento: folio,
-                p_e_id_partida: -99,
-              }),
-            });
-            const data = await res.json();
-            if (Array.isArray(data) && data.length > 0) {
-              setPartidas(data);
-            }
-          } catch (err) {
-            console.error("❌ Error al recargar partidas existentes:", err);
+        const folioActivo = folio || folioSeguimiento || Number(sessionStorage.getItem("folioSeguimiento"));
+        if (folioActivo) {
+          const res = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              p_accion: "CONSULTAR",
+              p_id_seguimiento: folioActivo,
+              p_e_id_partida: -99,
+            }),
+          });
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setPartidas(data);
           }
         }
       } catch (err) {
@@ -838,6 +897,264 @@ export default function NuevoProcesoPage() {
       return prev.filter((_, i) => i !== idx);
     });
   };
+
+  // Paso 2: hooks y handlers
+  const [nuevaPartida, setNuevaPartida] = React.useState({
+    e_no_requisicion: "",
+    e_id_partida: "",
+    partida_descripcion: "",
+    clave_capitulo: "",
+    capitulo: "",
+    e_id_fuente_financiamiento: "",
+    fuente_descripcion: "",
+    fuente_etiquetado: "",
+    fuente_fondo: "",
+  });
+
+  const [erroresForm, setErroresForm] = React.useState<Record<string, string>>({});
+  React.useEffect(() => {
+    setErroresForm({});
+  }, [step]);
+
+  // Handler para añadir partida
+  const handleAddPartida = async () => {
+    const errores: Record<string, string> = {};
+
+    // Validar campos obligatorios
+    if (!nuevaPartida.e_no_requisicion) errores.e_no_requisicion = "Campo obligatorio";
+    if (!nuevaPartida.e_id_partida) errores.e_id_partida = "Campo obligatorio";
+    if (!nuevaPartida.e_id_fuente_financiamiento) errores.e_id_fuente_financiamiento = "Campo obligatorio";
+
+    if (Object.keys(errores).length > 0) {
+      setErroresForm(errores);
+      toast.warning("Completa todos los campos obligatorios antes de añadir una partida.");
+      return;
+    }
+
+    // Validar que haya al menos una partida existente
+    if (partidas.length === 0) {
+      toast.warning("Debes registrar al menos una partida antes de continuar.");
+      return;
+    }
+
+    try {
+      const folioGuardado =
+        folioSeguimiento || folio || Number(sessionStorage.getItem("folioSeguimiento"));
+      if (!folioGuardado) {
+        toast.info("Primero debes completar el Paso 1 antes de continuar.");
+        return;
+      }
+
+      const payload = {
+        p_accion: "NUEVO",
+        p_id_seguimiento: folioGuardado,
+        p_id: 0,
+        p_e_no_requisicion: String(nuevaPartida.e_no_requisicion ?? "").trim(),
+        p_e_id_partida: String(nuevaPartida.e_id_partida ?? "").trim(),
+        p_e_id_fuente_financiamiento: String(nuevaPartida.e_id_fuente_financiamiento ?? "").trim(),
+      };
+
+      const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        toast.error("Error al guardar la partida");
+        return;
+      }
+
+      if (data.resultado) {
+        // Definir el valor de partidaSel correctamente tipado
+        const partidaSel = catalogoPartidas.find(
+          (p: { id: string | number }) => String(p.id) === String(nuevaPartida.e_id_partida)
+        );
+        const fuenteSel = fuentes.find((f) => String(f.id) === String(nuevaPartida.e_id_fuente_financiamiento));
+
+        setPartidas((prev) => [
+          ...prev,
+          {
+            id: data.resultado,
+            no_requisicion: nuevaPartida.e_no_requisicion,
+            e_id_partida: nuevaPartida.e_id_partida,
+            partida_descripcion: partidaSel?.descripcion ?? "",
+            id_capitulo: partidaSel?.id_capitulo ?? "",
+            capitulo: partidaSel?.capitulo ?? "",
+            fuente_financiamiento: fuenteSel?.descripcion ?? "",
+            descripcion: partidaSel?.descripcion ?? "",
+            etiquetado: fuenteSel?.etiquetado ?? "",
+            fondo: fuenteSel?.fondo ?? "",
+          },
+        ]);
+
+        setNuevaPartida({
+          e_no_requisicion: "",
+          e_id_partida: "",
+          partida_descripcion: "",
+          clave_capitulo: "",
+          capitulo: "",
+          e_id_fuente_financiamiento: "",
+          fuente_descripcion: "",
+          fuente_etiquetado: "",
+          fuente_fondo: "",
+        });
+        setErroresForm({});
+        toast.success("Partida guardada correctamente");
+      } else {
+        toast.error("Error al guardar la partida");
+      }
+    } catch (err) {
+      toast.error("Error al guardar la partida");
+    }
+  };
+
+  // Handler eliminar partida
+  const handleEliminarPartida = async (idx: number) => {
+    console.log("🗑️ Eliminando partida con índice:", idx, partidas[idx]);
+    const partidaId = partidas[idx]?.id;
+
+    try {
+      // ✅ Verificamos si tiene ID válido
+      if (partidaId) {
+        const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            p_accion: "ELIMINAR",
+            p_id: partidaId,
+            p_id_seguimiento: folioSeguimiento || folio,
+            p_e_id_partida: partidas[idx].e_id_partida,
+            p_e_no_requisicion: partidas[idx].e_no_requisicion,
+            p_e_id_fuente_financiamiento: partidas[idx].e_id_fuente_financiamiento,
+          }),
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          console.error("❌ Error al eliminar partida:", data);
+          toast.error("No se pudo eliminar la partida del servidor.");
+          return;
+        }
+
+        toast.success(`Partida eliminada correctamente.`);
+      } else {
+        // ⚠️ Si no tiene ID válido, solo la eliminamos del frontend
+        toast.info("Partida eliminada localmente (sin ID en base de datos).");
+      }
+
+      // 🧹 En ambos casos, eliminar del estado local
+      setPartidas((prev) => prev.filter((_, i) => i !== idx));
+    } catch (err) {
+      console.error("❌ Error al eliminar partida:", err);
+      toast.error("Error de conexión al eliminar la partida.");
+    }
+  };
+
+  // Handler avanzar al siguiente paso (nuevo bloque)
+  const handleNext = async () => {
+    try {
+      const folioActual = folioSeguimiento || folio || Number(sessionStorage.getItem("folioSeguimiento"));
+      if (!folioActual) {
+        toast.info("Primero debes completar el Paso 1 antes de continuar.");
+        return;
+      }
+
+      // 🔹 Traer partidas actualizadas desde la BD
+      const res = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          p_accion: "CONSULTAR",
+          p_id_seguimiento: folioActual,
+          p_e_id_partida: -99,
+        }),
+      });
+
+      const data = await res.json();
+      let partidasActualizadas = Array.isArray(data) ? data : partidas;
+
+      // 🔹 Validar si hay al menos una partida con los campos básicos completos
+      const partidasValidas = partidasActualizadas.filter((p) => {
+        const noReq = p.e_no_requisicion ?? p.no_requisicion;
+        const idPartida = p.e_id_partida ?? p.partida ?? p.id_partida;
+        const fuente = p.e_id_fuente_financiamiento ?? p.fuente_financiamiento ?? p.id_fuente_financiamiento;
+        return (
+          String(noReq || "").trim() !== "" &&
+          String(idPartida || "").trim() !== "" &&
+          String(fuente || "").trim() !== ""
+        );
+      });
+
+      if (partidasValidas.length === 0) {
+        toast.warning("Debes añadir al menos una partida antes de continuar.");
+        return;
+      }
+
+      // 🔹 Limpiar errores si pasa la validación
+      setErroresForm({});
+      setPartidas(partidasValidas);
+      toast.success("Partidas validadas correctamente.");
+      setStep(3);
+    } catch (err) {
+      console.error("❌ Error en handleNext:", err);
+      toast.error("Error al validar las partidas.");
+    }
+  };
+
+  /* ========================================
+     🔹 Handler para eliminar proveedor del paso 4
+  ======================================== */
+  // ✅ Handler para eliminar proveedor del paso 4
+  const handleEliminarProveedor = async (idx: number) => {
+  try {
+    const proveedor = proveedores[idx];
+    if (!proveedor) return;
+
+    const folioActual = folioSeguimiento || folio;
+    if (!folioActual) {
+      toast.warning("Folio de seguimiento no disponible.");
+      return;
+    }
+
+    // 🔹 Endpoint actualizado con versión v2
+    const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+      p_accion: "ELIMINAR",
+      p_id: proveedor.id,
+      p_id_seguimiento_partida_rubro:
+      proveedor.p_id_seguimiento_partida_rubro ||
+      proveedor.id_partida_rubro ||
+      proveedor.p_id_seguimiento_partida ||
+      proveedor.id_partida ||
+      0,
+    p_e_rfc_proveedor: proveedor.e_rfc_proveedor,
+  }),
+});
+
+    let data: any = null;
+    try {
+      data = await resp.json();
+    } catch {
+      data = null;
+    }
+
+    if (!resp.ok) {
+      console.error("❌ Error al eliminar proveedor:", data);
+      toast.error("No se pudo eliminar el proveedor del servidor.");
+      return;
+    }
+
+    toast.success("Proveedor eliminado correctamente.");
+    setProveedores((prev) => prev.filter((_, i) => i !== idx));
+  } catch (err) {
+    console.error("❌ Error al eliminar proveedor:", err);
+    toast.error("Error de conexión al eliminar el proveedor.");
+  }
+};
 
   /* ========================================
      🔹 Render UI (Paso 1, 2, 3)
@@ -1251,496 +1568,256 @@ export default function NuevoProcesoPage() {
       )}
 
       {/* Paso 2 */}
-      {step === 2 && (() => {
-        // Reemplaza handleGuardarPartidas con validación visual (usando erroresPartida/setErroresPartida global)
-        const handleGuardarPartidasValidado = async () => {
-          // Validación visual de campos obligatorios en cada partida
-          const nuevosErrores: Record<string, string> = {};
-          partidas.forEach((p, i) => {
-            if (!p.e_no_requisicion) {
-              nuevosErrores[`requisicion-${i}`] = "Este campo es obligatorio";
-            }
-            if (!p.e_id_partida) {
-              nuevosErrores[`partida-${i}`] = "Este campo es obligatorio";
-            }
-            if (!p.e_id_fuente_financiamiento) {
-              nuevosErrores[`fuente-${i}`] = "Este campo es obligatorio";
-            }
-          });
-
-          if (Object.keys(nuevosErrores).length > 0) {
-            setErroresPartida(nuevosErrores);
-            toast.warning("Por favor completa todos los campos obligatorios antes de continuar.");
-            return;
-          }
-
-          setErroresPartida({});
-
-          try {
-            const folioGuardado =
-              folioSeguimiento || Number(sessionStorage.getItem("folioSeguimiento"));
-            if (!folioGuardado) {
-              console.error("⚠️ No hay folio de seguimiento disponible");
-              toast.info("Primero debes completar el Paso 1 antes de continuar.");
-              return;
-            }
-
-            console.log("📘 Usando folio de seguimiento para guardar partidas:", folioGuardado);
-
-            for (const p of partidas) {
-              const checkResp = await fetch(
-                `${API_BASE}/procesos/seguimiento/partida/?p_id=-99&p_id_seguimiento=${folioGuardado}`
-              );
-              let existente: any = [];
-              try {
-                existente = await checkResp.json();
-              } catch {
-                existente = [];
-              }
-
-              const idExistente =
-                Array.isArray(existente)
-                  ? (existente.find((item: any) => String(item.e_id_partida) === String(p.e_id_partida))?.id ?? null)
-                  : null;
-
-              const partidaExiste =
-                Array.isArray(existente) &&
-                existente.some(
-                  (item: any) =>
-                    String(item.e_id_partida) === String(p.e_id_partida) &&
-                    String(item.id_seguimiento ?? item.p_id_seguimiento) === String(folioGuardado)
-                );
-
-              if (partidaExiste) {
-                toast.error(`⚠️ La partida ${p.e_id_partida} ya fue registrada en este seguimiento`);
-                return;
-              }
-
-              const accion = idExistente ? "EDITAR" : "NUEVO";
-              const idRegistro = idExistente || 0;
-
-              const payload = {
-                p_accion: String(accion).toUpperCase(),
-                p_id_seguimiento: folioGuardado,
-                p_id: Number(idRegistro) || 0,
-                p_e_no_requisicion: String(p.e_no_requisicion ?? "").trim(),
-                p_e_id_partida: String(p.e_id_partida ?? "").trim(),
-                p_e_id_fuente_financiamiento: String(p.e_id_fuente_financiamiento ?? "").trim(),
-              };
-
-              console.log("📦 Enviando payload a backend (partida-ente):", payload);
-
-              const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-
-              let data;
-              try {
-                data = await resp.json();
-              } catch {
-                data = {};
-              }
-
-              if (!resp.ok) {
-                console.error("❌ Error detallado del backend:", data);
-                toast.error(data.detail || "No se pudo registrar la partida del ente");
-                return;
-              }
-
-              if (data.resultado) {
-                setPartidas((prev) =>
-                  prev.map((x) =>
-                    x.e_id_partida === p.e_id_partida ? { ...x, id: data.resultado } : x
-                  )
-                );
-                toast.success(`Partida ${p.e_id_partida} guardada correctamente`);
-                setPuedeAgregarPartida(true);
-              }
-            }
-
-            toast.success("Presupuesto guardado correctamente");
-            setStep(3);
-          } catch (err) {
-            console.error("❌ Error al guardar presupuesto:", err);
-            toast.error("Error al guardar presupuesto");
-          }
-        };
-
-        // Nueva función handleNextStep para avanzar al paso 3, guardando partidas nuevas si es necesario
-        const handleNextStep = async () => {
-          try {
-            // Verificar si hay partidas nuevas sin guardar (sin id asignado)
-            const hayPartidasSinGuardar = partidas.some((p) => !p.id);
-
-            if (hayPartidasSinGuardar) {
-              // Si hay partidas sin guardar, las guarda primero
-              await handleGuardarPartidasValidado();
-            }
-
-            // ✅ Avanzar al siguiente paso
-            setStep(3);
-          } catch (error) {
-            console.error("❌ Error al avanzar de paso:", error);
-            toast.error("Ocurrió un error al intentar avanzar.");
-          }
-        };
-
-        return (
-          <Card>
-            <CardContent className="space-y-5 mt-4">
-              <div className="flex items-center gap-3 mb-6">
-                <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
-                  <Link href="/dashboard">←</Link>
-                </Button>
-                <h1 className="text-2xl font-bold">Paso 2: Partidas</h1>
-              </div>
+      {step === 2 && (
+        <Card>
+          <CardContent className="space-y-5 mt-4">
+            {/* Contenido del paso 2 sin cambios visuales */}
+            <div className="flex items-center gap-3 mb-6">
+              <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
+                <Link href="/dashboard">←</Link>
+              </Button>
+              <h1 className="text-2xl font-bold">Paso 2: Partidas</h1>
+            </div>
+            {/* Oficio de invitación bloqueado */}
+            <div>
+              <Label>Oficio de invitación</Label>
+              <Input
+                value={form.oficio_invitacion ?? ""}
+                disabled
+                className="bg-gray-100 text-gray-700 cursor-not-allowed w-full"
+              />
+            </div>
+            {/* Formulario superior */}
+            <form
+              className="flex flex-col space-y-4 bg-gray-50 rounded-lg p-4 border border-gray-200"
+              onSubmit={e => {
+                e.preventDefault();
+                handleAddPartida();
+              }}
+            >
+              {/* No. Requisición */}
               <div>
-                <Label>Oficio de invitación</Label>
-                <Input value={form.oficio_invitacion ?? ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
+                <Label>No. Requisición</Label>
+                <Input
+                  value={nuevaPartida.e_no_requisicion || ""}
+                  onChange={e => setNuevaPartida({ ...nuevaPartida, e_no_requisicion: e.target.value })}
+                  placeholder="Ej. 101"
+                  className={`w-full ${erroresForm.e_no_requisicion ? "border border-red-500 focus:ring-red-500" : ""}`}
+                />
+                {erroresForm.e_no_requisicion && (
+                  <p className="text-sm text-red-500 mt-1">Este campo es obligatorio</p>
+                )}
               </div>
-
-              {partidas.map((p, i) => {
-                const isLast = partidas.length === 1;
-                return (
-                  <Card key={i} className="p-4 space-y-4 border border-gray-200 relative">
-                    {/* Identificador de partida */}
-                    <div className="mb-2">
-                      <span className="inline-block rounded px-3 py-1 bg-blue-100 text-blue-800 font-semibold text-sm">{`Partida #${i + 1}`}</span>
-                    </div>
-                    <button
-                      type="button"
-                      aria-label={isLast ? "No se puede eliminar la última partida" : "Eliminar partida"}
-                      className={
-                        `absolute right-3 top-3 z-10 rounded-full p-2 transition-all duration-200
-                        ${isLast
-                          ? "bg-gray-200/80 cursor-not-allowed opacity-70"
-                          : "bg-red-500/20 hover:bg-red-600/70 cursor-pointer hover:scale-110"
-                        }`
-                      }
-                      onClick={async () => {
-                        if (!isLast) {
-                          const partidaAEliminar = partidas[i];
-                          if (!partidaAEliminar?.id) {
-                            // Si aún no está guardada en BD, sólo la quitamos del estado
-                            setPartidas(partidas.filter((_, idx) => idx !== i));
-                            toast.info(`Partida #${i + 1} eliminada localmente (no guardada aún)`);
-                            return;
-                          }
-
-                          try {
-                            const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                p_accion: "ELIMINAR",
-                                p_id: partidaAEliminar.id,
-                                p_id_seguimiento: folioSeguimiento || folio,
-                                p_e_id_partida: partidaAEliminar.e_id_partida,
-                                p_e_no_requisicion: partidaAEliminar.e_no_requisicion,
-                                p_e_id_fuente_financiamiento: partidaAEliminar.e_id_fuente_financiamiento,
-                              }),
-                            });
-
-                            const data = await resp.json();
-                            if (!resp.ok) {
-                              console.error("❌ Error al eliminar partida:", data);
-                              toast.error("No se pudo eliminar la partida del servidor.");
-                              return;
-                            }
-
-                            toast.success(`Partida #${i + 1} eliminada correctamente`);
-                            setPartidas(partidas.filter((_, idx) => idx !== i));
-                          } catch (err) {
-                            console.error("❌ Error al eliminar partida:", err);
-                            toast.error("Error de conexión al eliminar la partida.");
-                          }
-                        }
-                      }}
-                      disabled={isLast}
-                      tabIndex={0}
-                      onMouseEnter={e => {
-                        if (isLast) {
-                          (e.currentTarget as HTMLElement).setAttribute('title', 'Debe haber al menos una partida');
-                        }
-                      }}
-                    >
-                      <Trash2 className={`w-7 h-7 ${isLast ? "text-gray-400" : "text-red-600 hover:text-white"}`} />
-                    </button>
-
-                    <div>
-                      <Label>No. Requisición</Label>
-                      <Input
-                        value={p.e_no_requisicion ?? ""}
-                        onChange={(e) =>
-                          setPartidas((prev) =>
-                            prev.map((x, idx) =>
-                              idx === i ? { ...x, e_no_requisicion: e.target.value } : x
-                            )
-                          )
-                        }
-                        className={erroresPartida[`requisicion-${i}`] ? "border-red-500" : ""}
-                      />
-                      {erroresPartida[`requisicion-${i}`] && (
-                        <p className="text-red-600 text-xs mt-1">{erroresPartida[`requisicion-${i}`]}</p>
-                      )}
-                    </div>
-
-                  {/* Partida */}
-                  <div>
-                    <Label>Partida</Label>
-                    <div className={erroresPartida[`partida-${i}`] ? "border border-red-500 rounded-md p-1" : ""}>
-                      <Command>
-                        <CommandInput
-                          placeholder="Escribe ID o descripción…"
-                          value={p.e_id_partida ?? ""}
-                          onValueChange={(val) =>
-                            setPartidas((prev) =>
-                              prev.map((x, idx) =>
-                                idx === i ? { ...x, e_id_partida: val } : x
-                              )
-                            )
-                          }
-                        />
-                        {Boolean((p.e_id_partida || "").trim()) && (
-                          <CommandList>
-                            {catalogoPartidas
-                              .filter((row: any) => {
-                                const q = (p.e_id_partida || "").toLowerCase();
-                                return (
-                                  row.id?.toString().toLowerCase().includes(q) ||
-                                  row.descripcion?.toLowerCase().includes(q)
-                                );
-                              })
-                              .map((row: any) => (
-                                <CommandItem
-                                  key={row.id}
-                                  onSelect={() =>
-                                    setPartidas((prev) =>
-                                      prev.map((x, idx) =>
-                                        idx === i
-                                          ? {
-                                              ...x,
-                                              e_id_partida: row.id,
-                                              partida_descripcion: row.descripcion ?? "",
-                                              clave_capitulo: row.id_capitulo ?? "",
-                                              capitulo: row.capitulo ?? "",
-                                            }
-                                          : x
-                                      )
-                                    )
-                                  }
-                                >
-                                  {row.id} — {row.descripcion}
-                                </CommandItem>
-                              ))}
-                            <CommandEmpty>No se encontraron partidas</CommandEmpty>
-                          </CommandList>
-                        )}
-                      </Command>
-                    </div>
-                    {erroresPartida[`partida-${i}`] && (
-                      <p className="text-red-600 text-xs mt-1">{erroresPartida[`partida-${i}`]}</p>
-                    )}
-                  </div>
-
-                  {/* Capítulo bloqueado */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label>Clave capítulo</Label>
-                      <Input value={p.clave_capitulo ?? ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-                    </div>
-                    <div>
-                      <Label>Capítulo</Label>
-                      <Input value={p.capitulo ?? ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-                    </div>
-                  </div>
-
-                  {/* Fuente de financiamiento */}
-                  <div>
-                    <Label>Fuente de financiamiento</Label>
-                    <div className={erroresPartida[`fuente-${i}`] ? "border border-red-500 rounded-md p-1" : ""}>
-                      <Command>
-                        <CommandInput
-                          placeholder="Escribe ID o nombre…"
-                          value={p.e_id_fuente_financiamiento ?? ""}
-                          onValueChange={(val) =>
-                            setPartidas((prev) =>
-                              prev.map((x, idx) =>
-                                idx === i ? { ...x, e_id_fuente_financiamiento: val } : x
-                              )
-                            )
-                          }
-                        />
-                        {Boolean((p.e_id_fuente_financiamiento || "").trim()) && (
-                          <CommandList>
-                            {fuentes
-                              .filter((f: any) => {
-                                const q = (p.e_id_fuente_financiamiento || "").toLowerCase();
-                                return (
-                                  f.id?.toString().toLowerCase().includes(q) ||
-                                  f.descripcion?.toLowerCase().includes(q) ||
-                                  f.ramo?.toLowerCase().includes(q) ||
-                                  f.fondo?.toLowerCase().includes(q)
-                                );
-                              })
-                              .map((f: any) => (
-                                <CommandItem
-                                  key={f.id}
-                                  onSelect={() =>
-                                    setPartidas((prev) =>
-                                      prev.map((x, idx) =>
-                                        idx === i
-                                          ? {
-                                              ...x,
-                                              e_id_fuente_financiamiento: f.id,
-                                              fuente_descripcion: f.descripcion ?? "",
-                                              fuente_etiquetado: f.etiquetado ?? "",
-                                              fuente_fondo: f.fondo ?? "",
-                                            }
-                                          : x
-                                      )
-                                    )
-                                  }
-                                >
-                                  {f.id} — {f.descripcion}
-                                  {f.fondo ? (
-                                    <span className="text-gray-500 text-xs ml-2">(Fondo: {f.fondo})</span>
-                                  ) : null}
-                                </CommandItem>
-                              ))}
-                            <CommandEmpty>No se encontraron fuentes</CommandEmpty>
-                          </CommandList>
-                        )}
-                      </Command>
-                    </div>
-                    {erroresPartida[`fuente-${i}`] && (
-                      <p className="text-red-600 text-xs mt-1">{erroresPartida[`fuente-${i}`]}</p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <Label>Descripción</Label>
-                      <Input value={p.fuente_descripcion ?? ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-                    </div>
-                    <div>
-                      <Label>Etiquetado</Label>
-                      <Input value={p.fuente_etiquetado ?? ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-                    </div>
-                    <div>
-                      <Label>Fondo</Label>
-                      <Input value={p.fuente_fondo ?? ""} disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-                    </div>
-                  </div>
-
-                  {/* Botón Guardar partida por cada partida */}
-                  <div className="flex justify-end">
+              {/* Partida */}
+              <div>
+                <Label>Partida</Label>
+                <Command>
+                  <CommandInput
+                    placeholder="Buscar partida…"
+                    value={nuevaPartida.e_id_partida}
+                    onValueChange={val => setNuevaPartida(prev => ({ ...prev, e_id_partida: val }))}
+                    className={`w-full ${erroresForm.e_id_partida ? "border border-red-500 focus:ring-red-500" : ""}`}
+                  />
+                  {Boolean(nuevaPartida.e_id_partida.trim()) && (
+                    <CommandList>
+                      {catalogoPartidas
+                        .filter(row => {
+                          const q = (nuevaPartida.e_id_partida || "").toLowerCase();
+                          return (
+                            row.id?.toString().toLowerCase().includes(q) ||
+                            row.descripcion?.toLowerCase().includes(q)
+                          );
+                        })
+                        .map(row => (
+                          <CommandItem
+                            key={row.id}
+                            onSelect={() => {
+                              setNuevaPartida(prev => ({
+                                ...prev,
+                                e_id_partida: row.id,
+                                partida_descripcion: row.descripcion ?? "",
+                                clave_capitulo: row.id_capitulo ?? "",
+                                capitulo: row.capitulo ?? "",
+                              }));
+                            }}
+                          >
+                            {row.id} – {row.descripcion} – id capitulo: {row.id_capitulo} – capitulo: {row.capitulo}
+                          </CommandItem>
+                        ))}
+                      <CommandEmpty>No se encontraron partidas</CommandEmpty>
+                    </CommandList>
+                  )}
+                </Command>
+                {erroresForm.e_id_partida && (
+                  <p className="text-sm text-red-500 mt-1">Selecciona una partida</p>
+                )}
+              </div>
+              {/* Fuente de financiamiento */}
+              <div>
+                <Label>Fuente de financiamiento</Label>
+                <Command>
+                  <CommandInput
+                    placeholder="Buscar fuente…"
+                    value={nuevaPartida.e_id_fuente_financiamiento}
+                    onValueChange={val => setNuevaPartida(prev => ({ ...prev, e_id_fuente_financiamiento: val }))}
+                    className={`w-full ${erroresForm.e_id_fuente_financiamiento ? "border border-red-500 focus:ring-red-500" : ""}`}
+                  />
+                  {Boolean(nuevaPartida.e_id_fuente_financiamiento.trim()) && (
+                    <CommandList>
+                      {fuentes
+                        .filter(f => {
+                          const q = (nuevaPartida.e_id_fuente_financiamiento || "").toLowerCase();
+                          return (
+                            f.id?.toString().toLowerCase().includes(q) ||
+                            f.descripcion?.toLowerCase().includes(q) ||
+                            f.etiquetado?.toLowerCase().includes(q) ||
+                            f.fondo?.toLowerCase().includes(q)
+                          );
+                        })
+                        .map(f => (
+                          <CommandItem
+                            key={f.id}
+                            onSelect={() => {
+                              setNuevaPartida(prev => ({
+                                ...prev,
+                                e_id_fuente_financiamiento: f.id,
+                                fuente_descripcion: f.descripcion ?? "",
+                                fuente_etiquetado: f.etiquetado ?? "",
+                                fuente_fondo: f.fondo ?? "",
+                              }));
+                            }}
+                          >
+                            {f.id} – Descripción: {f.descripcion} – Etiquetado: {f.etiquetado} – Fondo: {f.fondo}
+                          </CommandItem>
+                        ))}
+                      <CommandEmpty>No se encontraron fuentes</CommandEmpty>
+                    </CommandList>
+                  )}
+                </Command>
+                {erroresForm.e_id_fuente_financiamiento && (
+                  <p className="text-sm text-red-500 mt-1">Selecciona una fuente de financiamiento</p>
+                )}
+              </div>
+              {/* Botón añadir partida */}
+              <div className="flex justify-end mt-4">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="submit"
+                        style={{ backgroundColor: "#10c706", color: "white" }}
+                      >
+                        Añadir partida
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Guarda la partida seleccionada</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </form>
+            {/* Tabla de partidas - DISEÑO MEJORADO */}
+            <h2 className="text-lg font-semibold text-[#235391] mb-2">Partidas registradas</h2>
+            <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
+                    <th className="px-3 py-2 font-semibold text-center">No. Requisición</th>
+                    <th className="px-3 py-2 font-semibold text-left">Partida</th>
+                    <th className="px-3 py-2 font-semibold text-left">Capítulo</th>
+                    <th className="px-3 py-2 font-semibold text-center">Fuente Financiamiento</th>
+                    <th className="px-3 py-2 font-semibold text-left">Descripción</th>
+                    <th className="px-3 py-2 font-semibold text-left">Etiquetado</th>
+                    <th className="px-3 py-2 font-semibold text-left">Fondo</th>
+                    <th className="px-3 py-2 font-semibold text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {partidas.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-3 text-center text-gray-400">
+                        No hay partidas registradas.
+                      </td>
+                    </tr>
+                  ) : (
+                    partidas
+                      .filter(
+                        (p) =>
+                          p &&
+                          (p.e_id_partida !== null && p.e_id_partida !== "" && p.e_id_partida !== "-") &&
+                          (p.e_id_fuente_financiamiento !== null && p.e_id_fuente_financiamiento !== "")
+                      )
+                      .map((p, index) => (
+                        <tr
+                          key={index}
+                          className={`border-b ${
+                            index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                          } hover:bg-gray-100 transition-colors`}
+                        >
+                          <td className="px-3 py-2 text-center">{p.no_requisicion}</td>
+                          <td className="px-3 py-2 text-center">
+                            {`${p.e_id_partida} – ${p.partida_descripcion}`}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {`${p.id_capitulo} – ${p.capitulo}`}
+                          </td>
+                          <td className="px-3 py-2 text-center">{p.fuente_financiamiento}</td>
+                          <td className="px-3 py-2 text-center">{p.descripcion}</td>
+                          <td className="px-3 py-2 text-center">{p.etiquetado}</td>
+                          <td className="px-3 py-2 text-center">{p.fondo}</td>
+                          <td className="px-3 py-2 text-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              onClick={() => handleEliminarPartida(index)}
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {/* Botones de navegación */}
+            <div className="flex justify-end mt-6 gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
                     <Button
                       variant="outline"
-                      style={{
-                        backgroundColor: p.id ? "#6c757d" : "#235391",
-                        color: "white",
-                        borderColor: p.id ? "#6c757d" : "#235391",
-                        cursor: p.id ? "not-allowed" : "pointer",
-                      }}
-                      disabled={!!p.id}
-                      onClick={() => {
-                        if (!p.id) handleGuardarPartidaActual(i);
-                      }}
+                      onClick={() => setStep(1)}
                     >
-                      {p.id ? "Partida guardada" : "Guardar partida"}
+                      ← Volver al paso 1
                     </Button>
-                  </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Regresa al paso anterior</p>
+                  </TooltipContent>
+                </Tooltip>
 
-                  </Card>
-                );
-              })}
-
-              <div className="flex justify-between">
-                <div className="flex gap-2">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          style={{ backgroundColor: "#10c706", color: "white" }}
-                          onClick={() =>
-                            setPartidas([
-                              ...partidas,
-                              {
-                                id: null,
-                                e_no_requisicion: "",
-                                e_id_partida: "",
-                                partida_descripcion: "",
-                                clave_capitulo: "",
-                                capitulo: "",
-                                e_id_fuente_financiamiento: "",
-                                fuente_descripcion: "",
-                                fuente_etiquetado: "",
-                                fuente_fondo: "",
-                                e_monto_presupuesto_suficiencia: "",
-                              },
-                            ])
-                          }
-                          disabled={!puedeAgregarPartida}
-                        >
-                          <PlusCircle className="w-4 h-4 mr-2" /> Nueva partida
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>Agrega una nueva partida</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <div className="flex gap-2">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="outline" onClick={() => setStep(1)}>
-                          ← Volver al paso 1
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>Regresa al paso anterior</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={async () => {
-                            // Verificar si hay partidas nuevas sin guardar
-                            const hayPartidasSinGuardar = partidas.some((p) => !p.id);
-
-                            if (hayPartidasSinGuardar) {
-                              // Solo guarda si hay partidas nuevas
-                              await handleGuardarPartidasValidado();
-                              return;
-                            }
-
-                            // ✅ Si todas ya están guardadas, solo avanzar
-                            setStep(3);
-                          }}
-                          style={{ backgroundColor: "#235391", color: "white" }}
-                        >
-                          Siguiente
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>Guarda las partidas y avanza al paso 3</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      onClick={handleNext}
+                      className="bg-[#235391] text-white hover:bg-[#1e3a8a] transition-colors"
+                    >
+                      Siguiente
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Continúa al paso 3: Rubros</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
     {/* Paso 3 */}
 {(() => {
@@ -1981,91 +2058,108 @@ export default function NuevoProcesoPage() {
         </div>
 
         {/* Lista de rubros añadidos */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border border-gray-200 rounded">
+        <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
+          <table className="min-w-full text-sm">
             <thead>
-              <tr>
-                <th className="py-2 px-4 border-b text-center">Partida asociada</th>
-                <th className="py-2 px-4 border-b text-center">Clave</th>
-                <th className="py-2 px-4 border-b text-center">Rubro</th>
-                <th className="py-2 px-4 border-b text-left">Monto</th>
-                <th className="py-2 px-4 border-b"></th>
+              <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
+                <th className="px-3 py-2 font-semibold text-center">Partida asociada</th>
+                <th className="px-3 py-2 font-semibold text-center">Clave</th>
+                <th className="px-3 py-2 font-semibold text-center">Rubro</th>
+                <th className="px-3 py-2 font-semibold text-center">Monto</th>
+                <th className="px-3 py-2 font-semibold text-center">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {presupuestosRubro.length === 0 && (
+              {presupuestosRubro.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center text-gray-400 py-3">No hay rubros añadidos.</td>
-                </tr>
-              )}
-              {presupuestosRubro.map((r, i) => (
-                <tr key={i}>
-                  <td className="py-2 px-4 border-b">
-                    {(() => {
-                      const partida = partidas.find(
-                        (p) => String(p.e_id_partida) === String(r.p_id_partida_asociada)
-                      );
-                      return partida
-                        ? `Partida #${partidas.indexOf(partida) + 1} — ${partida.e_id_partida} — ${partida.partida_descripcion}`
-                        : "Sin asignar";
-                    })()}
+                  <td colSpan={5} className="py-3 text-center text-gray-400">
+                    No hay rubros añadidos.
                   </td>
-                  <td className="py-2 px-4 border-b">{r.p_e_id_rubro}</td>
-                  <td className="py-2 px-4 border-b">{r.rubro_descripcion}</td>
-                  <td className="py-2 px-4 border-b">{r.p_e_monto_presupuesto_suficiencia}</td>
-                  <td className="py-2 px-4 border-b text-right">
-                    <Button
-                      variant="ghost"
-                      className="text-red-600 hover:text-white hover:bg-red-600 p-2"
-                      onClick={async () => {
-                        const rubro = presupuestosRubro[i];
-                        if (!rubro || !rubro.id) {
-                          toast.warning("Este rubro aún no tiene ID en la base de datos.");
-                          setPresupuestosRubro((prev) => prev.filter((_, idx) => idx !== i));
-                          return;
-                        }
-
-                        if (!confirm("¿Seguro que deseas eliminar este rubro?")) return;
-
-                        try {
-                          const partidaAsociada = partidas.find(
-                            (p) => String(p.e_id_partida) === String(rubro.p_id_partida_asociada)
-                          );
-                          if (!partidaAsociada || !partidaAsociada.id) {
-                            toast.warning("La partida asociada no tiene un ID válido.");
+                </tr>
+              ) : (
+                presupuestosRubro.map((r, i) => (
+                  <tr
+                    key={i}
+                    className={`border-b ${
+                      i % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    } hover:bg-gray-100 transition-colors`}
+                  >
+                    <td className="px-3 py-2 text-center">
+                      {(() => {
+                        const partida = partidas.find(
+                          (p) => String(p.e_id_partida) === String(r.p_id_partida_asociada)
+                        );
+                        return partida
+                          ? `Partida #${partidas.indexOf(partida) + 1} — ${partida.e_id_partida} — ${partida.partida_descripcion}`
+                          : "Sin asignar";
+                      })()}
+                    </td>
+                    <td className="px-3 py-2 text-center">{r.p_e_id_rubro}</td>
+                    <td className="px-3 py-2 text-left">{r.rubro_descripcion}</td>
+                    <td className="px-3 py-2 text-right">
+                      {r.p_e_monto_presupuesto_suficiencia}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        onClick={async () => {
+                          const rubro = presupuestosRubro[i];
+                          if (!rubro || !rubro.id) {
+                            toast.warning("Este rubro aún no tiene ID en la base de datos.");
+                            setPresupuestosRubro((prev) =>
+                              prev.filter((_, idx) => idx !== i)
+                            );
                             return;
                           }
+                          if (!confirm("¿Seguro que deseas eliminar este rubro?")) return;
 
-                          const payload = {
-                            p_accion: "ELIMINAR",
-                            p_id_seguimiento_partida: Number(partidaAsociada.id),
-                            p_id: Number(rubro.id),
-                          };
+                          try {
+                            const partidaAsociada = partidas.find(
+                              (p) =>
+                                String(p.e_id_partida) ===
+                                String(rubro.p_id_partida_asociada)
+                            );
+                            if (!partidaAsociada || !partidaAsociada.id) {
+                              toast.warning("La partida asociada no tiene un ID válido.");
+                              return;
+                            }
 
-                          console.log("🗑️ Eliminando rubro en backend:", payload);
+                            const payload = {
+                              p_accion: "ELIMINAR",
+                              p_id_seguimiento_partida: Number(partidaAsociada.id),
+                              p_id: Number(rubro.id),
+                            };
 
-                          const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-ente-v2/`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(payload),
-                          });
+                            const resp = await fetch(
+                              `${API_BASE}/procesos/seguimiento/partida-rubro-ente-v2/`,
+                              {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload),
+                              }
+                            );
 
-                          const data = await resp.json();
-                          if (!resp.ok) throw new Error(JSON.stringify(data));
+                            const data = await resp.json();
+                            if (!resp.ok) throw new Error(JSON.stringify(data));
 
-                          toast.success("Rubro eliminado correctamente.");
-                          setPresupuestosRubro((prev) => prev.filter((_, idx) => idx !== i));
-                        } catch (err) {
-                          console.error("❌ Error al eliminar rubro:", err);
-                          toast.error("Error al eliminar rubro");
-                        }
-                      }}
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+                            toast.success("Rubro eliminado correctamente.");
+                            setPresupuestosRubro((prev) =>
+                              prev.filter((_, idx) => idx !== i)
+                            );
+                          } catch (err) {
+                            console.error("❌ Error al eliminar rubro:", err);
+                            toast.error("Error al eliminar rubro");
+                          }
+                        }}
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -2114,19 +2208,25 @@ export default function NuevoProcesoPage() {
     <Card>
       <CardContent className="space-y-5 mt-4">
         <div>
-        <Label>Oficio de invitación</Label>
-        <Input
-          value={form.oficio_invitacion ?? ""}
-          disabled
-          className="bg-gray-100 text-gray-700 cursor-not-allowed w-full"
-        />
       </div>
+
+
         <div className="flex items-center gap-3 mb-6">
         <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
           <Link href="/dashboard">←</Link>
         </Button>
         <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
       </div>
+
+      {/* Campo de Oficio de invitación - abajo del título */}
+      <div className="mb-4">
+        <Label>Oficio de invitación</Label>
+        <Input
+          value={form.oficio_invitacion ?? ""}
+          disabled
+          className="bg-gray-100 text-gray-700 cursor-not-allowed w-full"
+        />
+        </div>
 
         {/* Formulario para añadir proveedor */}
         <div className="p-4 rounded border border-gray-200 bg-gray-50 mb-4">
@@ -2158,13 +2258,18 @@ export default function NuevoProcesoPage() {
                 }
 
                 const payloadProveedor = {
-                  p_accion: "NUEVO",
-                  p_id_seguimiento_partida_rubro: idRubroSeleccionado,
-                  p_id: 0,
-                  p_e_rfc_proveedor: form.e_rfc_proveedor,
-                  p_e_importe_sin_iva: parseFloat((form.e_importe_sin_iva || "").replace(/[^0-9.]/g, "")) || 0,
-                  p_e_importe_total: parseFloat((form.e_importe_total || "").replace(/[^0-9.]/g, "")) || 0,
-                };
+                p_accion: "NUEVO",
+                p_id_seguimiento_partida_rubro: idRubroSeleccionado,
+                p_id: 0,
+                p_e_rfc_proveedor: form.e_rfc_proveedor,
+                p_e_razon_social: form.razon_social,
+                p_e_nombre_comercial: form.nombre_comercial,
+                p_e_persona_juridica: form.persona_juridica,
+                p_e_correo_electronico: form.correo_electronico,
+                p_e_entidad_federativa: parseInt(selectedEntidadId), // ✅ nuevo campo
+                p_e_importe_sin_iva: parseFloat((form.e_importe_sin_iva || "").replace(/[^\d.-]/g, "")) || 0,
+                p_e_importe_total: parseFloat((form.e_importe_total || "").replace(/[^\d.-]/g, "")) || 0,
+              };
 
                 const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`, {
                   method: "POST",
@@ -2184,6 +2289,8 @@ export default function NuevoProcesoPage() {
                     e_importe_sin_iva: form.e_importe_sin_iva,
                     e_importe_total: form.e_importe_total,
                     p_e_id_rubro_partida: form.p_e_id_rubro_partida,
+                    rubro_partida: form.rubro_partida_texto || "", // ✅ muestra el texto del select
+
                     id: data.resultado,
                   },
                 ]);
@@ -2205,13 +2312,17 @@ export default function NuevoProcesoPage() {
             <div className="md:col-span-3">
               <Label>Seleccionar Rubro y Partida</Label>
               <select
-                className="border rounded-md p-2 w-full"
-                value={form.p_e_id_rubro_partida || ""}
-                onChange={e => setForm(prev => ({
+              className="border rounded-md p-2 w-full"
+              value={form.p_e_id_rubro_partida || ""}
+              onChange={(e) => {
+                const selectedOption = e.target.options[e.target.selectedIndex];
+                setForm((prev) => ({
                   ...prev,
                   p_e_id_rubro_partida: e.target.value,
-                }))}
-              >
+                  rubro_partida_texto: selectedOption.text, // ✅ guarda el texto visible
+                }));
+              }}
+            >
                 <option value="">Seleccione rubro/partida…</option>
                 {presupuestosRubro.map((r, idx) => {
                   const idValido = r.id || Number(sessionStorage.getItem("idRubroCreado")) || 0;
@@ -2232,8 +2343,202 @@ export default function NuevoProcesoPage() {
             {/* RFC del proveedor */}
             <div className="md:col-span-3">
               <Label>RFC del proveedor</Label>
+              {/* Botones Ver/Añadir Proveedor */}
+<div className="flex items-center gap-3 mt-3">
+  <Button
+    type="button"
+    variant="outline"
+    onClick={() => setShowVerProveedoresDialog(true)}
+    className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
+  >
+    <Eye className="w-5 h-5" />
+    Ver proveedores
+  </Button>
+
+  <Button
+    type="button"
+    variant="outline"
+    onClick={() => setShowNuevoProveedorDialog(true)}
+    className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
+  >
+    <UserPlus className="w-5 h-5" />
+    Añadir proveedor
+  </Button>
+</div>
+
+{/* Dialog para ver proveedores */}
+<Dialog open={showVerProveedoresDialog} onOpenChange={setShowVerProveedoresDialog}>
+  <DialogContent className="max-w-4xl">
+    <DialogHeader>
+      <DialogTitle>Listado de Proveedores</DialogTitle>
+      <p className="text-sm text-gray-500">Consulta los proveedores registrados.</p>
+    </DialogHeader>
+
+    <Input
+      placeholder="Buscar por RFC o razón social..."
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      className="my-3"
+    />
+
+    <div className="max-h-[400px] overflow-y-auto border rounded-md">
+      <table className="min-w-full text-sm">
+        <thead className="bg-gray-100">
+          <tr>
+            <th className="py-2 px-4 text-left">RFC</th>
+            <th className="py-2 px-4 text-left">Razón Social</th>
+            <th className="py-2 px-4 text-left">Correo</th>
+            <th className="py-2 px-4 text-left">Entidad</th>
+          </tr>
+        </thead>
+        <tbody>
+          {proveedoresDialog
+            .filter(
+              (p) =>
+                p.rfc.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.razon_social.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            .map((prov) => (
+              <tr key={prov.rfc} className="border-b">
+                <td className="py-2 px-4">{prov.rfc}</td>
+                <td className="py-2 px-4">{prov.razon_social}</td>
+                <td className="py-2 px-4">{prov.correo_electronico}</td>
+                <td className="py-2 px-4">{prov.entidad_federativa}</td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* Dialog para añadir proveedor */}
+<Dialog open={showNuevoProveedorDialog} onOpenChange={setShowNuevoProveedorDialog}>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle>Añadir nuevo proveedor</DialogTitle>
+      <p className="text-sm text-gray-500">Completa los datos del proveedor.</p>
+    </DialogHeader>
+
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // 🚫 Evita que el evento llegue al formulario principal
+        const form = e.currentTarget;
+        const data = {
+          p_rfc: form.rfc.value,
+          p_razon_social: form.razon_social.value,
+          p_nombre_comercial: form.nombre_comercial.value,
+          p_persona_juridica: form.persona_juridica.value,
+          p_correo_electronico: form.correo_electronico.value,
+          p_id_entidad_federativa: parseInt(selectedEntidadId || "0"),
+        };
+
+        try {
+          const resp = await fetch(`${API_BASE}/catalogos/sp_cat_proveedor_gestionar_dialog`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+          const result = await resp.json();
+          if (!resp.ok) throw new Error(result.detail || "Error en la petición");
+          toast.success("Proveedor agregado correctamente");
+          setShowNuevoProveedorDialog(false);
+          // 🔄 Actualizar el catálogo de proveedores después de añadir uno nuevo
+          try {
+            const proveedoresResp = await fetch(`${API_BASE}/catalogos/proveedores`);
+            const proveedoresData = await proveedoresResp.json();
+            setCatalogoProveedores(proveedoresData);
+          } catch (err) {
+            console.error("❌ Error al refrescar catálogo de proveedores:", err);
+          }
+        } catch (err) {
+          toast.error("Error al agregar proveedor");
+        }
+      }}
+      className="space-y-3"
+    >
+      <Input name="rfc" placeholder="RFC" required />
+      <Input name="razon_social" placeholder="Razón Social" required />
+      <Input name="nombre_comercial" placeholder="Nombre Comercial" />
+
+      {/* Persona Jurídica */}
+      <div>
+        <Label>Persona Jurídica</Label>
+        <div className="space-y-2 mt-2">
+          <label className="flex items-center space-x-2">
+            <input
+              type="radio"
+              name="persona_juridica"
+              value="PERSONA FÍSICA"
+            />
+            <span>PERSONA FÍSICA</span>
+          </label>
+          <label className="flex items-center space-x-2">
+            <input
+              type="radio"
+              name="persona_juridica"
+              value="PERSONA MORAL"
+            />
+            <span>PERSONA MORAL</span>
+          </label>
+        </div>
+      </div>
+
+      <Input name="correo_electronico" placeholder="Correo electrónico" type="email" />
+
+      {/* Entidad Federativa */}
+      <div>
+        <Label>Entidad Federativa</Label>
+        <Command>
+          <CommandInput
+            placeholder="Buscar entidad..."
+            value={entidadQuery}
+            onValueChange={(val) => {
+              setEntidadQuery(val);
+              setMostrarListaEntidades(val.trim().length > 0);
+            }}
+          />
+
+          {mostrarListaEntidades && entidadQuery.trim().length > 0 && (
+            <CommandList>
+              {entidades
+                .filter((ent) =>
+                  ent.descripcion.toLowerCase().includes(entidadQuery.toLowerCase())
+                )
+                .map((ent) => (
+                  <CommandItem
+                    key={ent.id}
+                    onSelect={() => {
+                      setSelectedEntidadId(String(ent.id));
+                      setEntidadQuery(ent.descripcion);
+                      setMostrarListaEntidades(false);
+                    }}
+                  >
+                    {ent.descripcion}
+                  </CommandItem>
+                ))}
+            </CommandList>
+          )}
+        </Command>
+      </div>
+
+      <div className="flex justify-end gap-2 mt-4">
+        <Button
+          variant="outline"
+          onClick={() => setShowNuevoProveedorDialog(false)}
+        >
+          Cancelar
+        </Button>
+        <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white">
+          Guardar
+        </Button>
+      </div>
+    </form>
+  </DialogContent>
+</Dialog>
               <div className="relative">
-                <div className="relative">
+                <div className="mt-4">
                   <Command shouldFilter={false}>
                     <CommandInput
                       ref={rfcInputRef}
@@ -2244,6 +2549,13 @@ export default function NuevoProcesoPage() {
                           ...prev,
                           e_rfc_proveedor: value,
                         }));
+
+                        // 🔁 Si el usuario borra o cambia texto, vuelve a mostrar la lista
+                        if (value.trim().length > 0) {
+                          setMostrarLista(true);
+                        } else {
+                          setMostrarLista(false);
+                        }
                       }}
                     />
                     {/* ✅ Mostrar CommandList solo cuando el usuario escribe */}
@@ -2267,9 +2579,15 @@ export default function NuevoProcesoPage() {
                                     razon_social: p.razon_social || "",
                                     nombre_comercial: p.nombre_comercial || "",
                                   }));
-                                  // ✅ Cierra la lista temporalmente al seleccionar
+
+                                  // ✅ Inserta el valor seleccionado directamente en el input
+                                  if (rfcInputRef.current) {
+                                    rfcInputRef.current.value = rfc;
+                                    rfcInputRef.current.blur(); // 🔒 Cierra el foco para que desaparezca la lista
+                                  }
+
+                                  // ✅ Oculta la lista inmediatamente al seleccionar
                                   setMostrarLista(false);
-                                  setTimeout(() => setMostrarLista(true), 200);
                                 }}
                               >
                                 {rfc} — {p.razon_social || "—"} — {p.nombre_comercial || "—"}
@@ -2338,67 +2656,58 @@ export default function NuevoProcesoPage() {
         </div>
 
         {/* Tabla de proveedores */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border border-gray-200 rounded">
-            <thead>
-              <tr>
-                <th className="py-2 px-4 border-b text-left">Rubro / Partida</th>
-                <th className="py-2 px-4 border-b text-left">RFC</th>
-                <th className="py-2 px-4 border-b text-left">Razón social</th>
-                <th className="py-2 px-4 border-b text-left">Nombre comercial</th>
-                <th className="py-2 px-4 border-b text-left">Importe sin IVA</th>
-                <th className="py-2 px-4 border-b text-left">Importe total</th>
-                <th className="py-2 px-4 border-b text-left">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {proveedores.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center text-gray-400 py-3">
-                    No hay proveedores añadidos.
-                  </td>
-                </tr>
-              )}
-              {proveedores.map((prov, i) => (
-                <tr key={i}>
-                  <td className="py-2 px-4 border-b">
-                    {(() => {
-                      const rubro = presupuestosRubro.find(
-                        r => String(r.id || Number(sessionStorage.getItem("idRubroCreado")) || 0) === String(prov.p_e_id_rubro_partida)
-                      );
-                      if (!rubro) return "No asignado";
-                      const partidaAsociada =
-                        partidas.find((p) => String(p.e_id_partida) === String(rubro.p_id_partida_asociada));
-                      const textoPartida = partidaAsociada
-                        ? `${partidaAsociada.e_id_partida}`
-                        : "Partida no encontrada";
-                      return `${textoPartida} | Rubro ${rubro.p_e_id_rubro} — ${rubro.rubro_descripcion}`;
-                    })()}
-                  </td>
-                  <td className="py-2 px-4 border-b">{prov.e_rfc_proveedor}</td>
-                  <td className="py-2 px-4 border-b">{prov.razon_social}</td>
-                  <td className="py-2 px-4 border-b">{prov.nombre_comercial}</td>
-                  <td className="py-2 px-4 border-b">{prov.e_importe_sin_iva}</td>
-                  <td className="py-2 px-4 border-b">{prov.e_importe_total}</td>
-                  <td className="py-2 px-4 border-b">
-                    <Button
-                      variant="ghost"
-                      className="text-red-600 hover:text-white hover:bg-red-600 p-2"
-                      onClick={() => {
-                        if (confirm("¿Seguro que deseas eliminar este proveedor?")) {
-                          setProveedores(prev => prev.filter((_, idx) => idx !== i));
-                          toast.success("Proveedor eliminado correctamente.");
-                        }
-                      }}
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+{/* Tabla de proveedores añadidos */}
+<h2 className="text-lg font-semibold text-[#235391] mb-2">Proveedores añadidos</h2>
+<div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
+  <table className="min-w-full text-sm">
+    <thead>
+      <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
+        <th className="px-3 py-2 font-semibold text-center">Rubro / Partida</th>
+        <th className="px-3 py-2 font-semibold text-center">RFC</th>
+        <th className="px-3 py-2 font-semibold text-center">Razón social</th>
+        <th className="px-3 py-2 font-semibold text-center">Nombre comercial</th>
+        <th className="px-3 py-2 font-semibold text-center">Importe sin IVA</th>
+        <th className="px-3 py-2 font-semibold text-center">Importe total</th>
+        <th className="px-3 py-2 font-semibold text-center">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {proveedores.length === 0 ? (
+        <tr>
+          <td colSpan={7} className="py-3 text-center text-gray-400">
+            No hay proveedores añadidos.
+          </td>
+        </tr>
+      ) : (
+        proveedores.map((p, index) => (
+          <tr
+            key={index}
+            className={`border-b ${
+              index % 2 === 0 ? "bg-white" : "bg-gray-50"
+            } hover:bg-gray-100 transition-colors`}
+          >
+            <td className="px-3 py-2 text-center">{p.rubro_partida || "—"}</td>
+            <td className="px-3 py-2 text-center">{p.e_rfc_proveedor}</td>
+            <td className="px-3 py-2 text-center">{p.razon_social}</td>
+            <td className="px-3 py-2 text-center">{p.nombre_comercial}</td>
+            <td className="px-3 py-2 text-center">{p.e_importe_sin_iva}</td>
+            <td className="px-3 py-2 text-center">{p.e_importe_total}</td>
+            <td className="px-3 py-2 text-center">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                onClick={() => handleEliminarProveedor(index)}
+              >
+                <Trash2 className="w-5 h-5" />
+              </Button>
+            </td>
+          </tr>
+        ))
+      )}
+    </tbody>
+  </table>
+</div>
 
         {/* Botones de navegación */}
         <div className="flex justify-start gap-3 mt-6">

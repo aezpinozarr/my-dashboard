@@ -31,6 +31,7 @@ interface Props {
   setShowDeleted: React.Dispatch<React.SetStateAction<boolean>>;
   columnVisibility?: Record<string, boolean>;
   setColumnVisibility?: (v: Record<string, boolean>) => void;
+  onNewClick?: () => void;
 }
 
 export function ActionButtonsGroup({
@@ -43,6 +44,7 @@ export function ActionButtonsGroup({
   table,
   columnVisibility,
   setColumnVisibility,
+  onNewClick,
 }: Props) {
   return (
     <div className="flex flex-col items-end gap-2">
@@ -51,14 +53,12 @@ export function ActionButtonsGroup({
         {/* Nuevo */}
         {!hideNew && (
           <Button
-            asChild
+            onClick={onNewClick}
             size="icon"
             className="rounded-md bg-[#235391] hover:bg-[#1e4982] text-white cursor-pointer"
             title="Nuevo"
           >
-            <Link href={newPath || ""}>
-              <PlusCircle size={20} />
-            </Link>
+            <PlusCircle size={20} />
           </Button>
         )}
 

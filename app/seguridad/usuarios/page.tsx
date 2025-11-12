@@ -100,6 +100,26 @@ export default function UsuariosPage() {
   });
   const [editLoading, setEditLoading] = React.useState(false);
 
+  // Estado para diálogo de nuevo usuario
+  const [isNewDialogOpen, setIsNewDialogOpen] = React.useState(false);
+  // Estado para datos del usuario nuevo
+  const [newUserData, setNewUserData] = React.useState<{
+    username: string;
+    nombre: string;
+    tipo: string;
+    p_pass_hash: string;
+    p_id_ente?: string;
+  }>({
+    username: "",
+    nombre: "",
+    tipo: "",
+    p_pass_hash: "",
+    p_id_ente: "",
+  });
+  const [newLoading, setNewLoading] = React.useState(false);
+  const [entesFiltradosNuevo, setEntesFiltradosNuevo] = React.useState<{ id: string; descripcion: string }[]>([]);
+  const [enteSeleccionadoNuevo, setEnteSeleccionadoNuevo] = React.useState<{ id: string; descripcion: string } | null>(null);
+
   // Inicializar fecha
   React.useEffect(() => {
     setHoy(
@@ -207,6 +227,107 @@ export default function UsuariosPage() {
       e.descripcion.toLowerCase().includes(valor.toLowerCase())
     );
     setEntesFiltrados(filtrados);
+  };
+  // Buscar entes para nuevo usuario
+  const handleBuscarEnteNuevo = (valor: string) => {
+    if (!valor.trim()) {
+      setEntesFiltradosNuevo([]);
+      return;
+    }
+    const filtrados = entes.filter((e) =>
+      e.descripcion.toLowerCase().includes(valor.toLowerCase())
+    );
+    setEntesFiltradosNuevo(filtrados);
+  };
+  // Al abrir diálogo de nuevo usuario, cargar entes si no están cargados
+  React.useEffect(() => {
+    if (isNewDialogOpen && entes.length === 0) {
+      fetch(`${API_BASE}/catalogos/entes?p_id=-99`)
+        .then((res) => res.json())
+        .then((data) => {
+          setEntes(Array.isArray(data) ? data : []);
+        })
+        .catch((err) => {
+          console.error("❌ Error cargando entes:", err);
+          toast.error("❌ Error cargando entes");
+        });
+    }
+    if (!isNewDialogOpen) {
+      setNewUserData({
+        username: "",
+        nombre: "",
+        tipo: "",
+        p_pass_hash: "",
+        p_id_ente: "",
+      });
+      setEntesFiltradosNuevo([]);
+      setEnteSeleccionadoNuevo(null);
+    }
+  }, [isNewDialogOpen]);
+
+  // Manejar cambios en el formulario de nuevo usuario
+  const handleNewChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const target = e.target as HTMLInputElement | HTMLSelectElement;
+    const { name, value } = target;
+    setNewUserData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  // Crear nuevo usuario
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Validación básica
+    if (!newUserData.username || !newUserData.p_pass_hash || !newUserData.tipo) {
+      toast.error("Por favor, completa los campos obligatorios.");
+      return;
+    }
+    setNewLoading(true);
+    try {
+      const resp = await fetch(`${API_BASE}/seguridad/usuarios`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          p_username: newUserData.username,
+          p_nombre: newUserData.nombre,
+          p_pass_hash: newUserData.p_pass_hash,
+          p_tipo: newUserData.tipo,
+          p_id_ente: newUserData.p_id_ente,
+        }),
+      });
+
+      if (!resp.ok) throw new Error(await resp.text());
+
+      const result = await resp.json();
+      toast.success("✅ Usuario creado correctamente");
+
+      // ✅ Si el backend devuelve el ID, obtener el usuario recién creado
+      if (result.id) {
+        const resUser = await fetch(`${API_BASE}/seguridad/usuarios/${result.id}`);
+        if (resUser.ok) {
+          const nuevoUsuario = await resUser.json();
+          setUsuarios((prev) => [...prev, nuevoUsuario]);
+        }
+      } else {
+        // Si no devuelve ID, recargar la lista completa
+        const resAll = await fetch(`${API_BASE}/seguridad/usuarios/`);
+        if (resAll.ok) {
+          const usuariosActualizados = await resAll.json();
+          setUsuarios(usuariosActualizados);
+        }
+      }
+
+      // Cerrar el diálogo
+      setIsNewDialogOpen(false);
+    } catch (err: any) {
+      console.error("❌ Error creando usuario:", err);
+      toast.error("❌ Error creando usuario");
+    } finally {
+      setNewLoading(false);
+    }
   };
 
   // Manejar cambios en el formulario de edición (corregido para TypeScript)
@@ -334,6 +455,11 @@ export default function UsuariosPage() {
             <p className="text-gray-600 text-sm">
               Consulta, crea o edita usuarios del sistema.
             </p>
+            {usuariosFiltrados.length > 0 && (
+              <p className="text-muted-foreground text-sm">
+                Mostrando {usuariosFiltrados.length} registro{usuariosFiltrados.length !== 1 && "s"}.
+              </p>
+            )}
           </div>
         </div>
         {/* CONTROLES */}
@@ -342,13 +468,14 @@ export default function UsuariosPage() {
           setViewMode={setView}
           onExport={() => console.log("Exportar CSV")}
           showExport={true}
-          newPath="/seguridad/usuarios/new"
+          // newPath="/seguridad/usuarios/new"
           hideNew={false}
           table={tableInstance}
           showDeleted={showDeleted}
           setShowDeleted={setShowDeleted}
           columnVisibility={columnVisibility}
           setColumnVisibility={setColumnVisibility}
+          onNewClick={() => setIsNewDialogOpen(true)}
         />
       </div>
 
@@ -547,6 +674,164 @@ export default function UsuariosPage() {
                   type="button"
                   variant="outline"
                   onClick={() => setIsDialogOpen(false)}
+                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  style={{ backgroundColor: "#34e004", color: "white" }}
+                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                >
+                  Guardar
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+      {/* DIÁLOGO NUEVO USUARIO */}
+      {/* DIÁLOGO NUEVO USUARIO */}
+      <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
+        <DialogContent className="sm:max-w-lg sm:mx-auto">
+          <DialogHeader>
+            <DialogTitle>Nuevo Usuario</DialogTitle>
+          </DialogHeader>
+          {newLoading ? (
+            <p>Cargando...</p>
+          ) : (
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="new-username" className="block text-sm font-medium text-gray-700">
+                  Usuario <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  id="new-username"
+                  name="username"
+                  type="text"
+                  value={newUserData.username}
+                  onChange={handleNewChange}
+                  required
+                  className="rounded-md"
+                />
+              </div>
+              <div>
+                <label htmlFor="new-nombre" className="block text-sm font-medium text-gray-700">
+                  Nombre completo
+                </label>
+                <Input
+                  id="new-nombre"
+                  name="nombre"
+                  type="text"
+                  value={newUserData.nombre}
+                  onChange={handleNewChange}
+                  className="rounded-md"
+                />
+              </div>
+              <div>
+                <Label htmlFor="new-pass" className="block text-sm font-medium text-gray-700">
+                  Contraseña <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="new-pass"
+                  name="p_pass_hash"
+                  type="password"
+                  value={newUserData.p_pass_hash}
+                  onChange={handleNewChange}
+                  required
+                  className="rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Selecciona Ente</label>
+                <Command className="border rounded-md">
+                  {enteSeleccionadoNuevo ? (
+                    <>
+                      <div className="p-2 text-sm text-gray-700 border-b bg-gray-50">
+                        <span className="font-medium text-gray-800">
+                          Seleccionado:
+                        </span>{" "}
+                        <span className="text-blue-700 font-semibold">
+                          {enteSeleccionadoNuevo?.descripcion ?? ""}
+                        </span>
+                        <button
+                          type="button"
+                          className="ml-2 text-xs text-blue-600 hover:underline"
+                          onClick={() => {
+                            setEnteSeleccionadoNuevo(null);
+                            setNewUserData((prev) => ({ ...prev, p_id_ente: "" }));
+                          }}
+                        >
+                          Cambiar
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <CommandInput
+                        placeholder="Escribe para buscar..."
+                        onValueChange={handleBuscarEnteNuevo}
+                      />
+                      <CommandList>
+                        <CommandGroup heading="Coincidencias">
+                          {entesFiltradosNuevo.length === 0 ? (
+                            <div className="p-2 text-sm text-gray-500">
+                              Escribe para buscar entes
+                            </div>
+                          ) : (
+                            entesFiltradosNuevo.map((e) => (
+                              <CommandItem
+                                key={e.id}
+                                value={e.descripcion}
+                                onSelect={() => {
+                                  setEnteSeleccionadoNuevo(e);
+                                  setNewUserData((prev) => ({ ...prev, p_id_ente: e.id }));
+                                  setEntesFiltradosNuevo([]);
+                                }}
+                              >
+                                {e.descripcion}
+                              </CommandItem>
+                            ))
+                          )}
+                        </CommandGroup>
+                      </CommandList>
+                    </>
+                  )}
+                </Command>
+              </div>
+              <div>
+                <Label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipo de usuario <span className="text-red-500">*</span>
+                </Label>
+                <div className="border rounded-md p-3 bg-white">
+                  <RadioGroup
+                    value={newUserData.tipo}
+                    onValueChange={(value) =>
+                      setNewUserData((prev) => ({ ...prev, tipo: value }))
+                    }
+                    className="flex flex-col gap-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="ENTE" id="new-r-ente" />
+                      <Label htmlFor="new-r-ente" className="text-sm text-gray-700">
+                        ENTE
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="RECTOR" id="new-r-rector" />
+                      <Label htmlFor="new-r-rector" className="text-sm text-gray-700">
+                        RECTOR
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsNewDialogOpen(false)}
                   style={{ backgroundColor: "#db200b", color: "white" }}
                   className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
                 >
