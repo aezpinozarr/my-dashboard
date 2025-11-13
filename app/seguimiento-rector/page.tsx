@@ -8,12 +8,11 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
-import { Settings2 } from "lucide-react";
+import { Settings2, CircleEllipsis, ChevronUp, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
-import { List, LayoutGrid, ChevronUp, ChevronDown } from "lucide-react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -31,7 +30,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
 } from "@/components/ui/sheet";
 import {
   Accordion,
@@ -39,6 +37,13 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
+
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
 const API_BASE =
   typeof window !== "undefined"
@@ -71,7 +76,7 @@ type Preregistro = {
 
 export default function SeguimientoRectorPage() {
   const [registros, setRegistros] = useState<Preregistro[]>([]);
-  const [view, setView] = useState<"cards" | "table">("cards");
+  const [view, setView] = useState<"cards" | "table">("table");
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
   const router = useRouter();
@@ -79,6 +84,7 @@ export default function SeguimientoRectorPage() {
   const [detalle, setDetalle] = useState<any[]>([]);
 
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
+    expander: true,
     id: true,
     ente: true,
     e_oficio_invitacion: true,
@@ -87,8 +93,6 @@ export default function SeguimientoRectorPage() {
     tipo_licitacion_no_veces_descripcion: true,
     servidor_publico_emite: true,
     e_fecha_y_hora_reunion: true,
-    r_estatus: true,
-    acciones: true,
   });
 
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -97,6 +101,55 @@ export default function SeguimientoRectorPage() {
   // TanStack Table definition
   // ===============================
   const columns: ColumnDef<Preregistro>[] = [
+    {
+      id: "expander",
+      header: "",
+      cell: ({ row }) => (
+        <TooltipProvider delayDuration={100}>
+          <div className="flex items-center gap-2 items-baseline mt-[2px]">
+            {/* Indicador amarillo alineado como en procesos */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="w-3 h-3 rounded-full bg-yellow-400 cursor-pointer transition-colors translate-y-[-2px]"
+                  aria-label="PREREGISTRADO"
+                />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                PREREGISTRADO
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Botón de acciones (lleva a captura) */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 p-0 -mt-1"
+                  onClick={() => {
+                    router.push(`/seguimiento-rector/new?id=${row.original.id}`);
+                  }}
+                  tabIndex={0}
+                  type="button"
+                >
+                  <CircleEllipsis
+                    size={18}
+                    className="fill-blue-600 stroke-white hover:fill-blue-700 transition-colors"
+                  />
+                  <span className="sr-only">Captura seguimiento</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                Captura seguimiento
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
+      ),
+      size: 60,
+      enableSorting: false,
+    },
     {
       accessorKey: "id",
       header: "ID",
@@ -144,33 +197,6 @@ export default function SeguimientoRectorPage() {
       header: "Fecha Reunión",
       cell: ({ getValue }) => getValue() || "—",
       size: 140,
-    },
-    {
-      accessorKey: "r_estatus",
-      header: "Estatus",
-      cell: ({ row }) => (
-        <span
-          className={`px-2 py-1 rounded text-xs font-semibold ${
-            row.original.r_estatus === "PREREGISTRADO"
-              ? "bg-yellow-100 text-yellow-700"
-              : "bg-green-100 text-green-700"
-          }`}
-        >
-          {row.original.r_estatus}
-        </span>
-      ),
-      size: 120,
-    },
-    {
-      id: "acciones",
-      header: "Acciones",
-      cell: ({ row }) => (
-        <Link href={`/seguimiento-rector/new?id=${row.original.id}`}>
-          <Button className="bg-[#235391] hover:bg-[#1e487d] text-white cursor-pointer">Captura</Button>
-        </Link>
-      ),
-      enableSorting: false,
-      size: 100,
     },
   ];
 
@@ -250,7 +276,6 @@ export default function SeguimientoRectorPage() {
     return haystack.includes(term);
   });
 
-
   // Formatea cualquier valor a moneda MXN de manera segura
   const formatMXN = (v: any) => {
     const n = Number(v);
@@ -281,7 +306,7 @@ export default function SeguimientoRectorPage() {
   // 🔹 Render
   // ===============================
   return (
-    <main className="max-w-7xl mx-auto p-6 space-y-6">
+    <main className="max-w-7xl mx-auto p-6 space-y-6 bg-white min-h-screen">
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
@@ -305,7 +330,6 @@ export default function SeguimientoRectorPage() {
                 Mostrando {registros.length} {registros.length === 1 ? "registro" : "registros"}.
               </p>
             )}
-
           </div>
         </div>
 
@@ -317,7 +341,7 @@ export default function SeguimientoRectorPage() {
             showExport={view === "table"}
             newPath={undefined}
             hideNew
-            table={table} // ✅ se pasa la instancia de la tabla para personalizar columnas
+            table={table} // ✅ Personalizar columnas, igual que en procesos
           />
         </div>
       </div>
@@ -326,7 +350,7 @@ export default function SeguimientoRectorPage() {
       <div className="w-full">
         <Input
           type="text"
-          placeholder="Buscar por nombre, usuario o tipo..."
+          placeholder="Buscar por ID, ente, clasificación, etc."
           value={filtro}
           onChange={(e) => setFiltro(e.target.value)}
           className="w-full h-11 text-base"
@@ -339,9 +363,9 @@ export default function SeguimientoRectorPage() {
         <p className="text-center text-gray-600">No hay registros preregistrados.</p>
       ) : view === "table" ? (
         // =======================
-        // 📋 VISTA TABLA (TanStack)
+        // 📋 VISTA TABLA (igual formato que en procesos)
         // =======================
-        <>
+        <div className="w-full overflow-x-auto border rounded-lg bg-white shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>
@@ -372,8 +396,8 @@ export default function SeguimientoRectorPage() {
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getCanSort() && (
                         <span>
-                          {header.column.getIsSorted() === "asc" && <ChevronUp size={14} />}
-                          {header.column.getIsSorted() === "desc" && <ChevronDown size={14} />}
+                          {header.column.getIsSorted() === "asc" && <ChevronUp size={14} className="inline" />}
+                          {header.column.getIsSorted() === "desc" && <ChevronDown size={14} className="inline" />}
                         </span>
                       )}
                     </div>
@@ -390,7 +414,7 @@ export default function SeguimientoRectorPage() {
                 </TableRow>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.original.id}>
+                  <TableRow key={row.original.id} className="transition-colors">
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id} className="py-2 px-3 align-top">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -401,7 +425,7 @@ export default function SeguimientoRectorPage() {
               )}
             </TableBody>
           </Table>
-        </>
+        </div>
       ) : (
         // =======================
         // 🏛️ VISTA TARJETAS
@@ -424,10 +448,10 @@ export default function SeguimientoRectorPage() {
                 <p><strong>Fecha reunión:</strong>{" "}
                   {r.e_fecha_y_hora_reunion
                     ? new Date(r.e_fecha_y_hora_reunion).toLocaleString("es-MX", {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                      hour12: false, // ✅ fuerza formato de 24 horas
-                    })
+                        dateStyle: "short",
+                        timeStyle: "short",
+                        hour12: false,
+                      })
                     : "—"}
                 </p>
                 <p>
@@ -456,7 +480,7 @@ export default function SeguimientoRectorPage() {
                         Ver detalles
                       </Button>
                     </SheetTrigger>
-                    <SheetContent side="right" className="max-w-[900px] overflow-x-hidden overflow-y-auto">
+                    <SheetContent side="right" className="max-w=[900px] overflow-x-hidden overflow-y-auto">
                       <SheetHeader>
                         <SheetTitle>ID del seguimiento: {detalle[0]?.id || "—"}</SheetTitle>
                         <p className="text-sm text-gray-900 mt-1">
@@ -464,12 +488,11 @@ export default function SeguimientoRectorPage() {
                         </p>
                       </SheetHeader>
                       <div className="mt-4 space-y-4 text-sm text-gray-800">
-
                         <div className="mt-6 border-t pt-4 space-y-6">
                           <h3 className="font-semibold text-gray-700">Partidas y Rubros registrados</h3>
                           {detalle.length > 0 ? (
                             <Accordion type="single" collapsible className="space-y-4">
-                              {Object.values(detalleAgrupado).map(({ e_id_partida, partida, items }) => {
+                              {Object.values(detalleAgrupado).map(({ e_id_partida, partida, items }: any) => {
                                 // Agrupar items por e_id_rubro
                                 const rubrosAgrupados = items.reduce((acc: Record<string, any>, item: any) => {
                                   const key = item.e_id_rubro || "sin_rubro";
@@ -546,12 +569,13 @@ export default function SeguimientoRectorPage() {
           ))}
         </div>
       )}
-    {/* Regla global para el cursor pointer en el botón de cierre del Sheet */}
-    <style jsx global>{`
-      .fixed[data-state="open"] > button {
-        cursor: pointer !important;
-      }
-    `}</style>
+
+      {/* Regla global para el cursor pointer en el botón de cierre del Sheet */}
+      <style jsx global>{`
+        .fixed[data-state="open"] > button {
+          cursor: pointer !important;
+        }
+      `}</style>
     </main>
   );
 }

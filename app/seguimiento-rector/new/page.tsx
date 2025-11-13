@@ -1,7 +1,8 @@
-// eslint-disable-next-line
 "use client";
-
+import { Eye, UserPlus, Loader2 } from "lucide-react";
+// eslint-disable-next-line
 import React, { useEffect, useState, Suspense } from "react";
+import Link from "next/link";
 import { Info } from "lucide-react";
 // StepIndicator con estilo igual al de procesos/new/page.tsx:
 // - Círculos grandes con números centrados (w-10 h-10)
@@ -78,6 +79,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
@@ -105,6 +107,13 @@ import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@
 import { toast } from "sonner";
 
 import { useSearchParams, useRouter } from "next/navigation";
+
+type ServidorPublico = {
+  id: number;
+  nombre: string;
+  cargo: string;
+  id_ente?: number;
+};
 
 const API_BASE =
   typeof window !== "undefined"
@@ -178,6 +187,12 @@ export default function Page() {
 function RectorForm() {
   // Paso visual y control de flujo
   const [step, setStep] = useState(1);
+  // Estados para gestión de servidores públicos del ente 0
+  const [verServidoresDialogOpen, setVerServidoresDialogOpen] = React.useState(false);
+  const [addServidorDialogOpen, setAddServidorDialogOpen] = React.useState(false);
+  const [nuevoServidorNombre, setNuevoServidorNombre] = React.useState("");
+  const [nuevoServidorCargo, setNuevoServidorCargo] = React.useState("");
+  const [addServidorLoading, setAddServidorLoading] = React.useState(false);
   // Para tooltips
   const [showTooltipAvanzar, setShowTooltipAvanzar] = useState(false);
   const [showTooltipFinalizar, setShowTooltipFinalizar] = useState(false);
@@ -185,6 +200,8 @@ function RectorForm() {
   const { user } = useUser();
   // Estado para controlar el accordion abierto en el paso 2
   const [accordionOpen, setAccordionOpen] = useState<string | undefined>();
+  // Estado para controlar autoselect visual del servidor público
+  const [autoSelectActivo, setAutoSelectActivo] = useState(false);
 
   const formatMXN = (v: any) => {
     const n = Number(v);
@@ -278,22 +295,49 @@ function RectorForm() {
     setFormErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  // 1️⃣ Cargar servidores públicos por ente
-  // ======================================================
-  useEffect(() => {
-    if (!user?.id_ente) return;
-    const fetchServidores = async () => {
-      try {
-        const sResp = await fetch(
-          `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=0`);
-        const data = await sResp.json();
-        setServidores(data.filter((s: any) => s.activo === true || s.estatus === "ACTIVO"));
-      } catch (err) {
-        console.error("❌ Error cargando servidores:", err);
+  // 1️⃣ Cargar servidores públicos por ente (solo ente 0)
+useEffect(() => {
+  if (!user?.id_ente) return;
+
+  const fetchServidores = async () => {
+    try {
+      const parseServidores = (raw: any) => {
+        const base = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.resultado)
+          ? raw.resultado
+          : Array.isArray(raw?.data)
+          ? raw.data
+          : [];
+        // Dejar únicamente los del ente 0
+        return base.filter((s: any) => String(s.id_ente) === "0" || Number(s.id_ente) === 0);
+      };
+
+      // 1) Intento directo: solo ente 0
+      let resp = await fetch(
+        `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=0`
+      );
+      let json = await resp.json();
+      let lista = parseServidores(json);
+
+      // 2) Fallback: traer todos y filtrar a ente 0
+      if (!Array.isArray(lista) || lista.length === 0) {
+        const respAll = await fetch(
+          `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99`
+        );
+        const jsonAll = await respAll.json();
+        lista = parseServidores(jsonAll);
       }
-    };
-    fetchServidores();
-  }, [user]);
+
+      setServidores(lista);
+    } catch (err) {
+      console.error("❌ Error cargando servidores:", err);
+      setServidores([]);
+    }
+  };
+
+  fetchServidores();
+}, [user]);
 
   // ======================================================
   // 2️⃣ Cargar enums y fundamentos
@@ -553,43 +597,104 @@ function RectorForm() {
     e.preventDefault();
     const formEl = e.currentTarget;
 
+    // Evitar envío durante autoselect de servidor público
+    if (autoSelectActivo) {
+      console.log("⏭️ Auto-select activo, se omite envío del formulario");
+      return;
+    }
+
     // Validación: Debe seleccionarse un estatus general (REVISADO o CANCELADO)
     if (!estatusGeneral) {
       toast.error("❌ Debes seleccionar un estatus general (REVISADO o CANCELADO)");
       return;
     }
 
-    const payload = {
+    // ✅ Función para normalizar valores según tipo
+    const normalize = (key: string, value: any) => {
+      if (value === undefined || value === null || value === "" || value === "null" || value === "undefined") {
+        return null;
+      }
+
+      // Campos de fecha → formato correcto
+      if (key.includes("fecha") && typeof value === "string") {
+        if (value.includes("/")) {
+          const [dd, mm, yyyy] = value.split("/");
+          return `${yyyy}-${mm}-${dd}`;
+        }
+        return value;
+      }
+
+      // Campos de hora
+      if (key.includes("hora") && typeof value === "string") {
+        return value.length === 5 ? `${value}:00` : value;
+      }
+
+      // Campos numéricos
+      if (key.includes("_id") || key.includes("id_") || key.startsWith("p_r_id")) {
+        return isNaN(Number(value)) ? null : Number(value);
+      }
+
+      return value;
+    };
+
+    // ✅ Construir payload completamente validado
+    const payload: Record<string, any> = {
       p_accion: "EDITAR",
-      p_r_suplencia_oficio_no: formEl.oficio.value,
+      p_r_suplencia_oficio_no: normalize("oficio", formEl.oficio.value),
       p_r_fecha_emision: form.fecha_emision
-        ? form.fecha_emision.split("/").reverse().join("-")
+        ? form.fecha_emision.includes("/")
+          ? form.fecha_emision.split("/").reverse().join("-")
+          : form.fecha_emision
         : null,
-      p_r_asunto: formEl.asunto.value,
-      p_r_fecha_y_hora_reunion: form.fecha_reunion && form.hora_reunion
-        ? `${form.fecha_reunion.split("/").reverse().join("-")}T${form.hora_reunion}:00`
-        : null,
-      // Añadido según instrucciones:
-      p_r_estatus: estatusGeneral,
-      p_r_id_servidor_publico_asiste: servidorSeleccionado?.id || null,
-      // Mantener las demás propiedades ya existentes:
-      p_r_id_usuario_registra: user?.id || 1,
-      p_r_observaciones: mostrarObservaciones ? observaciones : "",
-      p_r_con_observaciones: mostrarObservaciones,
+      p_r_asunto: form.asunto?.trim() || null,
+      p_r_fecha_y_hora_reunion:
+        form.fecha_reunion && form.hora_reunion
+          ? `${normalize("fecha_reunion", form.fecha_reunion)}T${normalize("hora_reunion", form.hora_reunion)}`
+          : null,
+      p_r_estatus: normalize("estatus", estatusGeneral),
+      p_r_id_servidor_publico_asiste: servidorSeleccionado?.id ? Number(servidorSeleccionado.id) : 0,
+      p_r_id_usuario_registra: normalize("p_r_id_usuario_registra", user?.id),
+      p_r_observaciones: normalize("observaciones", mostrarObservaciones ? observaciones : ""),
+      p_r_con_observaciones: normalize("con_observaciones", mostrarObservaciones),
     };
 
     setIsSaving(true);
 
     try {
-      const res = await fetch(`${API_BASE}/rector/seguimiento-gestion/${selectedId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        `${API_BASE}/rector/seguimiento-gestion/${selectedId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Error al registrar captura");
+        let data: any = {};
+        try {
+          data = await res.json();
+        } catch {
+          console.warn("⚠️ Respuesta no JSON del backend");
+        }
+
+        console.error("❌ Error detallado del backend:", data);
+
+        if (Array.isArray(data?.detail)) {
+          // 🔍 Mostrar todos los errores del backend de manera legible
+          const mensajes = data.detail.map(
+            (err: any) => `${err.loc?.[1] || "campo desconocido"}: ${err.msg}`
+          ).join("\n");
+          toast.error(`❌ Error de validación en backend:\n${mensajes}`);
+          console.table(data.detail);
+          return;
+        } else if (data?.detail) {
+          toast.error(`❌ ${data.detail}`);
+          return;
+        } else {
+          console.warn("⚠️ Backend devolvió error sin detalle, pero se omitirá el toast");
+          return;
+        }
       }
 
       toast.success("✅ Captura registrada correctamente");
@@ -599,15 +704,18 @@ function RectorForm() {
         ...prev,
         e_oficio_invitacion: formEl.oficio.value,
         e_asunto: formEl.asunto.value,
-        e_fecha_y_hora_reunion: form.fecha_reunion && form.hora_reunion
-          ? `${form.fecha_reunion.split("/").reverse().join("-")}T${form.hora_reunion}:00`
-          : prev.e_fecha_y_hora_reunion,
+        e_fecha_y_hora_reunion:
+          form.fecha_reunion && form.hora_reunion
+            ? `${form.fecha_reunion.split("/").reverse().join("-")}T${form.hora_reunion}:00`
+            : prev.e_fecha_y_hora_reunion,
       }));
 
       // 🔍 Obtener el usuario tipo ENTE que registró el seguimiento
       let idUsuarioEnte: number | null = null;
       try {
-        const segRes = await fetch(`${API_BASE}/rector/seguimiento-detalle?p_id=${selectedId}`);
+        const segRes = await fetch(
+          `${API_BASE}/rector/seguimiento-detalle?p_id=${selectedId}`
+        );
         const segData = await segRes.json();
         idUsuarioEnte = segData?.[0]?.e_id_usuario_registra || null;
       } catch (err) {
@@ -625,7 +733,10 @@ function RectorForm() {
               : `El rector revisó tu seguimiento #${selectedId} sin observaciones.`
             : "";
 
-const url = `${API_BASE}/seguridad/notificaciones/?p_accion=CREAR&p_id_usuario_origen=${user?.id}&p_id_notificacion=${selectedId}&p_mensaje_extra=${encodeURIComponent(mensaje)}&p_estatus=${estatusGeneral}`;        console.log("🚀 Enviando notificación (RECTOR → ENTE):", url);
+        const url = `${API_BASE}/seguridad/notificaciones/?p_accion=CREAR&p_id_usuario_origen=${user?.id}&p_id_notificacion=${selectedId}&p_mensaje_extra=${encodeURIComponent(
+          mensaje
+        )}&p_estatus=${estatusGeneral}`;
+        console.log("🚀 Enviando notificación (RECTOR → ENTE):", url);
         try {
           await fetch(url, { method: "POST" });
         } catch (err) {
@@ -647,7 +758,7 @@ const url = `${API_BASE}/seguridad/notificaciones/?p_accion=CREAR&p_id_usuario_o
       // Si no quieres redirigir siempre, comenta la línea anterior y descomenta la siguiente para solo recargar detalle:
       // cargarDetalle(selectedId!);
     } catch (err: any) {
-      toast.error("❌ Error al registrar captura");
+      console.error("❌ Error al registrar captura:", err);
     } finally {
       setIsSaving(false);
     }
@@ -1049,6 +1160,9 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
             <div className="mt-[-19px]">
               <strong>Fecha de reunión:</strong> {detalleGeneral.e_fecha_y_hora_reunion || "Sin definir"}
             </div>
+            <div className="col-span-full mt-4 text-gray-600 text-sm italic">
+            </div>
+              NOTA: El Estatus se actualiza al finalizar el proceso
           </CardContent>
         </Card>
       )}
@@ -1213,7 +1327,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                     setMostrarServidores(true);
                   }}
                 />
-                {mostrarServidores && (
+                    {mostrarServidores && (
                   <CommandList>
                     {busquedaServidor.trim() !== "" ? (
                       servidores
@@ -1225,6 +1339,11 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                             key={s.id}
                             onSelect={() => {
                               setServidorSeleccionado(s);
+                              setForm((prev) => ({
+                                ...prev,
+                                servidor_publico_cargo: s.cargo || "",
+                                id_servidor_publico_asiste: s.id,
+                              }));
                               setBusquedaServidor(s.nombre);
                               setMostrarServidores(false);
                             }}
@@ -1246,6 +1365,169 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
               {!servidorSeleccionado && formErrors.servidor && (
                 <p className="text-xs text-red-600 mt-1">Campo obligatorio</p>
               )}
+              {/* Botones para ver y añadir servidores públicos del ente 0 */}
+              <div className="flex gap-3 mt-2">
+                {/* Ver servidores públicos */}
+                <Dialog open={verServidoresDialogOpen} onOpenChange={setVerServidoresDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
+                      type="button"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Ver servidores públicos
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Servidores públicos del ente 0</DialogTitle>
+                      <DialogDescription>
+                        Lista de servidores públicos registrados para el ente 0.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="overflow-x-auto mt-2">
+                      <table className="min-w-full bg-white border border-gray-200 rounded">
+                        <thead>
+                          <tr>
+                            <th className="py-2 px-4 border-b text-left">Nombre</th>
+                            <th className="py-2 px-4 border-b text-left">Cargo</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {servidores.map((s, idx) => (
+                              <tr key={s.id || idx}>
+                                <td className="py-2 px-4 border-b">{s.nombre}</td>
+                                <td className="py-2 px-4 border-b">{s.cargo}</td>
+                              </tr>
+                            ))}
+                          {servidores.length === 0 && (
+                            <tr>
+                              <td colSpan={2} className="py-2 px-4 text-center text-gray-400">
+                                No hay servidores públicos para el ente 0.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setVerServidoresDialogOpen(false)}>
+                        Cerrar
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                {/* Añadir servidor público */}
+                <Dialog open={addServidorDialogOpen} onOpenChange={setAddServidorDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
+                      type="button"
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Añadir servidor público
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Añadir nuevo servidor público</DialogTitle>
+                      <DialogDescription>
+                        Completa los campos para registrar un nuevo servidor público del ente 0.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form
+                      className="space-y-4 mt-2"
+                      onSubmit={e => e.preventDefault()}
+                    >
+                      <div>
+                        <Label>Ente perteneciente</Label>
+                        <Input value="Ente 0 (Rector)" disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
+                      </div>
+                      <div>
+                        <Label>Nombre</Label>
+                        <Input
+                          value={nuevoServidorNombre}
+                          onChange={(e) => setNuevoServidorNombre(e.target.value)}
+                          placeholder="Nombre del servidor público"
+                        />
+                      </div>
+                      <div>
+                        <Label>Cargo</Label>
+                        <Input
+                          value={nuevoServidorCargo}
+                          onChange={(e) => setNuevoServidorCargo(e.target.value)}
+                          placeholder="Cargo del servidor público"
+                        />
+                      </div>
+                      <DialogFooter className="mt-2">
+                        <Button
+                          type="button"
+                          className="bg-[#db200b] text-white hover:bg-[#b81a09]"
+                          onClick={() => setAddServidorDialogOpen(false)}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button
+                          type="button"
+                          className="bg-[#34e004] text-white hover:bg-[#2bc103]"
+                          onClick={async () => {
+                            if (!nuevoServidorNombre.trim() || !nuevoServidorCargo.trim()) {
+                              toast.warning("Por favor ingresa nombre y cargo.");
+                              return;
+                            }
+                            setAddServidorLoading(true);
+                            try {
+                              const url = `${API_BASE}/catalogos/ente-y-servidor-publico-gestionar-ambos?p_id_ente=0&p_nombre=${encodeURIComponent(
+                                nuevoServidorNombre
+                              )}&p_cargo=${encodeURIComponent(nuevoServidorCargo)}`;
+                              const resp = await fetch(url, { method: "POST" });
+                              if (!resp.ok) {
+                                toast.error("Error al añadir servidor público.");
+                                return;
+                              }
+                              const sResp = await fetch(
+                                `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=0`
+                              );
+                              const nuevosServidores = await sResp.json();
+                              setServidores(nuevosServidores);
+                              const nuevoServidor = nuevosServidores.find(
+                                (s: ServidorPublico) =>
+                                  s.nombre?.toLowerCase() === nuevoServidorNombre.toLowerCase() &&
+                                  s.cargo?.toLowerCase() === nuevoServidorCargo.toLowerCase()
+                              );
+                              if (nuevoServidor) {
+                                setServidorSeleccionado(nuevoServidor);
+                                setForm((prev) => ({
+                                  ...prev,
+                                  id_servidor_publico_asiste: nuevoServidor.id,
+                                }));
+                                setBusquedaServidor(nuevoServidor.nombre);
+                                setMostrarServidores(false);
+                              }
+                              setNuevoServidorNombre("");
+                              setNuevoServidorCargo("");
+                              setAddServidorDialogOpen(false);
+                            } catch (err) {
+                              toast.error("Error al añadir servidor público.");
+                            } finally {
+                              setAddServidorLoading(false);
+                            }
+                          }}
+                          disabled={addServidorLoading}
+                        >
+                          {addServidorLoading ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            "Guardar"
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
               {/* Botón para avanzar a paso 2 si aplica */}
               {estatusGeneral === "REVISADO" && (
@@ -1434,9 +1716,9 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                       {validationErrors.proveedor && <p className="text-red-600 text-xs mt-1">Campo obligatorio</p>}
                     </div>
 
-                    {/* Primera fila: Estatus y Fundamento */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
-                      <div>
+                    {/* Primera fila: Estatus y Fundamento (ajustado visualmente: Estatus 30%, Fundamento 70%) */}
+                    <div className="grid grid-cols-10 gap-4 mb-2">
+                      <div className="col-span-3">
                         <Label>Estatus</Label>
                         <Select
                           value={estatusLocal}
@@ -1478,7 +1760,7 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
                         </Select>
                         {validationErrors.estatus && <p className="text-red-600 text-xs mt-1">Campo obligatorio</p>}
                       </div>
-                      <div>
+                      <div className="col-span-7">
                         <Label>Fundamento</Label>
                         <Select
                           value={selectedRubroId != null ? (selectedFundamento[selectedRubroId] ?? "") : ""}
@@ -1857,6 +2139,20 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
           </CardContent>
         </Card>
       )}
+
+      {pasoActual === 2 && (
+      <div className="flex justify-start mt-10">
+        <Link href="/dashboard">
+          <Button
+            variant="outline"
+            style={{ backgroundColor: "#db200b", color: "white" }}
+            className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+          >
+            ←
+          </Button>
+        </Link>
+      </div>
+)}
 
       {/* Botón Finalizar proceso en paso 2 */}
       {pasoActual === 2 && estatusGeneral === "REVISADO" && (

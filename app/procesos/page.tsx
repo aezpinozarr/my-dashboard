@@ -310,7 +310,10 @@ export default function ProcesosPage() {
             size="icon"
             className="h-8 w-8 p-0 -mt-1"  // 🔹 sube el icono ligeramente
           >
-            <CircleEllipsis size={18} className="text-gray-600 hover:text-blue-600 transition-colors" />
+            <CircleEllipsis
+              size={18}
+              className="fill-blue-600 stroke-white hover:fill-blue-700 transition-colors"
+            />
             <span className="sr-only">Más acciones</span>
           </Button>
         </DropdownMenuTrigger>

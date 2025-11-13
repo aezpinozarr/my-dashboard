@@ -181,6 +181,13 @@ interface Proveedor {
   correo_electronico: string;
   entidad_federativa: string;
 }
+
+interface ServidorPublico {
+  id: number;
+  nombre: string;
+  cargo: string;
+  id_ente: number;
+}
 export default function NuevoProcesoPage() {
   const { user } = useUser();
   const router = useRouter();
@@ -909,6 +916,8 @@ React.useEffect(() => {
     fuente_descripcion: "",
     fuente_etiquetado: "",
     fuente_fondo: "",
+    id_ramo: "",          
+    ramo_descripcion: "",    
   });
 
   const [erroresForm, setErroresForm] = React.useState<Record<string, string>>({});
@@ -985,6 +994,8 @@ React.useEffect(() => {
             descripcion: partidaSel?.descripcion ?? "",
             etiquetado: fuenteSel?.etiquetado ?? "",
             fondo: fuenteSel?.fondo ?? "",
+            id_ramo: fuenteSel?.id_ramo ?? "",
+            ramo_descripcion: fuenteSel?.ramo ?? "",
           },
         ]);
 
@@ -998,6 +1009,9 @@ React.useEffect(() => {
           fuente_descripcion: "",
           fuente_etiquetado: "",
           fuente_fondo: "",
+          id_ramo: "",
+          ramo_descripcion: "",
+
         });
         setErroresForm({});
         toast.success("Partida guardada correctamente");
@@ -1358,22 +1372,39 @@ React.useEffect(() => {
                               const url = `${API_BASE}/catalogos/ente-y-servidor-publico-gestionar-ambos?p_id_ente=${user?.id_ente}&p_nombre=${encodeURIComponent(
                                 nuevoServidorNombre
                               )}&p_cargo=${encodeURIComponent(nuevoServidorCargo)}`;
-                              const resp = await fetch(url, {
-                                method: "POST",
-                              });
+                              const resp = await fetch(url, { method: "POST" });
                               if (!resp.ok) {
                                 toast.error("Error al añadir servidor público.");
                                 return;
                               }
-                              // Refrescar la lista de servidores
+
+                              // ✅ Refrescar lista
                               const sResp = await fetch(
                                 `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=${user?.id_ente}`
                               );
-                              setServidores(await sResp.json());
+                              const nuevosServidores = await sResp.json();
+                              setServidores(nuevosServidores);
+
+                              // ✅ Buscar el servidor recién añadido
+                              const nuevoServidor = nuevosServidores.find(
+                                (s: ServidorPublico) =>
+                                  s.nombre?.toLowerCase() === nuevoServidorNombre.toLowerCase() &&
+                                  s.cargo?.toLowerCase() === nuevoServidorCargo.toLowerCase()
+                              );
+
+                              if (nuevoServidor) {
+                                // 🔹 Seleccionarlo automáticamente
+                                setServidorSeleccionado(nuevoServidor);
+                                setForm((prev) => ({ ...prev, servidor_publico_cargo: nuevoServidor.cargo || "" }));
+                                setBusquedaServidor(nuevoServidor.nombre);
+                                setMostrarServidores(false); // ✅ cierra el CommandList automáticamente al seleccionar
+                                toast.success(`Servidor "${nuevoServidor.nombre}" seleccionado automáticamente`);
+                              }
+
+                              // ✅ Limpiar y cerrar
                               setNuevoServidorNombre("");
                               setNuevoServidorCargo("");
                               setAddServidorDialogOpen(false);
-                              toast.success("Servidor público añadido correctamente");
                             } catch (err) {
                               toast.error("Error al añadir servidor público.");
                             } finally {
@@ -1684,6 +1715,8 @@ React.useEffect(() => {
                                 fuente_descripcion: f.descripcion ?? "",
                                 fuente_etiquetado: f.etiquetado ?? "",
                                 fuente_fondo: f.fondo ?? "",
+                                id_ramo: f.id_ramo ?? "",
+                                ramo_descripcion: f.ramo ?? "",
                               }));
                             }}
                           >
@@ -1724,13 +1757,13 @@ React.useEffect(() => {
                 <thead>
                   <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
                     <th className="px-3 py-2 font-semibold text-center">No. Requisición</th>
-                    <th className="px-3 py-2 font-semibold text-left">Partida</th>
-                    <th className="px-3 py-2 font-semibold text-left">Capítulo</th>
+                    <th className="px-3 py-2 font-semibold text-center">Partida</th>
+                    <th className="px-3 py-2 font-semibold text-center">Capítulo</th>
                     <th className="px-3 py-2 font-semibold text-center">Fuente Financiamiento</th>
-                    <th className="px-3 py-2 font-semibold text-left">Descripción</th>
-                    <th className="px-3 py-2 font-semibold text-left">Etiquetado</th>
-                    <th className="px-3 py-2 font-semibold text-left">Fondo</th>
-                    <th className="px-3 py-2 font-semibold text-center">Acciones</th>
+                    <th className="px-3 py-2 font-semibold text-center">Descripción</th>
+                    <th className="px-3 py-2 font-semibold text-center">Ramo</th>
+                    <th className="px-3 py-2 font-semibold text-center">Fondo</th>
+                    <th className="px-3 py-2 font-semibold text-center"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1741,43 +1774,46 @@ React.useEffect(() => {
                       </td>
                     </tr>
                   ) : (
-                    partidas
-                      .filter(
-                        (p) =>
-                          p &&
-                          (p.e_id_partida !== null && p.e_id_partida !== "" && p.e_id_partida !== "-") &&
-                          (p.e_id_fuente_financiamiento !== null && p.e_id_fuente_financiamiento !== "")
-                      )
-                      .map((p, index) => (
-                        <tr
-                          key={index}
-                          className={`border-b ${
-                            index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                          } hover:bg-gray-100 transition-colors`}
-                        >
-                          <td className="px-3 py-2 text-center">{p.no_requisicion}</td>
-                          <td className="px-3 py-2 text-center">
-                            {`${p.e_id_partida} – ${p.partida_descripcion}`}
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            {`${p.id_capitulo} – ${p.capitulo}`}
-                          </td>
-                          <td className="px-3 py-2 text-center">{p.fuente_financiamiento}</td>
-                          <td className="px-3 py-2 text-center">{p.descripcion}</td>
-                          <td className="px-3 py-2 text-center">{p.etiquetado}</td>
-                          <td className="px-3 py-2 text-center">{p.fondo}</td>
-                          <td className="px-3 py-2 text-center">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                              onClick={() => handleEliminarPartida(index)}
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))
+                partidas
+                  .filter(
+                    (p) =>
+                      p &&
+                      (p.e_id_partida !== null && p.e_id_partida !== "" && p.e_id_partida !== "-") &&
+                      (p.e_id_fuente_financiamiento !== null && p.e_id_fuente_financiamiento !== "")
+                  )
+                  .map((p, index) => {
+                    console.log("📌 COLUMNAS DE LA PARTIDA:", p);
+                    return (
+                      <tr
+                        key={index}
+                        className={`border-b ${
+                          index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                        } hover:bg-gray-100 transition-colors`}
+                      >
+                        <td className="px-3 py-2 text-center">{p.no_requisicion}</td>
+                        <td className="px-3 py-2 text-center">
+                          {`${p.e_id_partida} – ${p.partida_descripcion}`}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {`${p.id_capitulo}`}
+                        </td>
+                        <td className="px-3 py-2 text-center">{p.fuente_financiamiento}</td>
+                        <td className="px-3 py-2 text-center">{p.descripcion}</td>
+                        <td className="px-3 py-2 text-center">{p.ramo_descripcion}</td>
+                        <td className="px-3 py-2 text-center">{p.fondo}</td>
+                        <td className="px-3 py-2 text-right w-[1%]">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            onClick={() => handleEliminarPartida(index)}
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })
                   )}
                 </tbody>
               </table>
@@ -1815,15 +1851,27 @@ React.useEffect(() => {
                 </Tooltip>
               </TooltipProvider>
             </div>
+
+            {/* Botón regresar al dashboard (inferior, SOLO paso 2) */}
+            <div className="mt-6 flex justify-start">
+              <Link href="/dashboard">
+                <Button
+                  variant="outline"
+                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                >
+                  ←
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       )}
 
-    {/* Paso 3 */}
+   {/* Paso 3 */}
 {(() => {
-  // Paso 3: Rubros - refs y focus
   const rubroInputRef = React.useRef<any>(null);
-  // Atajo de teclado Ctrl+S / Cmd+S para guardar rubros solo en step 3
+
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (step === 3 && ((e.ctrlKey && e.key === "s") || (e.metaKey && e.key === "s"))) {
@@ -1833,10 +1881,10 @@ React.useEffect(() => {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
-  // Render paso 3
+
   if (step !== 3) return null;
+
   return (
     <Card>
       <CardContent className="space-y-5 mt-4">
@@ -1846,6 +1894,8 @@ React.useEffect(() => {
           </Button>
           <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
         </div>
+
+        {/* Oficio invitación */}
         <div>
           <Label>Oficio de invitación</Label>
           <Input
@@ -1855,17 +1905,14 @@ React.useEffect(() => {
           />
         </div>
 
-        {/* Formulario de añadir rubro */}
+        {/* Formulario rubros */}
         <div className="p-4 rounded border border-gray-200 bg-gray-50 mb-4">
           <form
             className="space-y-4"
             onSubmit={async (e) => {
               e.preventDefault();
-              // Focus automático si falta el rubro
               if (!nuevoRubro.p_e_id_rubro) {
-                if (rubroInputRef.current && rubroInputRef.current.focus) {
-                  rubroInputRef.current.focus();
-                }
+                rubroInputRef.current?.focus();
                 toast.warning("Completa los campos antes de añadir el rubro.");
                 return;
               }
@@ -1874,61 +1921,48 @@ React.useEffect(() => {
                 return;
               }
 
-              // 🚫 Validar rubros duplicados
               const existeRubro = presupuestosRubro.some(
                 (r) =>
                   r.p_e_id_rubro === nuevoRubro.p_e_id_rubro &&
                   r.p_id_partida_asociada === nuevoRubro.p_id_partida_asociada
               );
               if (existeRubro) {
-                toast.warning("Este rubro ya fue añadido a la partida seleccionada.");
+                toast.warning("Este rubro ya fue añadido.");
                 return;
               }
 
               try {
-                // Buscar la partida asociada
                 const partidaAsociada = partidas.find(
                   (p) => String(p.e_id_partida) === String(nuevoRubro.p_id_partida_asociada)
                 );
                 if (!partidaAsociada || !partidaAsociada.id) {
-                  toast.warning("La partida asociada no tiene un ID válido.");
+                  toast.warning("La partida asociada no es válida.");
                   return;
                 }
 
-                // Crear payload para el SP v2
                 const payload = {
                   p_accion: "NUEVO",
                   p_id_seguimiento_partida: Number(partidaAsociada.id),
                   p_id: 0,
                   p_e_id_rubro: nuevoRubro.p_e_id_rubro,
                   p_e_monto_presupuesto_suficiencia: parseFloat(
-                    (nuevoRubro.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "") || "0"
+                    (nuevoRubro.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "")
                   ),
                 };
-
-                console.log("📦 Enviando nuevo rubro al backend v2:", payload);
 
                 const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-ente-v2/`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify(payload),
                 });
-
                 const data = await resp.json();
                 if (!resp.ok) throw new Error(JSON.stringify(data));
 
-                console.log("✅ Rubro guardado en BD:", data);
-
-                // Refrescar localmente la tabla
                 setPresupuestosRubro((prev) => [
                   ...prev,
-                  {
-                    ...nuevoRubro,
-                    id: data.resultado,
-                  },
+                  { ...nuevoRubro, id: data.resultado },
                 ]);
 
-                // Mantener la partida seleccionada (no reiniciar)
                 setNuevoRubro((prev) => ({
                   ...prev,
                   p_e_id_rubro: "",
@@ -1938,16 +1972,17 @@ React.useEffect(() => {
 
                 toast.success("Rubro añadido correctamente");
               } catch (err) {
-                console.error("❌ Error al añadir rubro:", err);
                 toast.error("Error al añadir rubro");
               }
             }}
           >
             {/* Partida asociada */}
-            <div className="w-full md:col-span-3">
+            <div>
               <Label>Partida asociada</Label>
               <select
-                className={`border rounded-md p-2 w-full ${erroresRubro.p_id_partida_asociada ? "border-red-500" : ""}`}
+                className={`border rounded-md p-2 w-full ${
+                  erroresRubro.p_id_partida_asociada ? "border-red-500" : ""
+                }`}
                 value={nuevoRubro.p_id_partida_asociada}
                 onChange={(e) =>
                   setNuevoRubro((prev) => ({
@@ -1963,27 +1998,24 @@ React.useEffect(() => {
                   </option>
                 ))}
               </select>
-              {erroresRubro.p_id_partida_asociada && (
-                <p className="text-red-600 text-xs mt-1">{erroresRubro.p_id_partida_asociada}</p>
-              )}
             </div>
-            {/* 🔹 Rubro y Monto en la misma fila con proporciones 70/30 */}
+
+            {/* Rubro + Monto */}
             <div className="flex gap-4">
-              {/* Campo de Rubro (70%) */}
               <div className="w-[70%]">
                 <Label>Rubro</Label>
                 <Command>
                   <CommandInput
                     ref={rubroInputRef}
-                    placeholder="Escribe ID o nombre…"
                     value={nuevoRubro.p_e_id_rubro}
-                    onValueChange={val => {
-                      setNuevoRubro(prev => ({
+                    placeholder="Escribe ID o nombre…"
+                    onValueChange={(val) =>
+                      setNuevoRubro((prev) => ({
                         ...prev,
                         p_e_id_rubro: val,
                         rubro_descripcion: "",
-                      }));
-                    }}
+                      }))
+                    }
                   />
                   {Boolean((nuevoRubro.p_e_id_rubro || "").trim()) && (
                     <CommandList>
@@ -1999,7 +2031,7 @@ React.useEffect(() => {
                           <CommandItem
                             key={rb.id}
                             onSelect={() =>
-                              setNuevoRubro(prev => ({
+                              setNuevoRubro((prev) => ({
                                 ...prev,
                                 p_e_id_rubro: rb.id,
                                 rubro_descripcion: rb.descripcion,
@@ -2013,51 +2045,33 @@ React.useEffect(() => {
                     </CommandList>
                   )}
                 </Command>
-                {erroresRubro.p_e_id_rubro && (
-                  <p className="text-red-600 text-xs mt-1">{erroresRubro.p_e_id_rubro}</p>
-                )}
               </div>
 
-              {/* Campo de Monto (30%) */}
               <div className="w-[30%]">
                 <Label>Monto presupuesto suficiencia</Label>
                 <Input
                   value={nuevoRubro.p_e_monto_presupuesto_suficiencia}
-                  onChange={e =>
-                    setNuevoRubro(prev => ({
+                  onChange={(e) =>
+                    setNuevoRubro((prev) => ({
                       ...prev,
                       p_e_monto_presupuesto_suficiencia: formatMoney(e.target.value),
                     }))
                   }
                   placeholder="$0.00"
-                  className={`w-full ${erroresRubro.p_e_monto_presupuesto_suficiencia ? "border-red-500" : ""}`}
                 />
-                {erroresRubro.p_e_monto_presupuesto_suficiencia && (
-                  <p className="text-red-600 text-xs mt-1">{erroresRubro.p_e_monto_presupuesto_suficiencia}</p>
-                )}
               </div>
             </div>
-            <div className="md:col-span-3 flex justify-end">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="submit"
-                      style={{ backgroundColor: "#10c706", color: "white" }}
-                    >
-                      Añadir rubro
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Guarda el rubro seleccionado y su monto</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+
+            {/* Botón añadir */}
+            <div className="flex justify-end">
+              <Button style={{ backgroundColor: "#10c706", color: "white" }}>
+                Añadir rubro
+              </Button>
             </div>
           </form>
         </div>
 
-        {/* Lista de rubros añadidos */}
+        {/* TABLA DE RUBROS (con columna invisible para ícono eliminar) */}
         <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
           <table className="min-w-full text-sm">
             <thead>
@@ -2066,7 +2080,7 @@ React.useEffect(() => {
                 <th className="px-3 py-2 font-semibold text-center">Clave</th>
                 <th className="px-3 py-2 font-semibold text-center">Rubro</th>
                 <th className="px-3 py-2 font-semibold text-center">Monto</th>
-                <th className="px-3 py-2 font-semibold text-center">Acciones</th>
+                <th className="px-3 py-2 text-center" style={{ width: "40px" }}></th>
               </tr>
             </thead>
             <tbody>
@@ -2080,9 +2094,7 @@ React.useEffect(() => {
                 presupuestosRubro.map((r, i) => (
                   <tr
                     key={i}
-                    className={`border-b ${
-                      i % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    } hover:bg-gray-100 transition-colors`}
+                    className={`border-b ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
                   >
                     <td className="px-3 py-2 text-center">
                       {(() => {
@@ -2095,11 +2107,11 @@ React.useEffect(() => {
                       })()}
                     </td>
                     <td className="px-3 py-2 text-center">{r.p_e_id_rubro}</td>
-                    <td className="px-3 py-2 text-left">{r.rubro_descripcion}</td>
+                    <td className="px-3 py-2 text-center">{r.rubro_descripcion}</td>
                     <td className="px-3 py-2 text-right">
                       {r.p_e_monto_presupuesto_suficiencia}
                     </td>
-                    <td className="px-3 py-2 text-center">
+                    <td className="px-3 py-2 text-center" style={{ width: "40px" }}>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -2107,31 +2119,24 @@ React.useEffect(() => {
                         onClick={async () => {
                           const rubro = presupuestosRubro[i];
                           if (!rubro || !rubro.id) {
-                            toast.warning("Este rubro aún no tiene ID en la base de datos.");
-                            setPresupuestosRubro((prev) =>
-                              prev.filter((_, idx) => idx !== i)
-                            );
+                            toast.warning("Este rubro no tiene ID.");
+                            setPresupuestosRubro((prev) => prev.filter((_, idx) => idx !== i));
                             return;
                           }
                           if (!confirm("¿Seguro que deseas eliminar este rubro?")) return;
-
                           try {
                             const partidaAsociada = partidas.find(
-                              (p) =>
-                                String(p.e_id_partida) ===
-                                String(rubro.p_id_partida_asociada)
+                              (p) => String(p.e_id_partida) === String(rubro.p_id_partida_asociada)
                             );
                             if (!partidaAsociada || !partidaAsociada.id) {
-                              toast.warning("La partida asociada no tiene un ID válido.");
+                              toast.warning("Partida asociada inválida.");
                               return;
                             }
-
                             const payload = {
                               p_accion: "ELIMINAR",
                               p_id_seguimiento_partida: Number(partidaAsociada.id),
                               p_id: Number(rubro.id),
                             };
-
                             const resp = await fetch(
                               `${API_BASE}/procesos/seguimiento/partida-rubro-ente-v2/`,
                               {
@@ -2140,16 +2145,11 @@ React.useEffect(() => {
                                 body: JSON.stringify(payload),
                               }
                             );
-
                             const data = await resp.json();
                             if (!resp.ok) throw new Error(JSON.stringify(data));
-
                             toast.success("Rubro eliminado correctamente.");
-                            setPresupuestosRubro((prev) =>
-                              prev.filter((_, idx) => idx !== i)
-                            );
+                            setPresupuestosRubro((prev) => prev.filter((_, idx) => idx !== i));
                           } catch (err) {
-                            console.error("❌ Error al eliminar rubro:", err);
                             toast.error("Error al eliminar rubro");
                           }
                         }}
@@ -2164,38 +2164,33 @@ React.useEffect(() => {
           </table>
         </div>
 
+        {/* Navegación */}
         <div className="flex justify-between mt-6">
-          {/* No "Nuevo rubro" aquí, el formulario está arriba */}
           <span />
           <div className="flex gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" onClick={() => setStep(2)}>
-                    ← Volver al paso 2
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Regresa al paso anterior</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleGuardarRubros}
-                    style={{ backgroundColor: "#235391", color: "white" }}
-                  >
-                    Siguiente
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Avanza al paso de proveedores</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Button variant="outline" onClick={() => setStep(2)}>
+              ← Volver al paso 2
+            </Button>
+            <Button
+              onClick={handleGuardarRubros}
+              style={{ backgroundColor: "#235391", color: "white" }}
+            >
+              Siguiente
+            </Button>
           </div>
+        </div>
+
+        {/* Botón regresar dashboard */}
+        <div className="mt-6 flex justify-start">
+          <Link href="/dashboard">
+            <Button
+              variant="outline"
+              style={{ backgroundColor: "#db200b", color: "white" }}
+              className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+            >
+              ←
+            </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>
@@ -2665,10 +2660,9 @@ React.useEffect(() => {
         <th className="px-3 py-2 font-semibold text-center">Rubro / Partida</th>
         <th className="px-3 py-2 font-semibold text-center">RFC</th>
         <th className="px-3 py-2 font-semibold text-center">Razón social</th>
-        <th className="px-3 py-2 font-semibold text-center">Nombre comercial</th>
         <th className="px-3 py-2 font-semibold text-center">Importe sin IVA</th>
         <th className="px-3 py-2 font-semibold text-center">Importe total</th>
-        <th className="px-3 py-2 font-semibold text-center">Acciones</th>
+        <th className="px-3 py-2 text-center" style={{ width: "40px" }}></th>
       </tr>
     </thead>
     <tbody>
@@ -2689,19 +2683,18 @@ React.useEffect(() => {
             <td className="px-3 py-2 text-center">{p.rubro_partida || "—"}</td>
             <td className="px-3 py-2 text-center">{p.e_rfc_proveedor}</td>
             <td className="px-3 py-2 text-center">{p.razon_social}</td>
-            <td className="px-3 py-2 text-center">{p.nombre_comercial}</td>
             <td className="px-3 py-2 text-center">{p.e_importe_sin_iva}</td>
             <td className="px-3 py-2 text-center">{p.e_importe_total}</td>
-            <td className="px-3 py-2 text-center">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                onClick={() => handleEliminarProveedor(index)}
-              >
-                <Trash2 className="w-5 h-5" />
-              </Button>
-            </td>
+            <td className="px-3 py-2 text-center" style={{ width: "40px" }}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+              onClick={() => handleEliminarProveedor(index)}
+            >
+              <Trash2 className="w-5 h-5" />
+            </Button>
+          </td>
           </tr>
         ))
       )}
@@ -2727,7 +2720,7 @@ React.useEffect(() => {
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  style={{ backgroundColor: "#582497ff", color: "white" }}
                   onClick={handleFinalizarProceso}
                 >
                   Finalizar
@@ -2739,6 +2732,18 @@ React.useEffect(() => {
             </Tooltip>
           </TooltipProvider>
                 </div>
+          {/* Botón regresar al dashboard (inferior, SOLO paso 3) */}
+          <div className="mt-6 flex justify-start">
+            <Link href="/dashboard">
+              <Button
+                variant="outline"
+                style={{ backgroundColor: "#db200b", color: "white" }}
+                className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+              >
+                ←
+              </Button>
+            </Link>
+          </div>
       </CardContent>
     </Card>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -46,6 +47,7 @@ export function ActionButtonsGroup({
   setColumnVisibility,
   onNewClick,
 }: Props) {
+  const router = useRouter();
   return (
     <div className="flex flex-col items-end gap-2">
       {/* Fila superior: botones principales (Nuevo, Salir y selector de vista) */}
@@ -53,7 +55,13 @@ export function ActionButtonsGroup({
         {/* Nuevo */}
         {!hideNew && (
           <Button
-            onClick={onNewClick}
+            onClick={() => {
+              if (newPath) {
+                router.push(newPath);
+              } else if (onNewClick) {
+                onNewClick();
+              }
+            }}
             size="icon"
             className="rounded-md bg-[#235391] hover:bg-[#1e4982] text-white cursor-pointer"
             title="Nuevo"
