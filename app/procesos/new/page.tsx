@@ -2096,13 +2096,13 @@ React.useEffect(() => {
                     key={i}
                     className={`border-b ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
                   >
-                    <td className="px-3 py-2 text-center">
+                    <td className="text-justify leading-tight">
                       {(() => {
                         const partida = partidas.find(
                           (p) => String(p.e_id_partida) === String(r.p_id_partida_asociada)
                         );
                         return partida
-                          ? `Partida #${partidas.indexOf(partida) + 1} — ${partida.e_id_partida} — ${partida.partida_descripcion}`
+                          ? `#${partidas.indexOf(partida) + 1} — ${partida.e_id_partida} — ${partida.partida_descripcion}`
                           : "Sin asignar";
                       })()}
                     </td>
@@ -2680,7 +2680,7 @@ React.useEffect(() => {
               index % 2 === 0 ? "bg-white" : "bg-gray-50"
             } hover:bg-gray-100 transition-colors`}
           >
-            <td className="px-3 py-2 text-center">{p.rubro_partida || "—"}</td>
+            <td className="text-justify leading-tight">{p.rubro_partida || "—"}</td>
             <td className="px-3 py-2 text-center">{p.e_rfc_proveedor}</td>
             <td className="px-3 py-2 text-center">{p.razon_social}</td>
             <td className="px-3 py-2 text-center">{p.e_importe_sin_iva}</td>
