@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Suspense } from "react";
+
 import {
   Command,
   CommandInput,
@@ -29,6 +31,13 @@ import { Loader2, PlusCircle, Trash2, Eye, UserPlus } from "lucide-react";
 import { useUser } from "@/context/UserContext";
 import { toast } from "sonner";
 
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Cargando…</div>}>
+      <NuevoProcesoPageContent />
+    </Suspense>
+  );
+}
 /* ========================================
    🔹 Configuración del backend
 ======================================== */
@@ -220,7 +229,7 @@ interface ServidorPublico {
   cargo: string;
   id_ente: number;
 }
-export default function NuevoProcesoPage() {
+function NuevoProcesoPageContent() {
   const { user } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -864,6 +873,8 @@ try {
 } finally {
   setLoading(false);
 }
+
+
   };
 
     /* ========================================
