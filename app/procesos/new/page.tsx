@@ -1900,7 +1900,22 @@ React.useEffect(() => {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="outline" onClick={() => setStep(1)}>
-            ← 1
+            <div
+              style={{
+                width: "28px",
+                height: "28px",
+                borderRadius: "50%",
+                backgroundColor: "#235391",
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "14px",
+                fontWeight: "bold",
+              }}
+            >
+              1
+            </div>
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top">
@@ -2256,13 +2271,24 @@ React.useEffect(() => {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            onClick={() => setStep(2)}
-            className="transition-transform duration-150 hover:scale-105"
-          >
-            ← 2
-          </Button>
+           <Button variant="outline" onClick={() => setStep(2)}>
+                      <div
+                        style={{
+                          width: "28px",
+                          height: "28px",
+                          borderRadius: "50%",
+                          backgroundColor: "#235391",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "14px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        2
+                      </div>
+                    </Button>
         </TooltipTrigger>
         <TooltipContent side="top">
           <p>Regresar al paso 2: Partidas</p>
@@ -2812,9 +2838,24 @@ React.useEffect(() => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button type="button" variant="outline" onClick={() => setStep(3)}>
-                  ← 3
-                </Button>
+                <Button variant="outline" onClick={() => setStep(3)}>
+                           <div
+                             style={{
+                               width: "28px",
+                               height: "28px",
+                               borderRadius: "50%",
+                               backgroundColor: "#235391",
+                               color: "white",
+                               display: "flex",
+                               alignItems: "center",
+                               justifyContent: "center",
+                               fontSize: "14px",
+                               fontWeight: "bold",
+                             }}
+                           >
+                             3
+                           </div>
+                         </Button>
               </TooltipTrigger>
               <TooltipContent>
                 <p>Regresa al paso anterior para revisar los rubros</p>
