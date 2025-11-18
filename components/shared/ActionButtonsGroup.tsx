@@ -50,40 +50,11 @@ export function ActionButtonsGroup({
   const router = useRouter();
   return (
     <div className="flex flex-col items-end gap-2">
-      {/* Fila superior: botones principales (Nuevo, Salir y selector de vista) */}
-      <div className="flex items-center gap-4">
-        {/* Nuevo */}
-        {!hideNew && (
-          <Button
-            onClick={() => {
-              if (newPath) {
-                router.push(newPath);
-              } else if (onNewClick) {
-                onNewClick();
-              }
-            }}
-            size="icon"
-            className="rounded-md bg-[#235391] hover:bg-[#1e4982] text-white cursor-pointer"
-            title="Nuevo"
-          >
-            <PlusCircle size={20} />
-          </Button>
-        )}
-
-        {/* Salir */}
-        <Button
-          asChild
-          size="icon"
-          className="rounded-md bg-[#db200b] hover:bg-[#b91b09] text-white cursor-pointer"
-          title="Salir al dashboard"
-        >
-          <Link href="/dashboard">
-            <LogOut size={20} />
-          </Link>
-        </Button>
-
+      {/* Fila superior: selector de vista a la izquierda y Nuevo/Salir a la derecha */}
+      <div className="flex items-center justify-between w-full">
+        
         {/* Selector de vista estilo Google Drive */}
-        <div className="flex items-center rounded-full border border-gray-300 overflow-hidden shadow-sm bg-white">
+        <div className="flex items-center rounded-full border border-gray-300 overflow-hidden shadow-sm bg-white mr-6">
           <button
             onClick={() => setViewMode("table")}
             className={cn(
@@ -126,12 +97,48 @@ export function ActionButtonsGroup({
             )}
           </button>
         </div>
+
+        {/* Nuevo y Salir */}
+        <div className="flex items-center gap-4">
+
+          {/* Nuevo */}
+          {!hideNew && (
+            <Button
+              onClick={() => {
+                if (newPath) {
+                  router.push(newPath);
+                } else if (onNewClick) {
+                  onNewClick();
+                }
+              }}
+              size="icon"
+              className="rounded-md bg-[#34e004] hover:bg-[#34e004] text-white cursor-pointer"
+              title="Nuevo"
+            >
+              <PlusCircle size={20} />
+            </Button>
+          )}
+
+          {/* Salir */}
+          <Button
+            asChild
+            size="icon"
+            className="rounded-md bg-[#db200b] hover:bg-[#db200b] text-white cursor-pointer"
+            title="Salir al dashboard"
+          >
+            <Link href="/dashboard">
+              <LogOut size={20} />
+            </Link>
+          </Button>
+
+        </div>
+
       </div>
 
       {/* Fila inferior: solo visible en vista tabla */}
       {viewMode === "table" && (
-        <div className="flex items-center mt-2">
-          <div className="flex items-center rounded-full border border-gray-300 overflow-hidden shadow-sm bg-white">
+        <div className="w-full flex justify-start mt-3">
+          <div className="flex items-center rounded-full border border-gray-300 overflow-hidden shadow-sm bg-white ml-1">
             {table ? (
               <>
                 {/* Menú de personalización de columnas */}

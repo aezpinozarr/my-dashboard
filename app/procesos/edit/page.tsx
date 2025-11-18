@@ -1977,7 +1977,7 @@ try {
                               }));
                             }}
                           >
-                            {row.id} – {row.descripcion} – id capitulo: {row.id_capitulo} – capitulo: {row.capitulo}
+                            {row.id} – {row.descripcion} – capitulo: {row.capitulo}
                           </CommandItem>
                         ))}
                       <CommandEmpty>No se encontraron partidas</CommandEmpty>
@@ -2055,7 +2055,7 @@ try {
                 </TooltipProvider>
               </div>
             </form>
-            {/* Tabla de partidas - DISEÑO MEJORADO */}
+{/* Tabla de partidas - DISEÑO MEJORADO */}
             <h2 className="text-lg font-semibold text-[#235391] mb-2">Partidas registradas</h2>
             <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
               <table className="min-w-full text-sm">
@@ -2065,29 +2065,25 @@ try {
                     <th className="px-3 py-2 font-semibold text-center">Partida</th>
                     <th className="px-3 py-2 font-semibold text-center">Capítulo</th>
                     <th className="px-3 py-2 font-semibold text-center">Fuente Financiamiento</th>
-                    <th className="px-3 py-2 font-semibold text-center">Descripción</th>
                     <th className="px-3 py-2 font-semibold text-center">Ramo</th>
                     <th className="px-3 py-2 font-semibold text-center">Fondo</th>
                     <th className="px-3 py-2 font-semibold text-center"></th>
                   </tr>
                 </thead>
                 <tbody>
-              {partidas.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-3 text-center text-gray-400">
-                    No hay partidas registradas.
-                  </td>
-                </tr>
-              ) : (
+                  {partidas.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-3 text-center text-gray-400">
+                        No hay partidas registradas.
+                      </td>
+                    </tr>
+                  ) : (
                 partidas
                   .filter(
                     (p) =>
                       p &&
-                      (p.e_id_partida !== null &&
-                        p.e_id_partida !== "" &&
-                        p.e_id_partida !== "-") &&
-                      (p.e_id_fuente_financiamiento !== null &&
-                        p.e_id_fuente_financiamiento !== "")
+                      (p.e_id_partida !== null && p.e_id_partida !== "" && p.e_id_partida !== "-") &&
+                      (p.e_id_fuente_financiamiento !== null && p.e_id_fuente_financiamiento !== "")
                   )
                   .map((p, index) => {
                     console.log("📌 COLUMNAS DE LA PARTIDA:", p);
@@ -2098,110 +2094,80 @@ try {
                           index % 2 === 0 ? "bg-white" : "bg-gray-50"
                         } hover:bg-gray-100 transition-colors`}
                       >
-                        {/* No. Requisición */}
-                        <td className="px-3 py-2 text-center">
-                        {p.no_requisicion || p.e_no_requisicion || ""}
-                      </td>
-
-                        {/* Partida */}
+                        <td className="px-3 py-2 text-center">{p.no_requisicion}</td>
                         <td className="px-3 py-2 text-center">
                           {`${p.e_id_partida} – ${p.partida_descripcion}`}
                         </td>
-
-                        {/* Capítulo */}
                         <td className="px-3 py-2 text-center">
-                          {p.id_capitulo}
+                          {`${p.id_capitulo}`}
                         </td>
-
-                        {/* Fuente financiamiento */}
-                        <td className="px-3 py-2 text-center">
-                          {p.fuente_financiamiento}
-                        </td>
-
-                        {/* Descripción */}
-                        <td className="px-3 py-2 text-center">
-                          {p.descripcion}
-                        </td>
-
-                        {/* Ramo */}
-                        <td className="px-3 py-2 text-center">
-                          {p.ramo_descripcion}
-                        </td>
-
-                        {/* Fondo */}
-                        <td className="px-3 py-2 text-center">
-                          {p.fondo}
-                        </td>
-
-                        {/* Botón eliminar */}
+                        <td className="px-3 py-2 text-center">{p.fuente_financiamiento}</td>
+                        <td className="px-3 py-2 text-center">{p.ramo_descripcion}</td>
+                        <td className="px-3 py-2 text-center">{p.fondo}</td>
                         <td className="px-3 py-2 text-right w-[1%]">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          disabled={procesoBloqueado}
-                          className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors
-                                    disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-gray-400 disabled:cursor-not-allowed"
-                          onClick={() => {
-                            if (procesoBloqueado) return;  // seguridad extra
-                            handleEliminarPartida(index);
-                          }}
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </Button>
-                      </td>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            onClick={() => handleEliminarPartida(index)}
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </Button>
+                        </td>
                       </tr>
                     );
                   })
-              )}
-            </tbody>
+                  )}
+                </tbody>
               </table>
             </div>
-            {/* Botones de navegación */}
-            <div className="flex justify-end mt-6 gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      onClick={() => setStep(1)}
-                    >
-                      ← Volver al paso 1
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Regresa al paso anterior</p>
-                  </TooltipContent>
-                </Tooltip>
+            {/* Botones de navegación (dashboard + volver + siguiente) */}
+<div className="flex items-center justify-between mt-6 gap-2 w-full">
+  {/* Botón rojo (dashboard) alineado a la izquierda */}
+  <div className="flex justify-start">
+    <Link href="/dashboard">
+      <Button
+        variant="outline"
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+      >
+        ←
+      </Button>
+    </Link>
+  </div>
+  {/* Volver al paso 1 y Siguiente alineados a la derecha */}
+  <div className="flex items-center gap-2">
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="outline" onClick={() => setStep(1)}>
+            ← 1
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Regresa al paso anterior</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      onClick={handleNext}
-                      className="bg-[#235391] text-white hover:bg-[#1e3a8a] transition-colors"
-                    >
-                      Siguiente
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Continúa al paso 3: Rubros</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-
-            {/* Botón regresar al dashboard (inferior, SOLO paso 2) */}
-            <div className="mt-6 flex justify-start">
-              <Link href="/dashboard">
-                <Button
-                  variant="outline"
-                  style={{ backgroundColor: "#db200b", color: "white" }}
-                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-                >
-                  ←
-                </Button>
-              </Link>
-            </div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            onClick={handleNext}
+            className="bg-[#235391] text-white hover:bg-[#1e3a8a] transition-colors"
+          >
+            Siguiente
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Continúa al paso 3: Rubros</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  </div>
+</div>
           </CardContent>
         </Card>
       )}
@@ -2628,34 +2594,58 @@ try {
           </table>
         </div>
 
-        {/* Navegación */}
-        <div className="flex justify-between mt-6">
-          <span />
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setStep(2)}>
-              ← Volver al paso 2
-            </Button>
-            <Button
-              onClick={handleGuardarRubros}
-              style={{ backgroundColor: "#235391", color: "white" }}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </div>
+         {/* Navegación */}
+<div className="flex items-center justify-between mt-6 gap-2 w-full">
+  {/* Botón rojo (dashboard) alineado a la izquierda */}
+  <div className="flex justify-start">
+    <Link href="/dashboard">
+      <Button
+        variant="outline"
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+      >
+        ←
+      </Button>
+    </Link>
+  </div>
 
-        {/* Botón regresar dashboard */}
-        <div className="mt-6 flex justify-start">
-          <Link href="/dashboard">
-            <Button
-              variant="outline"
-              style={{ backgroundColor: "#db200b", color: "white" }}
-              className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-            >
-              ←
-            </Button>
-          </Link>
-        </div>
+  {/* Volver al paso 2 y Siguiente alineados a la derecha */}
+  <div className="flex items-center gap-2">
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            onClick={() => setStep(2)}
+            className="transition-transform duration-150 hover:scale-105"
+          >
+            ← 2
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Regresar al paso 2: Partidas</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={handleGuardarRubros}
+            style={{ backgroundColor: "#235391", color: "white" }}
+            className="transition-transform duration-150 hover:scale-105 hover:bg-[#1e3a8a]"
+          >
+            Siguiente
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Avanzar al paso 4: Proveedor</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  </div>
+</div>
       </CardContent>
     </Card>
   );

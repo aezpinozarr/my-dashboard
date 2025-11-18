@@ -1208,9 +1208,70 @@ useEffect(() => {
 
       {/* Paso 1: Gestión del rector */}
       {pasoActual === 1 && (
-        <Card className="shadow-md border">
-      <CardHeader>
+        <Card className="shadow-md border w-full">
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Gestión del Rector</CardTitle>
+
+            {/* ⭐ Botones superiores duplicados */}
+            {estatusGeneral === "REVISADO" && (
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Button
+                    type="button"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onMouseEnter={() => setShowTooltipAvanzar(true)}
+                    onMouseLeave={() => setShowTooltipAvanzar(false)}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      if (!validateStep1Fields()) {
+                        toast.error("❌ Completa todos los campos obligatorios antes de avanzar");
+                        return;
+                      }
+                      const formEl = document.querySelector('form');
+                      if (formEl) {
+                        // @ts-ignore
+                        formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+                      }
+                      setTimeout(() => setStep(2), 500);
+                    }}
+                  >
+                    Avanzar al paso 2
+                  </Button>
+                  {showTooltipAvanzar && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
+                      Continuar con la adjudicación de proveedores
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {estatusGeneral === "CANCELADO" && (
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Button
+                    type="button"
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    onMouseEnter={() => setShowTooltipFinalizar(true)}
+                    onMouseLeave={() => setShowTooltipFinalizar(false)}
+                    onClick={(e) => {
+                      const formEl = document.querySelector('form');
+                      if (formEl) {
+                        // @ts-ignore
+                        formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+                      }
+                    }}
+                  >
+                    Finalizar proceso
+                  </Button>
+                  {showTooltipFinalizar && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
+                      Terminar proceso. No se podrá avanzar a adjudicación.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -1639,9 +1700,32 @@ useEffect(() => {
 {/* Paso 2: Seleccionar proceso de adjudicación */}
 {pasoActual === 2 && estatusGeneral === "REVISADO" && (
   <Card className="shadow-md border">
-    <CardHeader>
-      <CardTitle>Seleccionar proceso de adjudicación</CardTitle>
-    </CardHeader>
+    <CardHeader className="flex flex-row items-center justify-between">
+  <CardTitle>Seleccionar proceso de adjudicación</CardTitle>
+
+  {/* ⭐ Botones superiores duplicados */}
+  <div className="flex items-center gap-3">
+
+    {/* Botón: Regresar al paso anterior */}
+    <Button
+      variant="outline"
+      onClick={() => setStep((prev) => Math.max(prev - 1, 1))}
+      className="cursor-pointer"
+    >
+      ← Regresar al paso anterior
+    </Button>
+
+    {/* Botón: Finalizar proceso */}
+    <Button
+      onClick={finalizarProceso}
+      style={{ backgroundColor: "#db200b", color: "white" }}
+      className="cursor-pointer hover:brightness-110"
+    >
+      Finalizar proceso
+    </Button>
+
+  </div>
+</CardHeader>
 
     <CardContent className="space-y-6">
       <Accordion
@@ -1697,6 +1781,11 @@ useEffect(() => {
                 {/* ------- FIN DEL TRIGGER CON INDICADOR -------- */}
 
                 <AccordionContent className="space-y-6 transition-all duration-300 ease-in-out">
+                  {/* 🔒 Bloqueo automático según estatus */}
+                  {(() => {
+                    const bloqueado = ["DESIERTO", "CANCELADO"].includes(estatusLocal);
+                    return null;
+                  })()}
 
                   {/* Select Proveedor */}
                   <div>
@@ -1738,7 +1827,7 @@ useEffect(() => {
                           proveedor: false,
                         }));
                       }}
-                      disabled={!selectedRubroId}
+                      disabled={!selectedRubroId || ["DESIERTO", "CANCELADO"].includes(estatusLocal)}
                     >
                       <SelectTrigger
                         className={`${validationErrors.proveedor ? "border-red-500" : ""}`}
@@ -1863,7 +1952,7 @@ useEffect(() => {
                             fundamento: false,
                           }));
                         }}
-                        disabled={!["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)}
+                        disabled={["DESIERTO", "CANCELADO"].includes(estatusLocal) || !["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)}
                       >
                         <SelectTrigger className={`${validationErrors.fundamento ? "border-red-500" : ""}`}>
                           <SelectValue placeholder="Selecciona fundamento" />
@@ -1979,13 +2068,8 @@ useEffect(() => {
                     <div>
                       <Label>Importe ajustado</Label>
                       <Input
-                        value={
-                          selectedRubroId != null &&
-                          importes[selectedRubroId]?.sinIva
-                            ? formatMXN(importes[selectedRubroId].sinIva)
-                            : ""
-                        }
-                        onChange={(e) => {
+                        disabled={["DESIERTO", "CANCELADO"].includes(estatusLocal)}
+                        onChange={["DESIERTO", "CANCELADO"].includes(estatusLocal) ? undefined : (e) => {
                           if (selectedRubroId == null) return;
                           const digits = e.target.value.replace(/\D/g, "");
                           const amount = digits ? parseInt(digits, 10) : 0;
@@ -1997,6 +2081,12 @@ useEffect(() => {
                             },
                           }));
                         }}
+                        value={
+                          selectedRubroId != null &&
+                          importes[selectedRubroId]?.sinIva
+                            ? formatMXN(importes[selectedRubroId].sinIva)
+                            : ""
+                        }
                         placeholder="$0.00"
                       />
                     </div>

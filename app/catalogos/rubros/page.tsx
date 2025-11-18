@@ -305,7 +305,6 @@ export default function RubrosPage() {
             setViewMode={setView}
             onExport={() => console.log("Exportar CSV")}
             showExport={view === "table"}
-            newPath="/catalogos/rubros/new"
             table={table}
             showDeleted={showDeleted}
             setShowDeleted={setShowDeleted}

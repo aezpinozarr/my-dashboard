@@ -211,7 +211,6 @@ export default function ServidoresPublicosPage() {
             setViewMode={setView}
             onExport={() => console.log("Exportar CSV (pendiente)")}
             showExport={view === "table"}
-            newPath="/catalogos/servidores-publicos/new"
             showDeleted={showDeleted}
             setShowDeleted={setShowDeleted}
             table={table}

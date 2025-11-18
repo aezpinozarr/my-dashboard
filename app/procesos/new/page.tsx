@@ -1176,6 +1176,70 @@ React.useEffect(() => {
   return (
     <main className="max-w-5xl mx-auto p-6 space-y-6">
       <StepIndicator currentStep={step} />
+      {/* 🔹 Botones superiores de navegación entre pasos */}
+      <div
+        className={`flex items-center -mt-6 mb-2 ${
+          step === 4 ? "justify-start" : "justify-end"
+        }`}
+      >
+        {/* Botón Volver */}
+        {step > 1 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={() => setStep(step - 1)}
+                  className="mr-2 hover:scale-105 transition-transform"
+                >
+                  ← 
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Regresa al paso anterior</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {/* Botón Siguiente */}
+        {step < 4 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => setStep(step + 1)}
+                  className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform"
+                >
+                  Siguiente
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Ir al siguiente paso</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {/* Botón Finalizar */}
+        {step === 4 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleFinalizarProceso}
+                  className="bg-[#5b21b6] text-white hover:bg-[#4c1d95] hover:scale-105 transition-transform"
+                >
+                  Finalizar
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Finaliza el proceso</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
       {/* Paso 1 */}
       {step === 1 && (
           <>
@@ -1672,7 +1736,7 @@ React.useEffect(() => {
                               }));
                             }}
                           >
-                            {row.id} – {row.descripcion} – id capitulo: {row.id_capitulo} – capitulo: {row.capitulo}
+                            {row.id} – {row.descripcion} – capitulo: {row.capitulo}
                           </CommandItem>
                         ))}
                       <CommandEmpty>No se encontraron partidas</CommandEmpty>
@@ -1760,7 +1824,6 @@ React.useEffect(() => {
                     <th className="px-3 py-2 font-semibold text-center">Partida</th>
                     <th className="px-3 py-2 font-semibold text-center">Capítulo</th>
                     <th className="px-3 py-2 font-semibold text-center">Fuente Financiamiento</th>
-                    <th className="px-3 py-2 font-semibold text-center">Descripción</th>
                     <th className="px-3 py-2 font-semibold text-center">Ramo</th>
                     <th className="px-3 py-2 font-semibold text-center">Fondo</th>
                     <th className="px-3 py-2 font-semibold text-center"></th>
@@ -1798,7 +1861,6 @@ React.useEffect(() => {
                           {`${p.id_capitulo}`}
                         </td>
                         <td className="px-3 py-2 text-center">{p.fuente_financiamiento}</td>
-                        <td className="px-3 py-2 text-center">{p.descripcion}</td>
                         <td className="px-3 py-2 text-center">{p.ramo_descripcion}</td>
                         <td className="px-3 py-2 text-center">{p.fondo}</td>
                         <td className="px-3 py-2 text-right w-[1%]">
@@ -1818,52 +1880,53 @@ React.useEffect(() => {
                 </tbody>
               </table>
             </div>
-            {/* Botones de navegación */}
-            <div className="flex justify-end mt-6 gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      onClick={() => setStep(1)}
-                    >
-                      ← Volver al paso 1
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Regresa al paso anterior</p>
-                  </TooltipContent>
-                </Tooltip>
+            {/* Botones de navegación (dashboard + volver + siguiente) */}
+<div className="flex items-center justify-between mt-6 gap-2 w-full">
+  {/* Botón rojo (dashboard) alineado a la izquierda */}
+  <div className="flex justify-start">
+    <Link href="/dashboard">
+      <Button
+        variant="outline"
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+      >
+        ←
+      </Button>
+    </Link>
+  </div>
+  {/* Volver al paso 1 y Siguiente alineados a la derecha */}
+  <div className="flex items-center gap-2">
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="outline" onClick={() => setStep(1)}>
+            ← 1
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Regresa al paso anterior</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      onClick={handleNext}
-                      className="bg-[#235391] text-white hover:bg-[#1e3a8a] transition-colors"
-                    >
-                      Siguiente
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Continúa al paso 3: Rubros</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-
-            {/* Botón regresar al dashboard (inferior, SOLO paso 2) */}
-            <div className="mt-6 flex justify-start">
-              <Link href="/dashboard">
-                <Button
-                  variant="outline"
-                  style={{ backgroundColor: "#db200b", color: "white" }}
-                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-                >
-                  ←
-                </Button>
-              </Link>
-            </div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            onClick={handleNext}
+            className="bg-[#235391] text-white hover:bg-[#1e3a8a] transition-colors"
+          >
+            Siguiente
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Continúa al paso 3: Rubros</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  </div>
+</div>
           </CardContent>
         </Card>
       )}
@@ -2063,13 +2126,22 @@ React.useEffect(() => {
             </div>
 
             {/* Botón añadir */}
-            <div className="flex justify-end">
-              <Button style={{ backgroundColor: "#10c706", color: "white" }}>
-                Añadir rubro
-              </Button>
-            </div>
+          <div className="flex justify-end">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button style={{ backgroundColor: "#10c706", color: "white" }}>
+                    Añadir rubro
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Agregar un nuevo rubro a la lista</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           </form>
-        </div>
+          </div>
 
         {/* TABLA DE RUBROS (con columna invisible para ícono eliminar) */}
         <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
@@ -2165,33 +2237,57 @@ React.useEffect(() => {
         </div>
 
         {/* Navegación */}
-        <div className="flex justify-between mt-6">
-          <span />
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setStep(2)}>
-              ← Volver al paso 2
-            </Button>
-            <Button
-              onClick={handleGuardarRubros}
-              style={{ backgroundColor: "#235391", color: "white" }}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </div>
+<div className="flex items-center justify-between mt-6 gap-2 w-full">
+  {/* Botón rojo (dashboard) alineado a la izquierda */}
+  <div className="flex justify-start">
+    <Link href="/dashboard">
+      <Button
+        variant="outline"
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+      >
+        ←
+      </Button>
+    </Link>
+  </div>
 
-        {/* Botón regresar dashboard */}
-        <div className="mt-6 flex justify-start">
-          <Link href="/dashboard">
-            <Button
-              variant="outline"
-              style={{ backgroundColor: "#db200b", color: "white" }}
-              className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-            >
-              ←
-            </Button>
-          </Link>
-        </div>
+  {/* Volver al paso 2 y Siguiente alineados a la derecha */}
+  <div className="flex items-center gap-2">
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            onClick={() => setStep(2)}
+            className="transition-transform duration-150 hover:scale-105"
+          >
+            ← 2
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Regresar al paso 2: Partidas</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={handleGuardarRubros}
+            style={{ backgroundColor: "#235391", color: "white" }}
+            className="transition-transform duration-150 hover:scale-105 hover:bg-[#1e3a8a]"
+          >
+            Siguiente
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Avanzar al paso 4: Proveedor</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  </div>
+</div>
       </CardContent>
     </Card>
   );
@@ -2702,13 +2798,22 @@ React.useEffect(() => {
   </table>
 </div>
 
-        {/* Botones de navegación */}
-        <div className="flex justify-start gap-3 mt-6">
+        <div className="flex justify-start items-center gap-3 mt-6">
+          <Link href="/dashboard">
+            <Button
+              variant="outline"
+              style={{ backgroundColor: "#db200b", color: "white" }}
+              className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+            >
+              ←
+            </Button>
+          </Link>
+
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button type="button" variant="outline" onClick={() => setStep(3)}>
-                  ← Volver al paso 3
+                  ← 3
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -2731,19 +2836,7 @@ React.useEffect(() => {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-                </div>
-          {/* Botón regresar al dashboard (inferior, SOLO paso 3) */}
-          <div className="mt-6 flex justify-start">
-            <Link href="/dashboard">
-              <Button
-                variant="outline"
-                style={{ backgroundColor: "#db200b", color: "white" }}
-                className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-              >
-                ←
-              </Button>
-            </Link>
-          </div>
+        </div>
       </CardContent>
     </Card>
   );
