@@ -1787,88 +1787,8 @@ useEffect(() => {
                     return null;
                   })()}
 
-                  {/* Select Proveedor */}
-                  <div>
-                    <Label>Proveedor A Adjudicar</Label>
-                    <Select
-                      value={String(selectedProveedorLocal)}
-                      onValueChange={(val) => {
-                        setSelectedProveedorLocal(val);
 
-                        if (selectedRubroId != null) {
-                          setSelectedProveedor((prev) => ({
-                            ...prev,
-                            [selectedRubroId]: val,
-                          }));
-                        }
-
-                        const rubroSel = p.rubros.find(
-                          (rr) => Number(rr.id_rubro) === Number(selectedRubroId)
-                        );
-
-                        const proveedorSel = rubroSel?.proveedores.find(
-                          (prov) => prov.id?.toString() === val || prov.rfc === val
-                        );
-
-                        if (proveedorSel) {
-                          const sinIva = proveedorSel.importeSinIvaOriginal;
-                          const total = proveedorSel.importeTotalOriginal;
-
-                          if (selectedRubroId != null) {
-                            setImportes((prev) => ({
-                              ...prev,
-                              [Number(selectedRubroId)]: { sinIva, total },
-                            }));
-                          }
-                        }
-
-                        setValidationErrors((prev) => ({
-                          ...prev,
-                          proveedor: false,
-                        }));
-                      }}
-                      disabled={!selectedRubroId || ["DESIERTO", "CANCELADO"].includes(estatusLocal)}
-                    >
-                      <SelectTrigger
-                        className={`${validationErrors.proveedor ? "border-red-500" : ""}`}
-                      >
-                        <SelectValue placeholder="Selecciona proveedor" />
-                      </SelectTrigger>
-
-                      <SelectContent className="z-50" position="popper">
-                        {(() => {
-                          if (!selectedRubroId) return null;
-
-                          const rubroSel = p.rubros.find(
-                            (rr) => Number(rr.id_rubro) === Number(selectedRubroId)
-                          );
-
-                          if (!rubroSel || !Array.isArray(rubroSel.proveedores) || rubroSel.proveedores.length === 0) {
-                            return (
-                              <SelectItem disabled value="__no_providers__">
-                                No hay proveedores
-                              </SelectItem>
-                            );
-                          }
-
-                          return rubroSel.proveedores.map((prov) => (
-                            <SelectItem
-                              key={prov.id ? `prov-${String(prov.id)}` : `prov-${prov.rfc}`}
-                              value={String(prov.id || prov.rfc)}
-                            >
-                              {`${prov.rfc} ${prov.nombre}`}
-                            </SelectItem>
-                          ));
-                        })()}
-                      </SelectContent>
-                    </Select>
-
-                    {validationErrors.proveedor && (
-                      <p className="text-red-600 text-xs mt-1">Campo obligatorio</p>
-                    )}
-                  </div>
-
-                  {/* ------------------- ESTATUS Y FUNDAMENTO ------------------- */}
+                                    {/* ------------------- ESTATUS Y FUNDAMENTO ------------------- */}
                   <div className="grid grid-cols-10 gap-4 mb-2">
 
                     {/* ESTATUS */}
@@ -1977,6 +1897,97 @@ useEffect(() => {
                         <p className="text-red-600 text-xs mt-1">Campo obligatorio</p>
                       )}
                     </div>
+                  </div>
+
+                  {/* Select Proveedor */}
+                  <div>
+                    <Label>Proveedor A Adjudicar</Label>
+                    <Select
+                      value={String(selectedProveedorLocal)}
+                      onValueChange={(val) => {
+                        setSelectedProveedorLocal(val);
+
+                        if (selectedRubroId != null) {
+                          setSelectedProveedor((prev) => ({
+                            ...prev,
+                            [selectedRubroId]: val,
+                          }));
+                        }
+
+                        const rubroSel = p.rubros.find(
+                          (rr) => Number(rr.id_rubro) === Number(selectedRubroId)
+                        );
+
+                        const proveedorSel = rubroSel?.proveedores.find(
+                          (prov) => prov.id?.toString() === val || prov.rfc === val
+                        );
+
+                        if (proveedorSel) {
+                          const sinIva = proveedorSel.importeSinIvaOriginal;
+                          const total = proveedorSel.importeTotalOriginal;
+
+                          if (selectedRubroId != null) {
+                            setImportes((prev) => ({
+                              ...prev,
+                              [Number(selectedRubroId)]: { sinIva, total },
+                            }));
+                          }
+                        }
+
+                        setValidationErrors((prev) => ({
+                          ...prev,
+                          proveedor: false,
+                        }));
+                      }}
+
+                      // 🔥🔥 NUEVA LÓGICA DE BLOQUEO DEL SELECT
+                      disabled={
+                        !selectedRubroId ||                   // No hay rubro seleccionado
+                        !estatusLocal ||                      // No se ha elegido estatus
+                        (
+                          ["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal) &&
+                          !selectedFundamento[selectedRubroId ?? 0]   // Fundamento requerido
+                        ) ||
+                        ["DESIERTO", "CANCELADO"].includes(estatusLocal) // Bloqueo natural
+                      }
+                    >
+                      <SelectTrigger
+                        className={`${validationErrors.proveedor ? "border-red-500" : ""}`}
+                      >
+                        <SelectValue placeholder="Selecciona proveedor" />
+                      </SelectTrigger>
+
+                      <SelectContent className="z-50" position="popper">
+                        {(() => {
+                          if (!selectedRubroId) return null;
+
+                          const rubroSel = p.rubros.find(
+                            (rr) => Number(rr.id_rubro) === Number(selectedRubroId)
+                          );
+
+                          if (!rubroSel || !Array.isArray(rubroSel.proveedores) || rubroSel.proveedores.length === 0) {
+                            return (
+                              <SelectItem disabled value="__no_providers__">
+                                No hay proveedores
+                              </SelectItem>
+                            );
+                          }
+
+                          return rubroSel.proveedores.map((prov) => (
+                            <SelectItem
+                              key={prov.id ? `prov-${String(prov.id)}` : `prov-${prov.rfc}`}
+                              value={String(prov.id || prov.rfc)}
+                            >
+                              {`${prov.rfc} ${prov.nombre}`}
+                            </SelectItem>
+                          ));
+                        })()}
+                      </SelectContent>
+                    </Select>
+
+                    {validationErrors.proveedor && (
+                      <p className="text-red-600 text-xs mt-1">Campo obligatorio</p>
+                    )}
                   </div>
 
                   {/* Montos */}

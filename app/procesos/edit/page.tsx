@@ -1977,7 +1977,7 @@ try {
                               }));
                             }}
                           >
-                            {row.id} – {row.descripcion} – capitulo: {row.capitulo}
+                            {row.id} – {row.descripcion} – capitulo: {row.id_capitulo}
                           </CommandItem>
                         ))}
                       <CommandEmpty>No se encontraron partidas</CommandEmpty>

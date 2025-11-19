@@ -242,21 +242,7 @@ export default function NuevoProcesoPage() {
   // Paso 2
   const [fuentes, setFuentes] = React.useState<any[]>([]);
   const [catalogoPartidas, setCatalogoPartidas] = React.useState<any[]>([]);
-  const [partidas, setPartidas] = React.useState<any[]>([
-    {
-      id: null, // <--- agregado
-      e_no_requisicion: "",
-      e_id_partida: "",
-      partida_descripcion: "",
-      clave_capitulo: "",
-      capitulo: "",
-      e_id_fuente_financiamiento: "",
-      fuente_descripcion: "",
-      fuente_etiquetado: "",
-      fuente_fondo: "",
-      e_monto_presupuesto_suficiencia: "",
-    },
-  ]);
+  const [partidas, setPartidas] = React.useState<any[]>([]);
   // Estado para habilitar o no el botón "Nueva partida"
   const [puedeAgregarPartida, setPuedeAgregarPartida] = React.useState(false);
   // Paso 2: Guardar la partida actual (por índice) y habilitar "Nueva partida"
@@ -644,21 +630,7 @@ React.useEffect(() => {
 
       setFolio(data.resultado);
       // ✅ Reiniciar pasos dependientes al actualizar el folio
-      setPartidas([
-        {
-          id: null,
-          e_no_requisicion: "",
-          e_id_partida: "",
-          partida_descripcion: "",
-          clave_capitulo: "",
-          capitulo: "",
-          e_id_fuente_financiamiento: "",
-          fuente_descripcion: "",
-          fuente_etiquetado: "",
-          fuente_fondo: "",
-          e_monto_presupuesto_suficiencia: "",
-        },
-      ]);
+      setPartidas([]);
       setPresupuestosRubro([]);
       setProveedores([]);
       toast.success("Paso 1 guardado correctamente");
@@ -696,6 +668,7 @@ React.useEffect(() => {
             }),
           });
           const data = await res.json();
+          console.log("📌 RESPUESTA REAL DEL BACKEND:", data);   // ← AQUI
           if (Array.isArray(data) && data.length > 0) {
             setPartidas(data);
           }
@@ -940,10 +913,10 @@ React.useEffect(() => {
       return;
     }
 
-    // Validar que haya al menos una partida existente
-    if (partidas.length === 0) {
-      toast.warning("Debes registrar al menos una partida antes de continuar.");
-      return;
+    // Si YA EXISTE una partida pero aún NO tiene id (no está guardada en BD)
+    if (partidas.length > 0 && !partidas[0].id) {
+    toast.warning("Primero guarda la partida actual antes de añadir otra.");
+    return;
     }
 
     try {
@@ -987,6 +960,7 @@ React.useEffect(() => {
             id: data.resultado,
             no_requisicion: nuevaPartida.e_no_requisicion,
             e_id_partida: nuevaPartida.e_id_partida,
+            e_id_fuente_financiamiento: nuevaPartida.e_id_fuente_financiamiento,
             partida_descripcion: partidaSel?.descripcion ?? "",
             id_capitulo: partidaSel?.id_capitulo ?? "",
             capitulo: partidaSel?.capitulo ?? "",
@@ -1067,55 +1041,58 @@ React.useEffect(() => {
   };
 
   // Handler avanzar al siguiente paso (nuevo bloque)
-  const handleNext = async () => {
-    try {
-      const folioActual = folioSeguimiento || folio || Number(sessionStorage.getItem("folioSeguimiento"));
-      if (!folioActual) {
-        toast.info("Primero debes completar el Paso 1 antes de continuar.");
-        return;
-      }
-
-      // 🔹 Traer partidas actualizadas desde la BD
-      const res = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          p_accion: "CONSULTAR",
-          p_id_seguimiento: folioActual,
-          p_e_id_partida: -99,
-        }),
-      });
-
-      const data = await res.json();
-      let partidasActualizadas = Array.isArray(data) ? data : partidas;
-
-      // 🔹 Validar si hay al menos una partida con los campos básicos completos
-      const partidasValidas = partidasActualizadas.filter((p) => {
-        const noReq = p.e_no_requisicion ?? p.no_requisicion;
-        const idPartida = p.e_id_partida ?? p.partida ?? p.id_partida;
-        const fuente = p.e_id_fuente_financiamiento ?? p.fuente_financiamiento ?? p.id_fuente_financiamiento;
-        return (
-          String(noReq || "").trim() !== "" &&
-          String(idPartida || "").trim() !== "" &&
-          String(fuente || "").trim() !== ""
-        );
-      });
-
-      if (partidasValidas.length === 0) {
-        toast.warning("Debes añadir al menos una partida antes de continuar.");
-        return;
-      }
-
-      // 🔹 Limpiar errores si pasa la validación
-      setErroresForm({});
-      setPartidas(partidasValidas);
-      toast.success("Partidas validadas correctamente.");
-      setStep(3);
-    } catch (err) {
-      console.error("❌ Error en handleNext:", err);
-      toast.error("Error al validar las partidas.");
+const handleNext = async () => {
+  try {
+    const folioActual = folioSeguimiento || folio || Number(sessionStorage.getItem("folioSeguimiento"));
+    if (!folioActual) {
+      toast.info("Primero debes completar el Paso 1 antes de continuar.");
+      return;
     }
-  };
+
+    // 🔹 Traer partidas actualizadas desde la BD
+    const res = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        p_accion: "CONSULTAR",
+        p_id_seguimiento: folioActual,
+        p_e_id_partida: -99,
+      }),
+    });
+
+    const data = await res.json();
+
+    // 🔹 AQUI EL FIX IMPORTANTE
+    let partidasActualizadas = Array.isArray(data)
+      ? data.map(p => ({ ...p, id: p.id })) // ← aseguramos que id exista
+      : partidas;
+
+    // 🔹 Validar si hay al menos una partida
+    const partidasValidas = partidasActualizadas.filter((p) => {
+      const noReq = p.e_no_requisicion ?? p.no_requisicion;
+      const idPartida = p.e_id_partida ?? p.partida ?? p.id_partida;
+      const fuente = p.e_id_fuente_financiamiento ?? p.fuente_financiamiento ?? p.id_fuente_financiamiento;
+      return (
+        String(noReq || "").trim() !== "" &&
+        String(idPartida || "").trim() !== "" &&
+        String(fuente || "").trim() !== ""
+      );
+    });
+
+    if (partidasValidas.length === 0) {
+      toast.warning("Debes añadir al menos una partida antes de continuar.");
+      return;
+    }
+
+    setErroresForm({});
+    setPartidas(partidasValidas);
+    toast.success("Partidas validadas correctamente.");
+    setStep(3);
+  } catch (err) {
+    console.error("❌ Error en handleNext:", err);
+    toast.error("Error al validar las partidas.");
+  }
+};
 
   /* ========================================
      🔹 Handler para eliminar proveedor del paso 4
@@ -1662,7 +1639,7 @@ React.useEffect(() => {
           </>
       )}
 
-      {/* Paso 2 */}
+     {/* Paso 2 */}
       {step === 2 && (
         <Card>
           <CardContent className="space-y-5 mt-4">
@@ -1736,7 +1713,7 @@ React.useEffect(() => {
                               }));
                             }}
                           >
-                            {row.id} – {row.descripcion} – capitulo: {row.capitulo}
+                            {row.id} – {row.descripcion} – id capitulo: {row.id_capitulo} – capitulo: {row.capitulo}
                           </CommandItem>
                         ))}
                       <CommandEmpty>No se encontraron partidas</CommandEmpty>
@@ -1860,7 +1837,9 @@ React.useEffect(() => {
                         <td className="px-3 py-2 text-center">
                           {`${p.id_capitulo}`}
                         </td>
-                        <td className="px-3 py-2 text-center">{p.fuente_financiamiento}</td>
+                        <td className="px-3 py-2 text-center">
+                        {`${p.e_id_fuente_financiamiento} – ${p.fuente_financiamiento}`}
+                      </td>
                         <td className="px-3 py-2 text-center">{p.ramo_descripcion}</td>
                         <td className="px-3 py-2 text-center">{p.fondo}</td>
                         <td className="px-3 py-2 text-right w-[1%]">
@@ -1880,68 +1859,52 @@ React.useEffect(() => {
                 </tbody>
               </table>
             </div>
-            {/* Botones de navegación (dashboard + volver + siguiente) */}
-<div className="flex items-center justify-between mt-6 gap-2 w-full">
-  {/* Botón rojo (dashboard) alineado a la izquierda */}
-  <div className="flex justify-start">
-    <Link href="/dashboard">
-      <Button
-        variant="outline"
-        style={{ backgroundColor: "#db200b", color: "white" }}
-        className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-      >
-        ←
-      </Button>
-    </Link>
-  </div>
-  {/* Volver al paso 1 y Siguiente alineados a la derecha */}
-  <div className="flex items-center gap-2">
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="outline" onClick={() => setStep(1)}>
-            <div
-              style={{
-                width: "28px",
-                height: "28px",
-                borderRadius: "50%",
-                backgroundColor: "#235391",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "14px",
-                fontWeight: "bold",
-              }}
-            >
-              1
-            </div>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Regresa al paso anterior</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+            {/* Botones de navegación */}
+            <div className="flex justify-end mt-6 gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      onClick={() => setStep(1)}
+                    >
+                      ← Volver al paso 1
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Regresa al paso anterior</p>
+                  </TooltipContent>
+                </Tooltip>
 
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            onClick={handleNext}
-            className="bg-[#235391] text-white hover:bg-[#1e3a8a] transition-colors"
-          >
-            Siguiente
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Continúa al paso 3: Rubros</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  </div>
-</div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      onClick={handleNext}
+                      className="bg-[#235391] text-white hover:bg-[#1e3a8a] transition-colors"
+                    >
+                      Siguiente
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Continúa al paso 3: Rubros</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+
+            {/* Botón regresar al dashboard (inferior, SOLO paso 2) */}
+            <div className="mt-6 flex justify-start">
+              <Link href="/dashboard">
+                <Button
+                  variant="outline"
+                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                >
+                  ←
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -1949,6 +1912,7 @@ React.useEffect(() => {
    {/* Paso 3 */}
 {(() => {
   const rubroInputRef = React.useRef<any>(null);
+  const [mostrarRubros, setMostrarRubros] = React.useState(false);
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -2082,47 +2046,56 @@ React.useEffect(() => {
             <div className="flex gap-4">
               <div className="w-[70%]">
                 <Label>Rubro</Label>
+
                 <Command>
-                  <CommandInput
-                    ref={rubroInputRef}
-                    value={nuevoRubro.p_e_id_rubro}
-                    placeholder="Escribe ID o nombre…"
-                    onValueChange={(val) =>
-                      setNuevoRubro((prev) => ({
-                        ...prev,
-                        p_e_id_rubro: val,
-                        rubro_descripcion: "",
-                      }))
-                    }
-                  />
-                  {Boolean((nuevoRubro.p_e_id_rubro || "").trim()) && (
-                    <CommandList>
-                      {rubros
-                        .filter((rb) => {
-                          const q = (nuevoRubro.p_e_id_rubro || "").toLowerCase();
-                          return (
-                            rb.id?.toString().toLowerCase().includes(q) ||
-                            rb.descripcion?.toLowerCase().includes(q)
-                          );
-                        })
-                        .map((rb) => (
-                          <CommandItem
-                            key={rb.id}
-                            onSelect={() =>
-                              setNuevoRubro((prev) => ({
-                                ...prev,
-                                p_e_id_rubro: rb.id,
-                                rubro_descripcion: rb.descripcion,
-                              }))
-                            }
-                          >
-                            {rb.id} — {rb.descripcion}
-                          </CommandItem>
-                        ))}
-                      <CommandEmpty>No se encontraron rubros</CommandEmpty>
-                    </CommandList>
-                  )}
-                </Command>
+    <CommandInput
+      ref={rubroInputRef}
+      value={nuevoRubro.rubro_descripcion || nuevoRubro.p_e_id_rubro}
+      placeholder="Escribe ID o nombre…"
+      onValueChange={(val) => {
+        setNuevoRubro((prev) => ({
+          ...prev,
+          p_e_id_rubro: val,
+          rubro_descripcion: "",
+        }));
+        setMostrarRubros(true);
+      }}
+    />
+
+    {mostrarRubros && (
+      <CommandList>
+        {rubros
+          .filter((rb) => {
+            const q = (nuevoRubro.p_e_id_rubro || "").toLowerCase();
+            return (
+              rb.id?.toString().toLowerCase().includes(q) ||
+              rb.descripcion?.toLowerCase().includes(q)
+            );
+          })
+          .map((rb) => (
+            <CommandItem
+              key={rb.id}
+              onSelect={() => {
+                // ✔ Guarda el ID
+                // ✔ Guarda la descripción
+                // ✔ Llena el Input con "id — descripcion"
+                // ✔ Cierra el CommandList
+                setNuevoRubro((prev) => ({
+                  ...prev,
+                  p_e_id_rubro: rb.id.toString(),
+                  rubro_descripcion: rb.descripcion,
+                }));
+                setMostrarRubros(false);
+              }}
+            >
+              {rb.id} — {rb.descripcion}
+            </CommandItem>
+          ))}
+
+        <CommandEmpty>No se encontraron rubros</CommandEmpty>
+      </CommandList>
+    )}
+  </Command>
               </div>
 
               <div className="w-[30%]">
@@ -2141,24 +2114,24 @@ React.useEffect(() => {
             </div>
 
             {/* Botón añadir */}
-          <div className="flex justify-end">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button style={{ backgroundColor: "#10c706", color: "white" }}>
-                    Añadir rubro
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Agregar un nuevo rubro a la lista</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+            <div className="flex justify-end">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button style={{ backgroundColor: "#10c706", color: "white" }}>
+                      Añadir rubro
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Agregar un nuevo rubro a la lista</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </form>
-          </div>
+        </div>
 
-        {/* TABLA DE RUBROS (con columna invisible para ícono eliminar) */}
+        {/* TABLA */}
         <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
           <table className="min-w-full text-sm">
             <thead>
@@ -2170,6 +2143,7 @@ React.useEffect(() => {
                 <th className="px-3 py-2 text-center" style={{ width: "40px" }}></th>
               </tr>
             </thead>
+
             <tbody>
               {presupuestosRubro.length === 0 ? (
                 <tr>
@@ -2189,7 +2163,7 @@ React.useEffect(() => {
                           (p) => String(p.e_id_partida) === String(r.p_id_partida_asociada)
                         );
                         return partida
-                          ? `#${partidas.indexOf(partida) + 1} — ${partida.e_id_partida} — ${partida.partida_descripcion}`
+                          ? `${partida.e_id_partida} — ${partida.partida_descripcion}`
                           : "Sin asignar";
                       })()}
                     </td>
@@ -2252,68 +2226,68 @@ React.useEffect(() => {
         </div>
 
         {/* Navegación */}
-<div className="flex items-center justify-between mt-6 gap-2 w-full">
-  {/* Botón rojo (dashboard) alineado a la izquierda */}
-  <div className="flex justify-start">
-    <Link href="/dashboard">
-      <Button
-        variant="outline"
-        style={{ backgroundColor: "#db200b", color: "white" }}
-        className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-      >
-        ←
-      </Button>
-    </Link>
-  </div>
+        <div className="flex items-center justify-between mt-6 gap-2 w-full">
+          {/* Botón rojo */}
+          <div className="flex justify-start">
+            <Link href="/dashboard">
+              <Button
+                variant="outline"
+                style={{ backgroundColor: "#db200b", color: "white" }}
+                className="cursor-pointer transition-transform duration-150 hover:scale-105 hover:brightness-110"
+              >
+                ←
+              </Button>
+            </Link>
+          </div>
 
-  {/* Volver al paso 2 y Siguiente alineados a la derecha */}
-  <div className="flex items-center gap-2">
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-           <Button variant="outline" onClick={() => setStep(2)}>
-                      <div
-                        style={{
-                          width: "28px",
-                          height: "28px",
-                          borderRadius: "50%",
-                          backgroundColor: "#235391",
-                          color: "white",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "14px",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        2
-                      </div>
-                    </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Regresar al paso 2: Partidas</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+          {/* Botones derecha */}
+          <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" onClick={() => setStep(2)}>
+                    <div
+                      style={{
+                        width: "28px",
+                        height: "28px",
+                        borderRadius: "50%",
+                        backgroundColor: "#235391",
+                        color: "white",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "14px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      2
+                    </div>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Regresar al paso 2: Partidas</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            onClick={handleGuardarRubros}
-            style={{ backgroundColor: "#235391", color: "white" }}
-            className="transition-transform duration-150 hover:scale-105 hover:bg-[#1e3a8a]"
-          >
-            Siguiente
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Avanzar al paso 4: Proveedor</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  </div>
-</div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleGuardarRubros}
+                    style={{ backgroundColor: "#235391", color: "white" }}
+                    className="transition-transform duration-150 hover:scale-105 hover:bg-[#1e3a8a]"
+                  >
+                    Siguiente
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Avanzar al paso 4: Proveedor</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -2866,7 +2840,7 @@ React.useEffect(() => {
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  style={{ backgroundColor: "#582497ff", color: "white" }}
+                  style={{ backgroundColor: "#FFBF00", color: "white" }}
                   onClick={handleFinalizarProceso}
                 >
                   Finalizar
