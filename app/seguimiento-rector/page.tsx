@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -79,6 +79,9 @@ export default function SeguimientoRectorPage() {
   const [view, setView] = useState<"cards" | "table">("table");
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
+  const [filterField, setFilterField] = useState("all");
+  const [search, setSearch] = useState("");
+  const [rawSearch, setRawSearch] = useState("");
   const router = useRouter();
 
   const [detalle, setDetalle] = useState<any[]>([]);
@@ -200,15 +203,67 @@ export default function SeguimientoRectorPage() {
     },
   ];
 
-  const table = useReactTable({
-    data: registros,
-    columns,
-    state: { sorting, columnVisibility },
-    onSortingChange: setSorting,
-    onColumnVisibilityChange: setColumnVisibility,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+  
+  // 🔎 Normalizador para búsqueda (quita acentos y homogeneiza a minúsculas)
+  const normalize = (v: any) =>
+    (v ?? "")
+      .toString()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "");
+
+  const registrosFiltrados = useMemo(() => {
+    return registros.filter((r) => {
+      const term = search.trim().toLowerCase();
+      if (term === "") return true;
+
+      if (filterField === "id") {
+        return String(r.id).includes(term);
+      }
+
+      if (filterField === "all") {
+        const haystack = [
+          r.id,
+          r.ente,
+          r.ente_clasificacion,
+          r.id_ente_tipo,
+          r.e_oficio_invitacion,
+          r.e_tipo_licitacion,
+          r.tipo_licitacion_no_veces_descripcion,
+          r.servidor_publico_emite,
+          r.r_estatus,
+        ]
+          .map((v) =>
+            typeof v === "number"
+              ? String(v)
+              : normalize(v)
+          )
+          .join(" ");
+
+        return haystack.includes(term);
+      }
+
+      const fieldValue = normalize((r as any)[filterField]);
+      return fieldValue.includes(term);
+    });
+  }, [registros, search, filterField]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearch(rawSearch);
+    }, 250);
+    return () => clearTimeout(handler);
+  }, [rawSearch]);
+
+    const table = useReactTable({
+      data: registrosFiltrados,   // ✅ usar los registros filtrados
+      columns,
+      state: { sorting, columnVisibility },
+      onSortingChange: setSorting,
+      onColumnVisibilityChange: setColumnVisibility,
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+    });
 
   const cargarDetalle = async (id: number) => {
     try {
@@ -248,33 +303,6 @@ export default function SeguimientoRectorPage() {
     cargarRegistros();
   }, []);
 
-  // 🔎 Normalizador para búsqueda (quita acentos y homogeneiza a minúsculas)
-  const normalize = (v: any) =>
-    (v ?? "")
-      .toString()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "");
-
-  const term = normalize(filtro);
-
-  const registrosFiltrados = registros.filter((r) => {
-    const haystack = [
-      r.id, // ✅ permite buscar por ID
-      r.ente,
-      r.ente_clasificacion,
-      r.id_ente_tipo,
-      r.e_oficio_invitacion,
-      r.e_tipo_licitacion,
-      r.tipo_licitacion_no_veces_descripcion,
-      r.servidor_publico_emite,
-      r.r_estatus,
-    ]
-      .map(normalize)
-      .join(" ");
-
-    return haystack.includes(term);
-  });
 
   // Formatea cualquier valor a moneda MXN de manera segura
   const formatMXN = (v: any) => {
@@ -306,7 +334,7 @@ export default function SeguimientoRectorPage() {
   // 🔹 Render
   // ===============================
   return (
-    <main className="max-w-7xl mx-auto p-6 space-y-6 bg-white min-h-screen">
+    <main className="w-full p-6 space-y-6 bg-white min-h-screen">
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
@@ -346,15 +374,51 @@ export default function SeguimientoRectorPage() {
         </div>
       </div>
 
-      {/* 🔍 Barra de búsqueda */}
-      <div className="w-full">
+      {/* 🔍 BARRA DE BÚSQUEDA CON FILTROS */}
+      <div className="w-full mt-2 flex gap-2 items-center">
+        {/* Selector de categoría */}
+        <div className="w-40">
+          <select
+            value={filterField}
+            onChange={(e) => setFilterField(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-2 py-2 text-sm"
+          >
+            <option value="all">Todos</option>
+            <option value="id">ID</option>
+            <option value="ente">Ente</option>
+            <option value="e_oficio_invitacion">Oficio</option>
+            <option value="e_tipo_licitacion">Tipo Licitación</option>
+            <option value="servidor_publico_emite">Servidor Público</option>
+          </select>
+        </div>
+
+        {/* Input de búsqueda */}
         <Input
           type="text"
-          placeholder="Buscar por ID, ente, clasificación, etc."
-          value={filtro}
-          onChange={(e) => setFiltro(e.target.value)}
-          className="w-full h-11 text-base"
+          placeholder={
+            filterField === "all"
+              ? "Buscar en todo…"
+              : `Buscar por ${filterField.replace(/_/g, " ")}…`
+          }
+          value={rawSearch}
+          onChange={(e) => setRawSearch(e.target.value)}
+          className="w-full"
         />
+
+        {/* Botón limpiar filtros */}
+        {search.trim() !== "" || filterField !== "all" ? (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSearch("");
+              setRawSearch("");
+              setFilterField("all");
+            }}
+            className="whitespace-nowrap"
+          >
+            Limpiar
+          </Button>
+        ) : null}
       </div>
 
       {loading ? (

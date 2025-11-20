@@ -9,6 +9,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 import { CheckCircle, Loader2, LayoutGrid, List, ChevronDown, ChevronUp, Settings2, ChevronRight, Download, PlusCircle, LogOut, CircleEllipsis } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { Input } from "@/components/ui/input";
 // Shadcn Table + TanStack Table
 import {
   Table,
@@ -90,8 +91,11 @@ interface Seguimiento {
 export default function ProcesosPage() {
   const [data, setData] = useState<Seguimiento[]>([]);
   const [loading, setLoading] = useState(true);
+  const [originalData, setOriginalData] = useState<Seguimiento[]>([]);
   const [openItem, setOpenItem] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const [search, setSearch] = useState("");
+  const [filterField, setFilterField] = useState("all");
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [expandedSections, setExpandedSections] = useState<Record<string, { rector: boolean; presupuesto: boolean }>>({});
   // --- TABLE VIEW LOGIC ---
@@ -260,6 +264,8 @@ export default function ProcesosPage() {
         console.log("✅ Resultado final de groupedData:", groupedData);
 
         setData(groupedData);
+        setOriginalData(groupedData); 
+        
         // setData(merged);
       } catch (err) {
         console.error("❌ Error al cargar datos:", err);
@@ -270,6 +276,27 @@ export default function ProcesosPage() {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    let filtered = originalData;
+
+    if (search.trim() !== "") {
+      const lower = search.toLowerCase();
+
+      filtered = originalData.filter((item) => {
+        if (filterField === "all") {
+          return Object.values(item).some((val) =>
+            String(val ?? "").toLowerCase().includes(lower)
+          );
+        } else {
+          const value = String((item as any)[filterField] ?? "").toLowerCase();
+          return value.includes(lower);
+        }
+      });
+    }
+
+    setData(filtered);
+  }, [search, filterField, originalData]);
 
   const StatusBadge = ({ value }: { value: any }) =>
     value ? (
@@ -475,7 +502,7 @@ export default function ProcesosPage() {
 
   if (loading) {
     return (
-      <main className="max-w-6xl mx-auto p-6 space-y-6 bg-white min-h-screen">
+      <main className="w-full p-6 space-y-6 bg-white min-h-screen">
         <CardHeader>
           <CardTitle>Cargando Seguimientos...</CardTitle>
         </CardHeader>
@@ -492,7 +519,7 @@ export default function ProcesosPage() {
   // Reuse openItem for single open accordion
 
   return (
-    <main className="max-w-6xl mx-auto p-6 space-y-6 bg-white min-h-screen">
+    <main className="w-full p-6 space-y-6 bg-white min-h-screen">
       {/* ENCABEZADO */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
@@ -507,16 +534,27 @@ export default function ProcesosPage() {
         </Link>
           <div>
             <h1 className="text-2xl font-bold">
-              Detalle de Procesos
+              Seguimiento de Procesos
             </h1>
             <p className="text-gray-600 text-sm">
-              Consulta todos los seguimientos registrados por tu ente.
+              Registros elaborados por tu ente.
             </p>
             {data.length > 0 && (
-              <p className="text-muted-foreground text-sm" style={{ textAlign: "left" }}>
-                Mostrando {data.length} registro{data.length !== 1 && "s"}.
-              </p>
-            )}
+            <p className="text-muted-foreground text-sm">
+              {search.trim() === "" ? (
+                <>
+                  <span className="font-bold">{data.length}</span> registro
+                  {data.length !== 1 && "s"}.
+                </>
+              ) : (
+                <>
+                  <span className="font-bold">{data.length}</span> registro
+                  {data.length !== 1 && "s"} de{" "}
+                  <span className="font-bold">{originalData.length}</span>.
+                </>
+              )}
+            </p>
+          )}
           </div>
         </div>
         <ActionButtonsGroup
@@ -527,6 +565,53 @@ export default function ProcesosPage() {
           newPath="/procesos/new"
           table={table} // ✅ pasa la instancia de la tabla
         />
+      </div>
+
+      {/* 🔍 BARRA DE BÚSQUEDA CON FILTROS */}
+      <div className="w-full mt-2 flex gap-2 items-center">
+        {/* Selector de categoría */}
+        <div className="w-40">
+          <select
+            value={filterField}
+            onChange={(e) => setFilterField(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-2 py-2 text-sm"
+          >
+            <option value="all">Todos</option>
+            <option value="id">ID</option>
+            <option value="ente">Ente</option>
+            <option value="e_oficio_invitacion">Oficio</option>
+            <option value="e_tipo_licitacion">Tipo Licitación</option>
+            <option value="servidor_publico_emite">Servidor Público</option>
+          </select>
+        </div>
+
+        {/* Input de búsqueda */}
+        <Input
+          type="text"
+          placeholder={
+            filterField === "all"
+              ? "Buscar en todo…"
+              : `Buscar por ${filterField.replace(/_/g, " ")}…`
+          }
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full"
+        />
+
+        {/* Botón limpiar filtros */}
+        {search.trim() !== "" || filterField !== "all" ? (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSearch("");
+              setFilterField("all");
+              setData(originalData);
+            }}
+            className="whitespace-nowrap"
+          >
+            Limpiar
+          </Button>
+        ) : null}
       </div>
 
       {/* --- VISTA TABLA --- */}

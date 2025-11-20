@@ -104,6 +104,9 @@ export default function EntesPage() {
   const [servidores, setServidores] = React.useState<any[]>([]);
   const [enteSeleccionado, setEnteSeleccionado] = React.useState<string | null>(null);
 
+  // Estado para campo de filtro de búsqueda
+  const [filterField, setFilterField] = React.useState("all");
+
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
 
@@ -186,23 +189,31 @@ export default function EntesPage() {
   };
 
   // ======================
-  // Filtrar entes
+  // Filtrar entes con selector de campo
   // ======================
   const entesFiltrados = React.useMemo(() => {
     const term = search.trim().toLowerCase();
+    if (term === "") return entes;
 
-    // No filtramos por "activo" aquí; el backend ya devuelve
-    // activos o eliminados según el parámetro p_activo.
-    const filtrados = entes;
+    return entes.filter((e) => {
+      const normalize = (v: any) =>
+        v?.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") ?? "";
 
-    if (!term) return filtrados;
-
-    return filtrados.filter((e) =>
-      [e.id, e.descripcion, e.siglas, e.clasificacion, e.ente_tipo_descripcion]
-        .filter(Boolean)
-        .some((field) => field!.toString().toLowerCase().includes(term))
-    );
-  }, [entes, search]);
+      if (filterField === "all") {
+        return [
+          e.id,
+          e.descripcion,
+          e.siglas,
+          e.clasificacion,
+          e.ente_tipo_descripcion,
+        ]
+          .filter(Boolean)
+          .some((field) => normalize(field).includes(normalize(term)));
+      } else {
+        return normalize((e as any)[filterField]).includes(normalize(term));
+      }
+    });
+  }, [entes, search, filterField]);
 
   // ======================
   // Definir columnas para TanStack Table
@@ -300,7 +311,7 @@ export default function EntesPage() {
   // Render principal
   // ======================
   return (
-    <main className="max-w-7xl mx-auto p-6 space-y-6">
+    <main className="w-full p-6 space-y-6 bg-white min-h-screen">
       {/* ENCABEZADO */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
@@ -314,15 +325,25 @@ export default function EntesPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold">Catálogo de Entes</h1>
-            <p className="text-gray-600 text-sm">
-              Consulta, crea, edita o recupera entes registrados en el sistema.
-            </p>
+            <h1 className="text-2xl font-bold">Entes</h1>
             {entesFiltrados.length > 0 && (
-              <p className="text-muted-foreground text-sm">
-                Mostrando {entesFiltrados.length} registro{entesFiltrados.length !== 1 && "s"}.
-              </p>
-            )}
+  <p className="text-muted-foreground text-sm">
+    {search.trim() === "" ? (
+      <>
+        {" "}
+        <span className="font-bold">{entes.length}</span> registro
+        {entes.length !== 1 && "s"}.
+      </>
+    ) : (
+      <>
+        {" "}
+        <span className="font-bold">{entesFiltrados.length}</span> registro
+        {entesFiltrados.length !== 1 && "s"} de{" "}
+        <span className="font-bold">{entes.length}</span>.
+      </>
+    )}
+  </p>
+)}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -357,15 +378,50 @@ export default function EntesPage() {
         </div>
       </div>
 
-      {/* 🔍 Barra de búsqueda */}
-      <div className="w-full">
+      {/* 🔍 Barra de búsqueda con filtros */}
+      <div className="w-full mt-2 flex gap-2 items-center">
+        {/* Selector de categoría */}
+        <div className="w-40">
+          <select
+            value={filterField}
+            onChange={(e) => setFilterField(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-2 py-2 text-sm"
+          >
+            <option value="all">Todos</option>
+            <option value="id">ID</option>
+            <option value="descripcion">Descripción</option>
+            <option value="siglas">Siglas</option>
+            <option value="clasificacion">Clasificación</option>
+            <option value="ente_tipo_descripcion">Tipo de ente</option>
+          </select>
+        </div>
+
+        {/* Input de búsqueda */}
         <Input
           type="text"
-          placeholder="Buscar..."
+          placeholder={
+            filterField === "all"
+              ? "Buscar en todo…"
+              : `Buscar por ${filterField.replace(/_/g, " ")}…`
+          }
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full"
         />
+
+        {/* Botón limpiar filtros */}
+        {(search.trim() !== "" || filterField !== "all") && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSearch("");
+              setFilterField("all");
+            }}
+            className="whitespace-nowrap"
+          >
+            Limpiar
+          </Button>
+        )}
       </div>
 
       {/* CONTENIDO */}

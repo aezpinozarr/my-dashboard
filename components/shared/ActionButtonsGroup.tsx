@@ -53,6 +53,54 @@ export function ActionButtonsGroup({
       {/* Fila superior: selector de vista a la izquierda y Nuevo/Salir a la derecha */}
       <div className="flex items-center justify-between w-full">
         
+        {viewMode === "table" && (
+          <div className="flex items-center rounded-full border border-gray-300 overflow-hidden shadow-sm bg-white mr-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-[#F1F3F4] transition-all duration-200"
+                  title="Columnas"
+                >
+                  <Settings2 size={18} className="text-gray-700" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-80 overflow-auto">
+                {table?.getAllLeafColumns().map((column: any) =>
+                  column.id !== "expander" ? (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      checked={
+                        columnVisibility && column.id in columnVisibility
+                          ? columnVisibility[column.id]
+                          : column.getIsVisible()
+                      }
+                      onCheckedChange={(checked) => {
+                        if (setColumnVisibility) {
+                          setColumnVisibility({
+                            ...columnVisibility,
+                            [column.id]: checked,
+                          });
+                        }
+                        column.toggleVisibility(checked);
+                      }}
+                    >
+                      {column.columnDef.header as string}
+                    </DropdownMenuCheckboxItem>
+                  ) : null
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <button
+              onClick={onExport}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border-l border-gray-300 hover:bg-[#F1F3F4] transition-all duration-200"
+              title="Exportar CSV"
+            >
+              <Download size={18} className="text-gray-700" />
+            </button>
+          </div>
+        )}
+
         {/* Selector de vista estilo Google Drive */}
         <div className="flex items-center rounded-full border border-gray-300 overflow-hidden shadow-sm bg-white mr-6">
           <button
@@ -98,12 +146,12 @@ export function ActionButtonsGroup({
           </button>
         </div>
 
-        {/* Nuevo y Salir */}
-        <div className="flex items-center gap-4">
-
+        {/* Nuevo y Salir unidos estilo selector */}
+        <div className="flex items-center rounded-full overflow-hidden shadow-sm border border-gray-300 bg-white">
+          
           {/* Nuevo */}
           {!hideNew && (
-            <Button
+            <button
               onClick={() => {
                 if (newPath) {
                   router.push(newPath);
@@ -111,101 +159,31 @@ export function ActionButtonsGroup({
                   onNewClick();
                 }
               }}
-              size="icon"
-              className="rounded-md bg-[#34e004] hover:bg-[#34e004] text-white cursor-pointer"
+              className="px-4 py-2 flex items-center justify-center bg-[#34e004] hover:bg-[#34e004] text-white text-sm transition-all duration-200"
               title="Nuevo"
             >
               <PlusCircle size={20} />
-            </Button>
+            </button>
+          )}
+
+          {/* Divider */}
+          {!hideNew && (
+            <div className="w-px bg-gray-300" />
           )}
 
           {/* Salir */}
-          <Button
-            asChild
-            size="icon"
-            className="rounded-md bg-[#db200b] hover:bg-[#db200b] text-white cursor-pointer"
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="px-4 py-2 flex items-center justify-center bg-[#db200b] hover:bg-[#db200b] text-white text-sm transition-all duration-200"
             title="Salir al dashboard"
           >
-            <Link href="/dashboard">
-              <LogOut size={20} />
-            </Link>
-          </Button>
+            <LogOut size={20} />
+          </button>
 
         </div>
 
       </div>
 
-      {/* Fila inferior: solo visible en vista tabla */}
-      {viewMode === "table" && (
-        <div className="w-full flex justify-start mt-3">
-          <div className="flex items-center rounded-full border border-gray-300 overflow-hidden shadow-sm bg-white ml-1">
-            {table ? (
-              <>
-                {/* Menú de personalización de columnas */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-[#F1F3F4] transition-all duration-200"
-                      title="Columnas"
-                    >
-                      <Settings2 size={18} className="text-gray-700" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="max-h-80 overflow-auto">
-                    {table.getAllLeafColumns().map((column: any) =>
-                      column.id !== "expander" ? (
-                        <DropdownMenuCheckboxItem
-                          key={column.id}
-                          checked={columnVisibility && column.id in columnVisibility
-                            ? columnVisibility[column.id]
-                            : column.getIsVisible()}
-                          onCheckedChange={(checked) => {
-                            if (setColumnVisibility) {
-                              setColumnVisibility({
-                                ...columnVisibility,
-                                [column.id]: checked,
-                              });
-                            }
-                            column.toggleVisibility(checked);
-                          }}
-                        >
-                          {column.columnDef.header as string}
-                        </DropdownMenuCheckboxItem>
-                      ) : null
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <button
-                  onClick={onExport}
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border-l border-gray-300 hover:bg-[#F1F3F4] transition-all duration-200"
-                  title="Exportar CSV"
-                >
-                  <Download size={18} className="text-gray-700" />
-                </button>
-              </>
-            ) : (
-              <>
-                {/* Fallback si no hay tabla */}
-                <button
-                  onClick={() => console.log('Personalizar columnas')}
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-[#F1F3F4] transition-all duration-200"
-                  title="Columnas"
-                >
-                  <Settings2 size={18} className="text-gray-700" />
-                </button>
-                <button
-                  onClick={onExport}
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border-l border-gray-300 hover:bg-[#F1F3F4] transition-all duration-200"
-                  title="Exportar CSV"
-                >
-                  <Download size={18} className="text-gray-700" />
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

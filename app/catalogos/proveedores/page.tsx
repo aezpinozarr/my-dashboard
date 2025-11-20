@@ -90,6 +90,7 @@ export default function ProveedoresPage() {
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState<"cards" | "table">("cards");
   const [search, setSearch] = React.useState(""); // ✅ Barra de búsqueda
+  const [filterField, setFilterField] = React.useState("all");
   const [showDeleted, setShowDeleted] = React.useState(false); // ✅ Mostrar eliminados
 
   // Estados para edición en diálogo
@@ -429,7 +430,7 @@ export default function ProveedoresPage() {
   // Render principal
   // ======================
   return (
-    <main className="max-w-7xl mx-auto p-6 space-y-6">
+    <main className="w-full p-6 space-y-6 bg-white min-h-screen">
       {/* 🔹 ENCABEZADO */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
@@ -443,16 +444,25 @@ export default function ProveedoresPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold">Catálogo de Proveedores</h1>
-            <p className="text-gray-600 text-sm">
-              Consulta, crea, edita o recupera proveedores registrados.
-            </p>
+            <h1 className="text-2xl font-bold">Proveedores</h1>
             {proveedoresFiltrados.length > 0 && (
-              <p className="text-muted-foreground text-sm">
-                Mostrando {proveedoresFiltrados.length} registro
-                {proveedoresFiltrados.length !== 1 && "s"}.
-              </p>
-            )}
+            <p className="text-muted-foreground text-sm">
+              {search.trim() === "" ? (
+                <>
+                  Mostrando{" "}
+                  <span className="font-bold">{proveedoresFiltrados.length}</span>{" "}
+                  registro{proveedoresFiltrados.length !== 1 && "s"}.
+                </>
+              ) : (
+                <>
+                  Mostrando{" "}
+                  <span className="font-bold">{proveedoresFiltrados.length}</span>{" "}
+                  registro{proveedoresFiltrados.length !== 1 && "s"} de{" "}
+                  <span className="font-bold">{proveedores.length}</span>.
+                </>
+              )}
+            </p>
+          )}
           </div>
         </div>
 
@@ -650,15 +660,49 @@ export default function ProveedoresPage() {
       </Dialog>
       </div>
 
-      {/* 🔍 BARRA DE BÚSQUEDA */}
-      <div className="w-full">
+      {/* 🔍 BARRA DE BÚSQUEDA CON FILTROS */}
+      <div className="w-full mt-2 flex gap-2 items-center">
+        {/* Selector de categoría */}
+        <div className="w-40">
+          <select
+            value={filterField}
+            onChange={(e) => setFilterField(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-2 py-2 text-sm"
+          >
+            <option value="all">Todos</option>
+            <option value="rfc">RFC</option>
+            <option value="razon_social">Razón Social</option>
+            <option value="correo_electronico">Correo</option>
+            <option value="entidad_federativa">Entidad</option>
+          </select>
+        </div>
+
+        {/* Input de búsqueda */}
         <Input
           type="text"
-          placeholder="Buscar..."
+          placeholder={
+            filterField === "all"
+              ? "Buscar en todo…"
+              : `Buscar por ${filterField.replace(/_/g, " ")}…`
+          }
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full"
         />
+
+        {/* Botón limpiar filtros */}
+        {(search.trim() !== "" || filterField !== "all") && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSearch("");
+              setFilterField("all");
+            }}
+            className="whitespace-nowrap"
+          >
+            Limpiar
+          </Button>
+        )}
       </div>
 
       {/* 🔹 CONTENIDO */}

@@ -1151,7 +1151,7 @@ const handleNext = async () => {
      🔹 Render UI (Paso 1, 2, 3)
   ======================================== */
   return (
-    <main className="max-w-5xl mx-auto p-6 space-y-6">
+    <main className="w-full p-6 space-y-6 bg-white min-h-screen">
       <StepIndicator currentStep={step} />
       {/* 🔹 Botones superiores de navegación entre pasos */}
       <div
@@ -1165,12 +1165,27 @@ const handleNext = async () => {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="outline"
-                  onClick={() => setStep(step - 1)}
-                  className="mr-2 hover:scale-105 transition-transform"
+                variant="outline"
+                onClick={() => setStep(step - 1)}
+                className="mr-2 hover:scale-105 transition-transform"
+              >
+                <div
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "50%",
+                    backgroundColor: "#235391",
+                    color: "white",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                  }}
                 >
-                  ← 
-                </Button>
+                  ←{step - 1}
+                </div>
+              </Button>
               </TooltipTrigger>
               <TooltipContent side="top">
                 <p>Regresa al paso anterior</p>
@@ -1185,11 +1200,26 @@ const handleNext = async () => {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={() => setStep(step + 1)}
-                  className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform"
+                onClick={() => setStep(step + 1)}
+                className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform"
+              >
+                <div
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "50%",
+                    backgroundColor: "white",
+                    color: "#235391",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                  }}
                 >
-                  Siguiente
-                </Button>
+                  {step + 1}→
+                </div>
+              </Button>
               </TooltipTrigger>
               <TooltipContent side="top">
                 <p>Ir al siguiente paso</p>
@@ -1864,12 +1894,24 @@ const handleNext = async () => {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      onClick={() => setStep(1)}
-                    >
-                      ← Volver al paso 1
-                    </Button>
+                    <Button variant="outline" onClick={() => setStep(1)}>
+                           <div
+                             style={{
+                               width: "28px",
+                               height: "28px",
+                               borderRadius: "50%",
+                               backgroundColor: "#235391",
+                               color: "white",
+                               display: "flex",
+                               alignItems: "center",
+                               justifyContent: "center",
+                               fontSize: "14px",
+                               fontWeight: "bold",
+                             }}
+                           >
+                             1
+                           </div>
+                         </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
                     <p>Regresa al paso anterior</p>

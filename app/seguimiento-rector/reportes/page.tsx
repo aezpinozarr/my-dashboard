@@ -492,14 +492,14 @@ export default function AdjudicadosPage() {
 
   if (!isMounted) {
     return (
-      <main className="max-w-7xl mx-auto p-6">
+      <main className="w-full p-6 space-y-6 bg-white min-h-screen">
         <p className="text-center text-gray-500">Cargando vista...</p>
       </main>
     );
   }
 
   return (
-    <main className="max-w-7xl mx-auto p-6 space-y-6">
+    <main className="w-full p-6 space-y-6 bg-white min-h-screen">
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex flex-col">

@@ -69,6 +69,7 @@ export default function RubrosPage() {
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState<"cards" | "table">("cards");
   const [search, setSearch] = React.useState("");
+  const [filterField, setFilterField] = React.useState("all");
   const [showDeleted, setShowDeleted] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
@@ -100,21 +101,6 @@ export default function RubrosPage() {
   React.useEffect(() => {
     fetchRubros();
   }, []);
-
-  // Cuando se abre el diálogo nuevo, calcular el siguiente ID
-  React.useEffect(() => {
-    if (isNewDialogOpen) {
-      // Obtener el máximo id numérico y sumar 1
-      const maxIdNum = rubros.reduce((max, r) => {
-        const num = parseInt(r.id, 10);
-        return isNaN(num) ? max : Math.max(max, num);
-      }, 0);
-      const nextIdNum = maxIdNum + 1;
-      const nextIdStr = nextIdNum.toString().padStart(3, "0");
-      setNewId(nextIdStr);
-      setNewDescripcion("");
-    }
-  }, [isNewDialogOpen, rubros]);
 
   // ======================
   // 🗑️ Eliminar rubro
@@ -199,25 +185,26 @@ export default function RubrosPage() {
 
   // Nuevo: manejar creación de rubro
   const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const resp = await fetch(`${API_BASE}/catalogos/rubro`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: newId,
-          descripcion: newDescripcion,
-        }),
-      });
-      if (!resp.ok) throw new Error(await resp.text());
-      toast.success("Rubro creado correctamente");
-      setIsNewDialogOpen(false);
-      fetchRubros();
-    } catch (err) {
-      console.error("Error al crear rubro:", err);
-      toast.error("Error al crear rubro");
-    }
-  };
+  e.preventDefault();
+  try {
+    const resp = await fetch(`${API_BASE}/catalogos/rubro`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        descripcion: newDescripcion, // 👈 solo esto
+      }),
+    });
+
+    if (!resp.ok) throw new Error(await resp.text());
+
+    toast.success("Rubro creado correctamente");
+    setIsNewDialogOpen(false);
+    fetchRubros();
+  } catch (err) {
+    console.error("Error al crear rubro:", err);
+    toast.error("Error al crear rubro");
+  }
+};
 
   // ======================
   // 🔍 Filtrar rubros
@@ -276,7 +263,7 @@ export default function RubrosPage() {
   // 🎨 Render principal
   // ======================
   return (
-    <main className="max-w-7xl mx-auto p-6 space-y-6">
+    <main className="w-full p-6 space-y-6 bg-white min-h-screen">
       {/* 🔹 ENCABEZADO */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
@@ -288,15 +275,25 @@ export default function RubrosPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold">Catálogo de Rubros</h1>
-            <p className="text-gray-600 text-sm">
-              Consulta, crea o edita rubros disponibles.
-            </p>
+            <h1 className="text-2xl font-bold">Rubros</h1>
             {rubrosFiltrados.length > 0 && (
-              <p className="text-muted-foreground text-sm">
-                Mostrando {rubrosFiltrados.length} registro{rubrosFiltrados.length !== 1 && "s"}.
-              </p>
-            )}
+            <p className="text-muted-foreground text-sm">
+              {search.trim() === "" ? (
+                <>
+                  {" "}
+                  <span className="font-bold">{rubrosFiltrados.length}</span> registro
+                  {rubrosFiltrados.length !== 1 && "s"}.
+                </>
+              ) : (
+                <>
+                  {" "}
+                  <span className="font-bold">{rubrosFiltrados.length}</span> registro
+                  {rubrosFiltrados.length !== 1 && "s"} de{" "}
+                  <span className="font-bold">{rubros.length}</span>.
+                </>
+              )}
+            </p>
+          )}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -332,20 +329,6 @@ export default function RubrosPage() {
                 </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-rubro-id">
-                    ID del Rubro
-                  </label>
-                  <Input
-                    id="new-rubro-id"
-                    value={newId}
-                    readOnly
-                    tabIndex={-1}
-                    autoFocus={false}
-                    onFocus={(e) => e.target.blur()}
-                    className="bg-[#f5f5f5] text-[#6b7280] focus:ring-0 focus:outline-none cursor-not-allowed"
-                  />
-                </div>
                 <div className="space-y-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-rubro-descripcion">
                     Descripción
@@ -383,15 +366,47 @@ export default function RubrosPage() {
         </div>
       </div>
 
-      {/* 🔍 BARRA DE BÚSQUEDA */}
-      <div className="w-full">
+      {/* 🔍 BARRA DE BÚSQUEDA CON FILTROS */}
+      <div className="w-full mt-2 flex gap-2 items-center">
+        {/* Selector de categoría */}
+        <div className="w-40">
+          <select
+            value={filterField}
+            onChange={(e) => setFilterField(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-2 py-2 text-sm"
+          >
+            <option value="all">Todos</option>
+            <option value="id">ID</option>
+            <option value="descripcion">Descripción</option>
+          </select>
+        </div>
+
+        {/* Input de búsqueda */}
         <Input
           type="text"
-          placeholder="Buscar..."
+          placeholder={
+            filterField === "all"
+              ? "Buscar en todo…"
+              : `Buscar por ${filterField.replace(/_/g, " ")}…`
+          }
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full"
         />
+
+        {/* Botón limpiar filtros */}
+        {(search.trim() !== "" || filterField !== "all") && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSearch("");
+              setFilterField("all");
+            }}
+            className="whitespace-nowrap"
+          >
+            Limpiar
+          </Button>
+        )}
       </div>
 
       {/* 🔹 CONTENIDO */}

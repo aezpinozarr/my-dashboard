@@ -75,6 +75,8 @@ export default function ServidoresPublicosPage() {
   const [view, setView] = React.useState<"cards" | "table">("cards");
   const [search, setSearch] = React.useState(""); // ✅ Búsqueda
   const [showDeleted, setShowDeleted] = React.useState(false); // ✅ Ver eliminados
+  // Filtro avanzado
+  const [filterField, setFilterField] = React.useState("all");
 
 
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
@@ -177,7 +179,7 @@ export default function ServidoresPublicosPage() {
   // 🎨 Render principal
   // ======================
   return (
-    <main className="max-w-7xl mx-auto p-6 space-y-6">
+    <main className="w-full p-6 space-y-6 bg-white min-h-screen">
       {/* ENCABEZADO */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
@@ -192,16 +194,26 @@ export default function ServidoresPublicosPage() {
         </Link>
           <div>
             <h1 className="text-2xl font-bold">
-              Catálogo de Servidores Públicos
+              Servidores Públicos
             </h1>
-            <p className="text-gray-600 text-sm">
-              Consulta, crea, o edita los servidores registrados.
-            </p>
             {servidoresFiltrados.length > 0 && (
-              <p className="text-muted-foreground text-sm">
-                Mostrando {servidoresFiltrados.length} registro{servidoresFiltrados.length !== 1 && "s"}.
-              </p>
-            )}
+            <p className="text-muted-foreground text-sm">
+              {search.trim() === "" ? (
+                <>
+                  Mostrando{" "}
+                  <span className="font-bold">{servidoresFiltrados.length}</span>{" "}
+                  registro{servidoresFiltrados.length !== 1 && "s"}.
+                </>
+              ) : (
+                <>
+                  Mostrando{" "}
+                  <span className="font-bold">{servidoresFiltrados.length}</span>{" "}
+                  registro{servidoresFiltrados.length !== 1 && "s"} de{" "}
+                  <span className="font-bold">{servidores.length}</span>.
+                </>
+              )}
+            </p>
+          )}
           </div>
         </div>
 
@@ -223,15 +235,47 @@ export default function ServidoresPublicosPage() {
         </div>
       </div>
 
-      {/* 🔍 BARRA DE BÚSQUEDA */}
-      <div className="w-full">
+      {/* 🔍 BARRA DE BÚSQUEDA CON FILTROS */}
+      <div className="w-full mt-2 flex gap-2 items-center">
+        {/* Selector de categoría */}
+        <div className="w-40">
+          <select
+            value={filterField}
+            onChange={(e) => setFilterField(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-2 py-2 text-sm"
+          >
+            <option value="all">Todos</option>
+            <option value="nombre">Nombre</option>
+            <option value="cargo">Cargo</option>
+          </select>
+        </div>
+
+        {/* Input de búsqueda */}
         <Input
           type="text"
-          placeholder="Buscar..."
+          placeholder={
+            filterField === "all"
+              ? "Buscar en todo…"
+              : `Buscar por ${filterField.replace(/_/g, " ")}…`
+          }
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full"
         />
+
+        {/* Botón limpiar filtros */}
+        {search.trim() !== "" || filterField !== "all" ? (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSearch("");
+              setFilterField("all");
+            }}
+            className="whitespace-nowrap"
+          >
+            Limpiar
+          </Button>
+        ) : null}
       </div>
 
       {/* CONTENIDO */}

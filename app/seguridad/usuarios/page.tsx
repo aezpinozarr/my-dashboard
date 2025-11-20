@@ -71,6 +71,8 @@ const API_BASE =
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = React.useState<Usuario[]>([]);
   const [filtro, setFiltro] = React.useState<string>(""); // ✅ Nuevo estado para búsqueda
+  // Filtro avanzado
+  const [filterField, setFilterField] = React.useState("all");
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState<"cards" | "table">("cards");
   const [hoy, setHoy] = React.useState("");
@@ -120,17 +122,6 @@ export default function UsuariosPage() {
   const [entesFiltradosNuevo, setEntesFiltradosNuevo] = React.useState<{ id: string; descripcion: string }[]>([]);
   const [enteSeleccionadoNuevo, setEnteSeleccionadoNuevo] = React.useState<{ id: string; descripcion: string } | null>(null);
 
-  // Inicializar fecha
-  React.useEffect(() => {
-    setHoy(
-      new Date().toLocaleDateString("es-MX", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    );
-  }, []);
 
   // Cargar usuarios
   React.useEffect(() => {
@@ -434,7 +425,7 @@ export default function UsuariosPage() {
   });
 
   return (
-    <main className="max-w-7xl mx-auto p-6 space-y-6">
+    <main className="w-full p-6 space-y-6 bg-white min-h-screen">
       {/* ENCABEZADO */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
@@ -452,14 +443,19 @@ export default function UsuariosPage() {
               <h1 className="text-2xl font-bold">Usuarios</h1>
               <span className="text-xs text-gray-500 capitalize">{hoy}</span>
             </div>
-            <p className="text-gray-600 text-sm">
-              Consulta, crea o edita usuarios del sistema.
-            </p>
             {usuariosFiltrados.length > 0 && (
-              <p className="text-muted-foreground text-sm">
-                Mostrando {usuariosFiltrados.length} registro{usuariosFiltrados.length !== 1 && "s"}.
-              </p>
-            )}
+            <p className="text-muted-foreground text-sm">
+              Mostrando{" "}
+              <span className="font-bold">{usuariosFiltrados.length}</span>{" "}
+              registro{usuariosFiltrados.length !== 1 && "s"}
+              {filtro.trim() !== "" && (
+                <>
+                  {" "}de <span className="font-bold">{usuarios.length}</span>
+                </>
+              )}
+              .
+            </p>
+          )}
           </div>
         </div>
         {/* CONTROLES */}
@@ -479,15 +475,48 @@ export default function UsuariosPage() {
         />
       </div>
 
-      {/* 🔍 Barra de búsqueda */}
-      <div className="w-full">
+      {/* 🔍 BARRA DE BÚSQUEDA CON FILTROS */}
+      <div className="w-full mt-2 flex gap-2 items-center">
+        {/* Selector de categoría */}
+        <div className="w-40">
+          <select
+            value={filterField}
+            onChange={(e) => setFilterField(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-2 py-2 text-sm"
+          >
+            <option value="all">Todos</option>
+            <option value="username">Usuario</option>
+            <option value="nombre">Nombre</option>
+            <option value="tipo">Tipo</option>
+          </select>
+        </div>
+
+        {/* Input de búsqueda */}
         <Input
           type="text"
-          placeholder="Buscar por nombre, usuario o tipo..."
+          placeholder={
+            filterField === "all"
+              ? "Buscar en todo…"
+              : `Buscar por ${filterField.replace(/_/g, " ")}…`
+          }
           value={filtro}
           onChange={(e) => setFiltro(e.target.value)}
           className="w-full"
         />
+
+        {/* Botón limpiar filtros */}
+        {filtro.trim() !== "" || filterField !== "all" ? (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setFiltro("");
+              setFilterField("all");
+            }}
+            className="whitespace-nowrap"
+          >
+            Limpiar
+          </Button>
+        ) : null}
       </div>
 
       {/* LISTADO */}

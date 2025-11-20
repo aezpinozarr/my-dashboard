@@ -80,7 +80,13 @@ export function MainNavigation() {
   }, [userId]);
 
   return (
-    <div className={`absolute top-0 left-0 right-0 z-10 border-b bg-white transition-all duration-300 ${open ? "pl-[270px]" : "pl-[90px]"}`}>
+    <div
+      className={`
+        sticky top-0 left-0 right-0 z-10 border-b bg-white transition-all duration-300
+        ${open ? "md:pl-[270px]" : "md:pl-[90px]"}
+        pl-0
+      `}
+    >
       <div className="w-full flex justify-center">
         <div className="max-w-7xl w-full flex justify-start items-center pl-80 pr-4">
           <NavigationMenu viewport={isMobile}>
