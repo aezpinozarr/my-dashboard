@@ -191,7 +191,7 @@ interface ServidorPublico {
 export default function NuevoProcesoPage() {
   const { user } = useUser();
   const router = useRouter();
-  const [step, setStep] = React.useState(1);
+  const [step, setStep] = React.useState<number>(1);
   const [loading, setLoading] = React.useState(false);
   const [errores, setErrores] = React.useState<Record<string, string>>({});
   // Estado global para errores visuales de partidas (paso 2)
@@ -1153,100 +1153,7 @@ const handleNext = async () => {
   return (
     <main className="w-full p-6 space-y-6 bg-white min-h-screen">
       <StepIndicator currentStep={step} />
-      {/* 🔹 Botones superiores de navegación entre pasos */}
-      <div
-        className={`flex items-center -mt-6 mb-2 ${
-          step === 4 ? "justify-start" : "justify-end"
-        }`}
-      >
-        {/* Botón Volver */}
-        {step > 1 && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                variant="outline"
-                onClick={() => setStep(step - 1)}
-                className="mr-2 hover:scale-105 transition-transform"
-              >
-                <div
-                  style={{
-                    width: "28px",
-                    height: "28px",
-                    borderRadius: "50%",
-                    backgroundColor: "#235391",
-                    color: "white",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "14px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  ←{step - 1}
-                </div>
-              </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Regresa al paso anterior</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
 
-        {/* Botón Siguiente */}
-        {step < 4 && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                onClick={() => setStep(step + 1)}
-                className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform"
-              >
-                <div
-                  style={{
-                    width: "28px",
-                    height: "28px",
-                    borderRadius: "50%",
-                    backgroundColor: "white",
-                    color: "#235391",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "14px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {step + 1}→
-                </div>
-              </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Ir al siguiente paso</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
-        {/* Botón Finalizar */}
-        {step === 4 && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={handleFinalizarProceso}
-                  className="bg-[#5b21b6] text-white hover:bg-[#4c1d95] hover:scale-105 transition-transform"
-                >
-                  Finalizar
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Finaliza el proceso</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-      </div>
       {/* Paso 1 */}
       {step === 1 && (
           <>
@@ -1259,6 +1166,41 @@ const handleNext = async () => {
 
             <Card>
               <CardContent className="space-y-5 mt-4">
+              <div className="flex justify-end mb-4">
+
+                  {/* Botón Volver */}
+                  {step > 1 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setStep(step - 1)}
+                      className="mr-2 hover:scale-105 transition-transform flex items-center gap-1 rounded-full px-4 py-2 border border-[#235391]"
+                    >
+                      <span className="text-[#235391] font-bold">← {step - 1}</span>
+                    </Button>
+                  )}
+
+                  {/* Botón Siguiente */}
+                  {step < 4 && (
+                    <Button
+                      onClick={() => setStep(step + 1)}
+                      className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform flex items-center gap-1 rounded-full px-4 py-2"
+                    >
+                      <span className="font-bold">{step + 1} →</span>
+                    </Button>
+                  )}
+
+                  {/* Botón Finalizar */}
+                  {(step as number) === 4 && (
+                    <Button
+                      onClick={handleFinalizarProceso}
+                      className="bg-[#5b21b6] text-white hover:bg-[#4c1d95] hover:scale-105 transition-transform rounded-full px-4 py-2"
+                    >
+                      Finalizar
+                    </Button>
+                  )}
+
+                </div>
+                
                 <div>
                   <Label>Ente</Label>
                   <Input
@@ -1647,23 +1589,32 @@ const handleNext = async () => {
                 </div>
 
                 <div className="flex justify-end">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={handleGuardarPaso1}
-                          disabled={loading}
-                          style={{ backgroundColor: "#235391", color: "white" }}
-                        >
-                          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Siguiente"}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>Guarda la información y avanza al paso 2</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={handleGuardarPaso1}
+                        disabled={loading}
+                        className="bg-[#235391] hover:bg-[#1e3a8a] transition-transform hover:scale-105 rounded-full px-4 py-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          {loading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <span className="text-white font-bold">{step + 1}</span>
+                              <span className="text-white font-bold">→</span>
+                            </>
+                          )}
+                        </div>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Guarda la información y avanza al paso 2</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               </CardContent>
             </Card>
           </>
@@ -1673,13 +1624,40 @@ const handleNext = async () => {
       {step === 2 && (
         <Card>
           <CardContent className="space-y-5 mt-4">
-            {/* Contenido del paso 2 sin cambios visuales */}
-            <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center justify-between mb-6 w-full">
+
+            {/* IZQUIERDA → Botón rojo + Título */}
+            <div className="flex items-center gap-3">
               <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
                 <Link href="/dashboard">←</Link>
               </Button>
               <h1 className="text-2xl font-bold">Paso 2: Partidas</h1>
             </div>
+
+            {/* DERECHA → Navegación */}
+            <div className="flex items-center gap-2">
+
+              {step > 1 && (
+                <Button
+                  variant="outline"
+                  onClick={() => setStep(step - 1)}
+                  className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+                >
+                  <span className="text-[#235391] font-bold">← {step - 1}</span>
+                </Button>
+              )}
+
+              {step < 4 && (
+                <Button
+                  onClick={() => setStep(step + 1)}
+                  className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+                >
+                  <span className="font-bold">{step + 1} →</span>
+                </Button>
+              )}
+            </div>
+
+          </div>
             {/* Oficio de invitación bloqueado */}
             <div>
               <Label>Oficio de invitación</Label>
@@ -1889,63 +1867,59 @@ const handleNext = async () => {
                 </tbody>
               </table>
             </div>
-            {/* Botones de navegación */}
-            <div className="flex justify-end mt-6 gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" onClick={() => setStep(1)}>
-                           <div
-                             style={{
-                               width: "28px",
-                               height: "28px",
-                               borderRadius: "50%",
-                               backgroundColor: "#235391",
-                               color: "white",
-                               display: "flex",
-                               alignItems: "center",
-                               justifyContent: "center",
-                               fontSize: "14px",
-                               fontWeight: "bold",
-                             }}
-                           >
-                             1
-                           </div>
-                         </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Regresa al paso anterior</p>
-                  </TooltipContent>
-                </Tooltip>
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      onClick={handleNext}
-                      className="bg-[#235391] text-white hover:bg-[#1e3a8a] transition-colors"
-                    >
-                      Siguiente
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Continúa al paso 3: Rubros</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+{/* Botones inferiores alineados */}
+<div className="flex justify-between items-center mt-6 w-full">
 
-            {/* Botón regresar al dashboard (inferior, SOLO paso 2) */}
-            <div className="mt-6 flex justify-start">
-              <Link href="/dashboard">
-                <Button
-                  variant="outline"
-                  style={{ backgroundColor: "#db200b", color: "white" }}
-                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-                >
-                  ←
-                </Button>
-              </Link>
+  {/* Botón regresar al dashboard */}
+  <Link href="/dashboard">
+    <Button
+      variant="outline"
+      style={{ backgroundColor: "#db200b", color: "white" }}
+      className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+    >
+      ←
+    </Button>
+  </Link>
+
+              {/* Botones de navegación */}
+              <div className="flex items-center gap-2">
+                <TooltipProvider>
+
+                  {/* Botón Volver (paso 1) */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        onClick={() => setStep(1)}
+                        className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+                      >
+                        <span className="text-[#235391] font-bold">← 1</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Regresa al paso anterior</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* Botón Siguiente */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        onClick={handleNext}
+                        className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+                      >
+                        <span className="font-bold">3 →</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Continúa al paso 3: Rubros</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                </TooltipProvider>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1972,12 +1946,44 @@ const handleNext = async () => {
   return (
     <Card>
       <CardContent className="space-y-5 mt-4">
-        <div className="flex items-center gap-3 mb-6">
-          <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
-            <Link href="/dashboard">←</Link>
-          </Button>
-          <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
-        </div>
+        
+        {/* Encabezado del Paso 3 */}
+<div className="flex items-center justify-between w-full mb-6">
+
+  {/* IZQUIERDA → Botón regresar + Título */}
+  <div className="flex items-center gap-3">
+    <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
+      <Link href="/dashboard">←</Link>
+    </Button>
+
+    <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
+  </div>
+
+  {/* DERECHA → Botones de navegación */}
+  <div className="flex items-center gap-2">
+
+    {step > 1 && (
+      <Button
+        variant="outline"
+        onClick={() => setStep(step - 1)}
+        className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+      >
+        <span className="text-[#235391] font-bold">← {step - 1}</span>
+      </Button>
+    )}
+
+    {step < 4 && (
+      <Button
+        onClick={() => setStep(step + 1)}
+        className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+      >
+        <span className="font-bold">{step + 1} →</span>
+      </Button>
+    )}
+
+  </div>
+
+</div>
 
         {/* Oficio invitación */}
         <div>
@@ -2199,7 +2205,7 @@ const handleNext = async () => {
                     key={i}
                     className={`border-b ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
                   >
-                    <td className="text-justify leading-tight">
+                    <td className="px-3 py-2 text-center">
                       {(() => {
                         const partida = partidas.find(
                           (p) => String(p.e_id_partida) === String(r.p_id_partida_asociada)
@@ -2282,74 +2288,94 @@ const handleNext = async () => {
             </Link>
           </div>
 
-          {/* Botones derecha */}
-          <div className="flex items-center gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" onClick={() => setStep(2)}>
-                    <div
-                      style={{
-                        width: "28px",
-                        height: "28px",
-                        borderRadius: "50%",
-                        backgroundColor: "#235391",
-                        color: "white",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "14px",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      2
-                    </div>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Regresar al paso 2: Partidas</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          {/* Derecha: botones de paso — MISMO DISEÑO QUE LOS SUPERIORES */}
+  <div className="flex items-center gap-2">
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleGuardarRubros}
-                    style={{ backgroundColor: "#235391", color: "white" }}
-                    className="transition-transform duration-150 hover:scale-105 hover:bg-[#1e3a8a]"
-                  >
-                    Siguiente
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Avanzar al paso 4: Proveedor</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>
+    {/* Volver al paso anterior */}
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            onClick={() => setStep(step - 1)}
+            className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+          >
+            <span className="text-[#235391] font-bold">← {step - 1}</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Volver al paso {step - 1}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+
+    {/* Siguiente */}
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={handleGuardarRubros}
+            className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+          >
+            <span className="font-bold">{step + 1} →</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Avanzar al paso {step + 1}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+
+  </div>
+</div>
       </CardContent>
     </Card>
   );
 })()}
 
       {/* Paso 4 */}
-{step === 4 && (() => {
-  return (
-    <Card>
-      <CardContent className="space-y-5 mt-4">
-        <div>
-      </div>
+      {step === 4 && (() => {
+        return (
+          <Card>
+            <CardContent className="space-y-5 mt-4">
+              <div>
+            </div>
 
 
-        <div className="flex items-center gap-3 mb-6">
-        <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
-          <Link href="/dashboard">←</Link>
-        </Button>
-        <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
-      </div>
+             {/* Encabezado con título y navegación superior */}
+              <div className="flex justify-between items-center w-full mb-6">
+
+                {/* IZQUIERDA → botón rojo + título */}
+                <div className="flex items-center gap-3">
+                <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
+                  <Link href="/dashboard">←</Link>
+                </Button>
+                <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
+              </div>
+
+                {/* DERECHA → volver y finalizar */}
+                <div className="flex items-center gap-2">
+
+                  {/* Volver */}
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep(step - 1)}
+                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+                  >
+                    <span className="text-[#235391] font-bold">← {step - 1}</span>
+                  </Button>
+
+                  {/* Finalizar */}
+                  <Button
+                    onClick={handleFinalizarProceso}
+                    className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
+                    style={{ backgroundColor: "#FFBF00" }}
+                  >
+                    Finalizar
+                  </Button>
+
+                </div>
+              </div>
 
       {/* Campo de Oficio de invitación - abajo del título */}
       <div className="mb-4">
@@ -2840,60 +2866,60 @@ const handleNext = async () => {
   </table>
 </div>
 
-        <div className="flex justify-start items-center gap-3 mt-6">
-          <Link href="/dashboard">
-            <Button
-              variant="outline"
-              style={{ backgroundColor: "#db200b", color: "white" }}
-              className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-            >
-              ←
-            </Button>
-          </Link>
+{/* --- NAVEGACIÓN INFERIOR COMPLETAMENTE ALINEADA --- */}
+<div className="flex justify-between items-center w-full mt-6">
 
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" onClick={() => setStep(3)}>
-                           <div
-                             style={{
-                               width: "28px",
-                               height: "28px",
-                               borderRadius: "50%",
-                               backgroundColor: "#235391",
-                               color: "white",
-                               display: "flex",
-                               alignItems: "center",
-                               justifyContent: "center",
-                               fontSize: "14px",
-                               fontWeight: "bold",
-                             }}
-                           >
-                             3
-                           </div>
-                         </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Regresa al paso anterior para revisar los rubros</p>
-              </TooltipContent>
-            </Tooltip>
+  {/* Botón rojo – VOLVER AL DASHBOARD */}
+  <Link href="/dashboard">
+    <Button
+      variant="outline"
+      style={{ backgroundColor: "#db200b", color: "white" }}
+      className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+    >
+      ←
+    </Button>
+  </Link>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  style={{ backgroundColor: "#FFBF00", color: "white" }}
-                  onClick={handleFinalizarProceso}
-                >
-                  Finalizar
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Guarda y finaliza el proceso actual</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
+  {/* Botones DERECHA – IGUALITOS A LOS SUPERIORES */}
+  <div className="flex items-center gap-2">
+    <TooltipProvider>
+
+      {/* Volver – igual al superior */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            onClick={() => setStep(3)}
+            className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+          >
+            <span className="text-[#235391] font-bold">← 3</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Regresa al paso anterior para revisar los rubros</p>
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Finalizar – igual al superior */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            onClick={handleFinalizarProceso}
+            className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
+            style={{ backgroundColor: "#FFBF00" }}
+          >
+            Finalizar
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Guarda y finaliza el proceso actual</p>
+        </TooltipContent>
+      </Tooltip>
+
+    </TooltipProvider>
+  </div>
+</div>
       </CardContent>
     </Card>
   );
