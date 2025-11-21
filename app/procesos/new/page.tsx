@@ -1179,15 +1179,24 @@ const handleNext = async () => {
                     </Button>
                   )}
 
-                  {/* Botón Siguiente */}
-                  {step < 4 && (
-                    <Button
-                      onClick={() => setStep(step + 1)}
-                      className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform flex items-center gap-1 rounded-full px-4 py-2"
-                    >
-                      <span className="font-bold">{step + 1} →</span>
-                    </Button>
-                  )}
+                  {/* Botón Siguiente (SUPERIOR) */}
+                  <Button
+                    onClick={handleGuardarPaso1}
+                    disabled={loading}
+                    className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform flex items-center gap-1 rounded-full px-4 py-2"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="font-bold">Guardando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-bold">{step + 1}</span>
+                        <span className="font-bold">→</span>
+                      </>
+                    )}
+                  </Button>
 
                   {/* Botón Finalizar */}
                   {(step as number) === 4 && (
@@ -1647,13 +1656,23 @@ const handleNext = async () => {
                 </Button>
               )}
 
+              {/* Botón Siguiente SUPERIOR — usa la MISMA lógica que el botón inferior */}
               {step < 4 && (
-                <Button
-                  onClick={() => setStep(step + 1)}
-                  className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
-                >
-                  <span className="font-bold">{step + 1} →</span>
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={handleGuardarPaso1}   // ← ← ← AQUÍ EL CAMBIO
+                        className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform flex items-center gap-1 rounded-full px-4 py-2"
+                      >
+                        <span className="font-bold">{step + 1} →</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Guarda la información y avanza al paso 2</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
 
