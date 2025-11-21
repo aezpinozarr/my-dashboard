@@ -120,5 +120,13 @@
     @apply bg-background text-foreground;
   }
 
+  @layer base {
+  button,
+  [role="button"],
+  .cursor-pointer {
+    cursor: pointer !important;
+  }
+}
+
   
 }

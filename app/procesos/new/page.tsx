@@ -197,7 +197,13 @@ export default function NuevoProcesoPage() {
   // Estado global para errores visuales de partidas (paso 2)
   const [erroresPartida, setErroresPartida] = React.useState<Record<string, string>>({});
   
-
+  const handleBotonSuperior = () => {
+  if (step === 1) {
+    handleGuardarPaso1();
+  } else {
+    setStep(step + 1);
+  }
+};
   // Paso 1
   const [enteDescripcion, setEnteDescripcion] = React.useState("");
   const [servidores, setServidores] = React.useState<any[]>([]);
@@ -416,101 +422,139 @@ React.useEffect(() => {
   }, [step]);
 
   // Paso 4: Finalizar proceso handler (actualizado)
-  const handleFinalizarProceso = React.useCallback(async () => {
-    console.log("🔍 Validando proveedores antes de finalizar...");
+const handleFinalizarProceso = React.useCallback(async () => {
+  console.log("🔍 Validando proveedores antes de finalizar...");
 
-    // ✅ Permitir finalizar si ya hay al menos un proveedor añadido
-    if (proveedores.length > 0) {
-      console.log("✅ Ya existe al menos un proveedor añadido:", proveedores);
-      try {
-        const folioFinal =
-          folioSeguimiento ||
-          folio ||
-          Number(sessionStorage.getItem("folioSeguimiento")) ||
-          null;
+  // ===============================
+  // 🔴 VALIDACIÓN DE CAMPOS (cuando NO hay proveedores)
+  // ===============================
+  if (proveedores.length === 0) {
+    const nuevosErrores: Record<string, string> = {};
 
-        if (user && folioFinal) {
-          const tipoNormalizado = (user.tipo || "").toString().trim().toUpperCase();
-          if (tipoNormalizado === "ENTE") {
-            const mensaje = `El usuario ${user.nombre} ha completado el seguimiento #${folioFinal}`;
-            const params = new URLSearchParams();
-            params.append("p_accion", "CREAR");
-            params.append("p_id_usuario_origen", String(user.id));
-            params.append("p_id_ente", String(user.id_ente));
-            params.append("p_mensaje_extra", mensaje);
+    if (!form.p_e_id_rubro_partida)
+      nuevosErrores.p_e_id_rubro_partida = "Selecciona un rubro/partida.";
 
-            console.log("🚀 Enviando notificación (ENTE → RECTORES):", params.toString());
+    if (!form.e_rfc_proveedor?.trim())
+      nuevosErrores.e_rfc_proveedor = "El RFC es obligatorio.";
 
-            try {
-              const resp = await fetch(`${API_BASE}/seguridad/notificaciones/?${params.toString()}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-              });
+    if (!form.e_importe_sin_iva)
+      nuevosErrores.e_importe_sin_iva = "Ingresa un importe válido.";
 
-              const data = await resp.json();
-              console.log("📩 Respuesta del backend:", data);
-            } catch (err) {
-              console.error("❌ Error al enviar la notificación:", err);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("⚠️ No se pudo enviar la notificación al rector:", err);
-      }
-      toast.success("Proceso finalizado correctamente.");
-      router.push("/procesos");
+    // 👀 guardar errores → esto ya pinta los bordes rojos en los inputs
+    setErroresProveedor(nuevosErrores);
+
+    if (Object.keys(nuevosErrores).length > 0) {
+      toast.warning("Debes añadir al menos un proveedor antes de finalizar.");
       return;
     }
+  }
 
-    // 🧩 Validación rápida adicional (por si los datos aún no se actualizaron)
-    const yaAgregoProveedor = proveedores.some(
-      (p) => p && p.e_rfc_proveedor && p.e_importe_sin_iva
-    );
-    if (yaAgregoProveedor) {
-      console.log("✅ Proveedor válido detectado.");
-      try {
-        const folioFinal =
-          folioSeguimiento ||
-          folio ||
-          Number(sessionStorage.getItem("folioSeguimiento")) ||
-          null;
+  // ===============================
+  // 🟢 SI YA HAY PROVEEDORES — PERMITIR FINALIZAR
+  // ===============================
+  if (proveedores.length > 0) {
+    console.log("✅ Ya existe al menos un proveedor añadido:", proveedores);
 
-        if (user && folioFinal) {
-          const tipoNormalizado = (user.tipo || "").toString().trim().toUpperCase();
-          if (tipoNormalizado === "ENTE") {
-            const mensaje = `El usuario ${user.nombre} ha completado el seguimiento #${folioFinal}`;
-            const params = new URLSearchParams();
-            params.append("p_accion", "CREAR");
-            params.append("p_id_usuario_origen", String(user.id));
-            params.append("p_id_ente", String(user.id_ente));
-            params.append("p_mensaje_extra", mensaje);
+    try {
+      const folioFinal =
+        folioSeguimiento ||
+        folio ||
+        Number(sessionStorage.getItem("folioSeguimiento")) ||
+        null;
 
-            console.log("🚀 Enviando notificación (ENTE → RECTORES):", params.toString());
+      if (user && folioFinal) {
+        const tipoNormalizado = (user.tipo || "").toString().trim().toUpperCase();
+        if (tipoNormalizado === "ENTE") {
+          const mensaje = `El usuario ${user.nombre} ha completado el seguimiento #${folioFinal}`;
+          const params = new URLSearchParams();
+          params.append("p_accion", "CREAR");
+          params.append("p_id_usuario_origen", String(user.id));
+          params.append("p_id_ente", String(user.id_ente));
+          params.append("p_mensaje_extra", mensaje);
 
-            try {
-              const resp = await fetch(`${API_BASE}/seguridad/notificaciones/?${params.toString()}`, {
+          console.log("🚀 Enviando notificación (ENTE → RECTORES):", params.toString());
+
+          try {
+            const resp = await fetch(
+              `${API_BASE}/seguridad/notificaciones/?${params.toString()}`,
+              {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-              });
+              }
+            );
 
-              const data = await resp.json();
-              console.log("📩 Respuesta del backend:", data);
-            } catch (err) {
-              console.error("❌ Error al enviar la notificación:", err);
-            }
+            const data = await resp.json();
+            console.log("📩 Respuesta del backend:", data);
+          } catch (err) {
+            console.error("❌ Error al enviar la notificación:", err);
           }
         }
-      } catch (err) {
-        console.warn("⚠️ No se pudo enviar la notificación al rector:", err);
       }
-      toast.success("Proceso finalizado correctamente.");
-      router.push("/procesos");
-      return;
+    } catch (err) {
+      console.warn("⚠️ No se pudo enviar la notificación al rector:", err);
     }
 
-    // ⚠️ Si no hay proveedores, solo mostrar toast de advertencia (sin marcar campos)
-    toast.warning("Debes añadir al menos un proveedor antes de finalizar.");
-  }, [proveedores, router, user, folio, folioSeguimiento]);
+    toast.success("Proceso finalizado correctamente.");
+    router.push("/procesos");
+    return;
+  }
+
+  // ===============================
+  // 🔁 VALIDACIÓN REDUNDANTE
+  // ===============================
+  const yaAgregoProveedor = proveedores.some(
+    (p) => p && p.e_rfc_proveedor && p.e_importe_sin_iva
+  );
+
+  if (yaAgregoProveedor) {
+    console.log("✅ Proveedor válido detectado.");
+
+    try {
+      const folioFinal =
+        folioSeguimiento ||
+        folio ||
+        Number(sessionStorage.getItem("folioSeguimiento")) ||
+        null;
+
+      if (user && folioFinal) {
+        const tipoNormalizado = (user.tipo || "").toString().trim().toUpperCase();
+        if (tipoNormalizado === "ENTE") {
+          const mensaje = `El usuario ${user.nombre} ha completado el seguimiento #${folioFinal}`;
+          const params = new URLSearchParams();
+          params.append("p_accion", "CREAR");
+          params.append("p_id_usuario_origen", String(user.id));
+          params.append("p_id_ente", String(user.id_ente));
+          params.append("p_mensaje_extra", mensaje);
+
+          console.log("🚀 Enviando notificación:", params.toString());
+
+          try {
+            const resp = await fetch(
+              `${API_BASE}/seguridad/notificaciones/?${params.toString()}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+              }
+            );
+            const data = await resp.json();
+            console.log("📩 Respuesta:", data);
+          } catch (err) {
+            console.error("❌ Error enviando notificación:", err);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("⚠️ No se pudo enviar la notificación:", err);
+    }
+
+    toast.success("Proceso finalizado correctamente.");
+    router.push("/procesos");
+    return;
+  }
+
+  // ⚠️ Si no hay proveedores
+  toast.warning("Debes añadir al menos un proveedor antes de finalizar.");
+}, [proveedores, router, user, folio, folioSeguimiento]);
 
   /* ========================================
      🔹 Cargar catálogos paso 1
@@ -836,47 +880,35 @@ React.useEffect(() => {
 
   /* ========================================
      🔹 Guardar Paso 3
-  ======================================== */
-  // Errores para el formulario de rubros
-  const [erroresRubro, setErroresRubro] = React.useState<Record<string, string>>({});
-  const handleGuardarRubros = async () => {
-    const nuevosErrores: Record<string, string> = {};
+======================================== */
+const [erroresRubro, setErroresRubro] = React.useState<Record<string, string>>({});
 
-    if (presupuestosRubro.length === 0) {
-      if (!nuevoRubro.p_id_partida_asociada)
-        nuevosErrores.p_id_partida_asociada = "Selecciona una partida asociada";
-      if (!nuevoRubro.p_e_id_rubro)
-        nuevosErrores.p_e_id_rubro = "El campo de rubro es obligatorio";
-      if (!nuevoRubro.p_e_monto_presupuesto_suficiencia)
-        nuevosErrores.p_e_monto_presupuesto_suficiencia = "Debes ingresar un monto válido";
-    }
+const handleGuardarRubros = async () => {
+  const nuevosErrores: Record<string, string> = {};
 
-    setErroresRubro(nuevosErrores);
+  // 🚨 Si NO hay rubros añadidos → validar formulario
+  if (presupuestosRubro.length === 0) {
+    if (!nuevoRubro.p_id_partida_asociada)
+      nuevosErrores.p_id_partida_asociada = "Selecciona una partida asociada";
 
-    if (Object.keys(nuevosErrores).length > 0) {
-      toast.warning("Por favor completa todos los campos antes de continuar o añade al menos un rubro.");
-      return; // ❌ Evita avanzar al siguiente paso si no hay rubros añadidos
-    }
+    if (!nuevoRubro.p_e_id_rubro)
+      nuevosErrores.p_e_id_rubro = "El campo de rubro es obligatorio";
 
-    // ✅ Si ya hay rubros o se completaron los campos, permitir avanzar
-    setStep(4);
-  };
+    if (!nuevoRubro.p_e_monto_presupuesto_suficiencia)
+      nuevosErrores.p_e_monto_presupuesto_suficiencia = "Debes ingresar un monto válido";
+  }
 
-  const addRubro = () => {
-    setPresupuestosRubro((prev) => [
-      ...prev,
-      { p_e_id_rubro: "", rubro_descripcion: "", p_e_monto_presupuesto_suficiencia: "" },
-    ]);
-  };
+  setErroresRubro(nuevosErrores);
 
-  const removeRubro = (idx: number) => {
-    setPresupuestosRubro((prev) => {
-      if (prev.length === 1) {
-        return [{ p_e_id_rubro: "", rubro_descripcion: "", p_e_monto_presupuesto_suficiencia: "" }];
-      }
-      return prev.filter((_, i) => i !== idx);
-    });
-  };
+  // ⛔ Detener si no hay rubros y hay errores
+  if (presupuestosRubro.length === 0 && Object.keys(nuevosErrores).length > 0) {
+    toast.warning("Por favor completa todos los campos antes de continuar o añade al menos un rubro.");
+    return;
+  }
+
+  // 🟢 Si ya hay rubros añadidos, permitir avanzar
+  setStep(4);
+};
 
   // Paso 2: hooks y handlers
   const [nuevaPartida, setNuevaPartida] = React.useState({
@@ -1080,9 +1112,21 @@ const handleNext = async () => {
     });
 
     if (partidasValidas.length === 0) {
-      toast.warning("Debes añadir al menos una partida antes de continuar.");
-      return;
-    }
+
+  // 🔥 Marcar errores en campos vacíos (borde rojo)
+  setErroresForm({
+  e_no_requisicion:
+    nuevaPartida.e_no_requisicion.trim() === "" ? "Este campo es obligatorio" : "",
+
+  e_id_partida:
+    nuevaPartida.e_id_partida.trim() === "" ? "Selecciona una partida" : "",
+
+  e_id_fuente_financiamiento:
+    nuevaPartida.e_id_fuente_financiamiento.trim() === "" ? "Selecciona una fuente de financiamiento" : ""
+    });
+  toast.warning("Debes añadir al menos una partida antes de continuar.");
+  return;
+}
 
     setErroresForm({});
     setPartidas(partidasValidas);
@@ -1151,41 +1195,53 @@ const handleNext = async () => {
      🔹 Render UI (Paso 1, 2, 3)
   ======================================== */
   return (
-    <main className="w-full p-6 space-y-6 bg-white min-h-screen">
+    <main className="max-w-5xl mx-auto p-6 space-y-6">
       <StepIndicator currentStep={step} />
 
       {/* Paso 1 */}
       {step === 1 && (
           <>
-            <div className="flex items-center gap-3 mb-6">
-              <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
-                <Link href="/dashboard">←</Link>
-              </Button>
-              <h1 className="text-2xl font-bold">Paso 1: Oficio de invitación</h1>
-            </div>
+              <Card>
+              <CardContent className="space-y-4">
+                
+        {/* Encabezado dentro del Card */}
+        <div className="flex justify-between items-center mb-6">
 
-            <Card>
-              <CardContent className="space-y-5 mt-4">
-              <div className="flex justify-end mb-4">
+          {/* IZQUIERDA → botón rojo + título */}
+          <div className="flex items-center gap-3">
 
-                  {/* Botón Volver */}
-                  {step > 1 && (
-                    <Button
-                      variant="outline"
-                      onClick={() => setStep(step - 1)}
-                      className="mr-2 hover:scale-105 transition-transform flex items-center gap-1 rounded-full px-4 py-2 border border-[#235391]"
-                    >
-                      <span className="text-[#235391] font-bold">← {step - 1}</span>
-                    </Button>
-                  )}
-
-                  {/* Botón Siguiente (SUPERIOR) */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
                   <Button
-                    onClick={handleGuardarPaso1}
-                    disabled={loading}
-                    className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform flex items-center gap-1 rounded-full px-4 py-2"
+                    asChild
+                    style={{ backgroundColor: "#db200b", color: "white" }}
+                    className="cursor-pointer"
                   >
-                    {loading ? (
+                    <Link href="/dashboard">←</Link>
+                  </Button>
+                </TooltipTrigger>
+
+                <TooltipContent side="top">
+                  <p>Salir</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <h1 className="text-2xl font-bold">Paso 1: Oficio de invitación</h1>
+          </div>
+
+              {/* DERECHA → botón azul */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleBotonSuperior}
+                    disabled={loading && step === 1}
+                    className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 
+                              transition-transform flex items-center gap-1 rounded-full px-4 py-2 cursor-pointer"
+                  >
+                    {loading && step === 1 ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span className="font-bold">Guardando...</span>
@@ -1197,18 +1253,17 @@ const handleNext = async () => {
                       </>
                     )}
                   </Button>
+                </TooltipTrigger>
 
-                  {/* Botón Finalizar */}
-                  {(step as number) === 4 && (
-                    <Button
-                      onClick={handleFinalizarProceso}
-                      className="bg-[#5b21b6] text-white hover:bg-[#4c1d95] hover:scale-105 transition-transform rounded-full px-4 py-2"
-                    >
-                      Finalizar
-                    </Button>
-                  )}
+                {/* 💬 El tooltip */}
+                <TooltipContent side="top">
+                  <p>Avanza al siguiente paso </p>
+                </TooltipContent>
 
-                </div>
+              </Tooltip>
+            </TooltipProvider>
+
+</div>
                 
                 <div>
                   <Label>Ente</Label>
@@ -1588,42 +1643,50 @@ const handleNext = async () => {
                   )}
                 </div>
                 
-                <div>
-                  <Label>Usuario</Label>
-                  <Input
-                    value={user?.nombre || "Cargando..."}
-                    disabled
-                    className="bg-gray-100 text-gray-700 cursor-not-allowed"
-                  />
-                </div>
+                {/* Usuario + Botón avanzar EN LA MISMA LÍNEA */}
+                <div className="flex items-end justify-between gap-4">
 
-                <div className="flex justify-end">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={handleGuardarPaso1}
-                        disabled={loading}
-                        className="bg-[#235391] hover:bg-[#1e3a8a] transition-transform hover:scale-105 rounded-full px-4 py-2"
-                      >
-                        <div className="flex items-center gap-2">
-                          {loading ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <span className="text-white font-bold">{step + 1}</span>
-                              <span className="text-white font-bold">→</span>
-                            </>
-                          )}
-                        </div>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Guarda la información y avanza al paso 2</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
+                  {/* Campo Usuario */}
+                  <div className="w-[900%]">
+                    <Label>Usuario</Label>
+                    <Input
+                      value={user?.nombre || "Cargando..."}
+                      disabled
+                      className="bg-gray-100 text-gray-700 cursor-not-allowed w-full"
+                    />
+                  </div>
+
+                  {/* Botón avanzar */}
+                  <div className="w-[30%] flex justify-end">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={handleGuardarPaso1}
+                            disabled={loading}
+                            className="bg-[#235391] hover:bg-[#1e3a8a] transition-transform 
+                                    hover:scale-105 rounded-full px-4 py-2"
+                          >
+                            <div className="flex items-center gap-2">
+                              {loading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <span className="text-white font-bold">{step + 1}</span>
+                                  <span className="text-white font-bold">→</span>
+                                </>
+                              )}
+                            </div>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p>Avanza al siguiente paso</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+
+                </div>
               </CardContent>
             </Card>
           </>
@@ -1632,14 +1695,30 @@ const handleNext = async () => {
      {/* Paso 2 */}
       {step === 2 && (
         <Card>
-          <CardContent className="space-y-5 mt-4">
+          <CardContent className="space-y-4">
           <div className="flex items-center justify-between mb-6 w-full">
 
             {/* IZQUIERDA → Botón rojo + Título */}
             <div className="flex items-center gap-3">
-              <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
-                <Link href="/dashboard">←</Link>
-              </Button>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      asChild
+                      style={{ backgroundColor: "#db200b", color: "white" }}
+                      className="cursor-pointer"
+                    >
+                      <Link href="/dashboard">←</Link>
+                    </Button>
+                  </TooltipTrigger>
+
+                  <TooltipContent side="top">
+                    <p>Salir</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
               <h1 className="text-2xl font-bold">Paso 2: Partidas</h1>
             </div>
 
@@ -1647,13 +1726,23 @@ const handleNext = async () => {
             <div className="flex items-center gap-2">
 
               {step > 1 && (
-                <Button
-                  variant="outline"
-                  onClick={() => setStep(step - 1)}
-                  className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
-                >
-                  <span className="text-[#235391] font-bold">← {step - 1}</span>
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        onClick={() => setStep(step - 1)}
+                        className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2 cursor-pointer"
+                      >
+                        <span className="text-[#235391] font-bold">← {step - 1}</span>
+                      </Button>
+                    </TooltipTrigger>
+
+                    <TooltipContent side="top">
+                      <p>Regresar al paso anterior</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
 
               {/* Botón Siguiente SUPERIOR — usa la MISMA lógica que el botón inferior */}
@@ -1662,14 +1751,14 @@ const handleNext = async () => {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        onClick={handleGuardarPaso1}   // ← ← ← AQUÍ EL CAMBIO
-                        className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform flex items-center gap-1 rounded-full px-4 py-2"
-                      >
-                        <span className="font-bold">{step + 1} →</span>
-                      </Button>
+                      onClick={handleNext}
+                      className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform flex items-center gap-1 rounded-full px-4 py-2"
+                    >
+                      <span className="font-bold">{step + 1} →</span>
+                    </Button>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p>Guarda la información y avanza al paso 2</p>
+                      <p>Avanza al siguiente paso</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -1687,13 +1776,13 @@ const handleNext = async () => {
               />
             </div>
             {/* Formulario superior */}
-            <form
-              className="flex flex-col space-y-4 bg-gray-50 rounded-lg p-4 border border-gray-200"
-              onSubmit={e => {
-                e.preventDefault();
-                handleAddPartida();
-              }}
-            >
+           <form
+          className="flex flex-col space-y-4 rounded-lg bg-white px-0 py-4"
+          onSubmit={e => {
+            e.preventDefault();
+            handleAddPartida();
+          }}
+        >
               {/* No. Requisición */}
               <div>
                 <Label>No. Requisición</Label>
@@ -1800,7 +1889,7 @@ const handleNext = async () => {
                 )}
               </div>
               {/* Botón añadir partida */}
-              <div className="flex justify-end mt-4">
+              <div className="flex justify-end mt-0">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1819,7 +1908,7 @@ const handleNext = async () => {
               </div>
             </form>
             {/* Tabla de partidas - DISEÑO MEJORADO */}
-            <h2 className="text-lg font-semibold text-[#235391] mb-2">Partidas registradas</h2>
+            <h2 className="text-lg font-semibold text-[#235391]">Partidas registradas</h2>
             <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
               <table className="min-w-full text-sm">
                 <thead>
@@ -1887,19 +1976,29 @@ const handleNext = async () => {
               </table>
             </div>
 
-{/* Botones inferiores alineados */}
-<div className="flex justify-between items-center mt-6 w-full">
+              {/* Botones inferiores alineados */}
+              <div className="flex justify-between items-center mt-6 w-full">
 
-  {/* Botón regresar al dashboard */}
-  <Link href="/dashboard">
-    <Button
-      variant="outline"
-      style={{ backgroundColor: "#db200b", color: "white" }}
-      className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-    >
-      ←
-    </Button>
-  </Link>
+              {/* Botón regresar al dashboard */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link href="/dashboard">
+                      <Button
+                        variant="outline"
+                        style={{ backgroundColor: "#db200b", color: "white" }}
+                        className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                      >
+                        ←
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+
+                  <TooltipContent side="top">
+                    <p>Salir</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
               {/* Botones de navegación */}
               <div className="flex items-center gap-2">
@@ -1933,7 +2032,7 @@ const handleNext = async () => {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p>Continúa al paso 3: Rubros</p>
+                      <p>Avanza al siguiente paso</p>
                     </TooltipContent>
                   </Tooltip>
 
@@ -1964,43 +2063,78 @@ const handleNext = async () => {
 
   return (
     <Card>
-      <CardContent className="space-y-5 mt-4">
+      <CardContent className="space-y-4">
         
         {/* Encabezado del Paso 3 */}
 <div className="flex items-center justify-between w-full mb-6">
 
   {/* IZQUIERDA → Botón regresar + Título */}
-  <div className="flex items-center gap-3">
-    <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
-      <Link href="/dashboard">←</Link>
-    </Button>
+<div className="flex items-center gap-3">
 
-    <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
-  </div>
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          asChild
+          style={{ backgroundColor: "#db200b", color: "white" }}
+          className="cursor-pointer hover:scale-105 transition-transform"
+        >
+          <Link href="/dashboard">←</Link>
+        </Button>
+      </TooltipTrigger>
 
-  {/* DERECHA → Botones de navegación */}
-  <div className="flex items-center gap-2">
+      <TooltipContent side="top">
+        <p>Salir</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
 
-    {step > 1 && (
-      <Button
-        variant="outline"
-        onClick={() => setStep(step - 1)}
-        className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
-      >
-        <span className="text-[#235391] font-bold">← {step - 1}</span>
-      </Button>
-    )}
+  <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
+</div>
 
-    {step < 4 && (
-      <Button
-        onClick={() => setStep(step + 1)}
-        className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
-      >
-        <span className="font-bold">{step + 1} →</span>
-      </Button>
-    )}
+{/* DERECHA → Botones de navegación */}
+<div className="flex items-center gap-2">
 
-  </div>
+  {/* Botón regresar al paso anterior */}
+  {step > 1 && (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            onClick={() => setStep(step - 1)}
+            className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+          >
+            <span className="text-[#235391] font-bold">← {step - 1}</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Regresar al paso anterior</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )}
+
+  {/* Botón avanzar */}
+  {step < 4 && (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={handleGuardarRubros}
+            className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+          >
+            <span className="font-bold">{step + 1} →</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Avanzar al siguiente paso</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )}
+
+</div>
 
 </div>
 
@@ -2015,7 +2149,7 @@ const handleNext = async () => {
         </div>
 
         {/* Formulario rubros */}
-        <div className="p-4 rounded border border-gray-200 bg-gray-50 mb-4">
+        <div className="flex flex-col space-y-4 rounded-lg bg-white px-0 py-4">
           <form
             className="space-y-4"
             onSubmit={async (e) => {
@@ -2119,6 +2253,7 @@ const handleNext = async () => {
       ref={rubroInputRef}
       value={nuevoRubro.rubro_descripcion || nuevoRubro.p_e_id_rubro}
       placeholder="Escribe ID o nombre…"
+      className={`${erroresRubro.p_e_id_rubro ? "border border-red-500" : ""}`}
       onValueChange={(val) => {
         setNuevoRubro((prev) => ({
           ...prev,
@@ -2168,15 +2303,16 @@ const handleNext = async () => {
               <div className="w-[30%]">
                 <Label>Monto presupuesto suficiencia</Label>
                 <Input
-                  value={nuevoRubro.p_e_monto_presupuesto_suficiencia}
-                  onChange={(e) =>
-                    setNuevoRubro((prev) => ({
-                      ...prev,
-                      p_e_monto_presupuesto_suficiencia: formatMoney(e.target.value),
-                    }))
-                  }
-                  placeholder="$0.00"
-                />
+                value={nuevoRubro.p_e_monto_presupuesto_suficiencia}
+                onChange={(e) =>
+                  setNuevoRubro((prev) => ({
+                    ...prev,
+                    p_e_monto_presupuesto_suficiencia: formatMoney(e.target.value),
+                  }))
+                }
+                placeholder="$0.00"
+                className={`${erroresRubro.p_e_monto_presupuesto_suficiencia ? "border border-red-500" : ""}`}
+              />
               </div>
             </div>
 
@@ -2294,17 +2430,29 @@ const handleNext = async () => {
 
         {/* Navegación */}
         <div className="flex items-center justify-between mt-6 gap-2 w-full">
+
           {/* Botón rojo */}
           <div className="flex justify-start">
-            <Link href="/dashboard">
-              <Button
-                variant="outline"
-                style={{ backgroundColor: "#db200b", color: "white" }}
-                className="cursor-pointer transition-transform duration-150 hover:scale-105 hover:brightness-110"
-              >
-                ←
-              </Button>
-            </Link>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex justify-start">
+                  <Link href="/dashboard">
+                    <Button
+                      variant="outline"
+                      style={{ backgroundColor: "#db200b", color: "white" }}
+                      className="cursor-pointer transition-transform duration-150 hover:scale-105 hover:brightness-110"
+                    >
+                      ←
+                    </Button>
+                  </Link>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Salir</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           </div>
 
           {/* Derecha: botones de paso — MISMO DISEÑO QUE LOS SUPERIORES */}
@@ -2356,7 +2504,7 @@ const handleNext = async () => {
       {step === 4 && (() => {
         return (
           <Card>
-            <CardContent className="space-y-5 mt-4">
+            <CardContent className="space-y-0">
               <div>
             </div>
 
@@ -2364,34 +2512,68 @@ const handleNext = async () => {
              {/* Encabezado con título y navegación superior */}
               <div className="flex justify-between items-center w-full mb-6">
 
-                {/* IZQUIERDA → botón rojo + título */}
+               {/* IZQUIERDA → botón rojo + título */}
                 <div className="flex items-center gap-3">
-                <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
-                  <Link href="/dashboard">←</Link>
-                </Button>
-                <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
-              </div>
+
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          asChild
+                          style={{ backgroundColor: "#db200b", color: "white" }}
+                          className="cursor-pointer hover:scale-105 transition-transform"
+                        >
+                          <Link href="/dashboard">←</Link>
+                        </Button>
+                      </TooltipTrigger>
+
+                      <TooltipContent side="top">
+                        <p>Salir</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
+                </div>
 
                 {/* DERECHA → volver y finalizar */}
                 <div className="flex items-center gap-2">
 
                   {/* Volver */}
-                  <Button
-                    variant="outline"
-                    onClick={() => setStep(step - 1)}
-                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
-                  >
-                    <span className="text-[#235391] font-bold">← {step - 1}</span>
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          onClick={() => setStep(step - 1)}
+                          className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+                        >
+                          <span className="text-[#235391] font-bold">← {step - 1}</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>Regresar al paso anterior</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
 
                   {/* Finalizar */}
-                  <Button
-                    onClick={handleFinalizarProceso}
-                    className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
-                    style={{ backgroundColor: "#FFBF00" }}
-                  >
-                    Finalizar
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={handleFinalizarProceso}
+                          className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
+                          style={{ backgroundColor: '#FFBF00' }}
+                        >
+                          Finalizar
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>Finalizar proceso</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
 
                 </div>
               </div>
@@ -2407,7 +2589,7 @@ const handleNext = async () => {
         </div>
 
         {/* Formulario para añadir proveedor */}
-        <div className="p-4 rounded border border-gray-200 bg-gray-50 mb-4">
+        <div className="flex flex-col space-y-4 rounded-lg bg-white px-0 py-4">
           <form
             className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"
             onSubmit={async e => {
@@ -2490,14 +2672,17 @@ const handleNext = async () => {
             <div className="md:col-span-3">
               <Label>Seleccionar Rubro y Partida</Label>
               <select
-              className="border rounded-md p-2 w-full"
+              className={`border rounded-md p-2 w-full ${
+                erroresProveedor.p_e_id_rubro_partida ? "border-red-500 focus:ring-red-500" : ""
+              }`}
               value={form.p_e_id_rubro_partida || ""}
               onChange={(e) => {
+                setErroresProveedor((prev) => ({ ...prev, p_e_id_rubro_partida: "" })); // ← limpia el error
                 const selectedOption = e.target.options[e.target.selectedIndex];
                 setForm((prev) => ({
                   ...prev,
                   p_e_id_rubro_partida: e.target.value,
-                  rubro_partida_texto: selectedOption.text, // ✅ guarda el texto visible
+                  rubro_partida_texto: selectedOption.text,
                 }));
               }}
             >
@@ -2718,24 +2903,23 @@ const handleNext = async () => {
               <div className="relative">
                 <div className="mt-4">
                   <Command shouldFilter={false}>
-                    <CommandInput
-                      ref={rfcInputRef}
-                      placeholder="Escribe RFC..."
-                      value={form.e_rfc_proveedor}
-                      onValueChange={(value) => {
-                        setForm((prev) => ({
-                          ...prev,
-                          e_rfc_proveedor: value,
-                        }));
-
-                        // 🔁 Si el usuario borra o cambia texto, vuelve a mostrar la lista
-                        if (value.trim().length > 0) {
-                          setMostrarLista(true);
-                        } else {
-                          setMostrarLista(false);
-                        }
-                      }}
-                    />
+                  <CommandInput
+                    ref={rfcInputRef}
+                    placeholder="Escribe RFC..."
+                    className={`${
+                      erroresProveedor.e_rfc_proveedor ? "border border-red-500 focus:ring-red-500" : ""
+                    }`}
+                    value={form.e_rfc_proveedor}
+                    onValueChange={(value) => {
+                      setErroresProveedor((prev) => ({ ...prev, e_rfc_proveedor: "" })); // ← limpiar error
+                      setForm((prev) => ({
+                        ...prev,
+                        e_rfc_proveedor: value,
+                      }));
+                      if (value.trim().length > 0) setMostrarLista(true);
+                      else setMostrarLista(false);
+                    }}
+                  />
                     {/* ✅ Mostrar CommandList solo cuando el usuario escribe */}
                     {form.e_rfc_proveedor.trim().length > 0 && mostrarLista && (
                       <CommandList className="absolute top-full left-0 z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
@@ -2787,21 +2971,24 @@ const handleNext = async () => {
               <div className="flex-1">
                 <Label>Importe sin IVA</Label>
                 <Input
-                  value={form.e_importe_sin_iva || ""}
-                  onChange={(e) => {
-                    const digits = e.target.value.replace(/\D/g, "");
-                    const amount = digits ? parseInt(digits, 10) : 0;
-
-                    setForm((prev) => ({
-                      ...prev,
-                      e_importe_sin_iva: digits ? `$${amount.toLocaleString("es-MX")}` : "",
-                      e_importe_total: digits
-                        ? `$${(amount * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                        : "",
-                    }));
-                  }}
-                  placeholder="$0.00"
-                />
+                value={form.e_importe_sin_iva || ""}
+                onChange={(e) => {
+                  setErroresProveedor((prev) => ({ ...prev, e_importe_sin_iva: "" })); // ← limpiar error
+                  const digits = e.target.value.replace(/\D/g, "");
+                  const amount = digits ? parseInt(digits, 10) : 0;
+                  setForm((prev) => ({
+                    ...prev,
+                    e_importe_sin_iva: digits ? `$${amount.toLocaleString("es-MX")}` : "",
+                    e_importe_total: digits
+                      ? `$${(amount * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+                      : "",
+                  }));
+                }}
+                placeholder="$0.00"
+                className={`${
+                  erroresProveedor.e_importe_sin_iva ? "border border-red-500 focus:ring-red-500" : ""
+                }`}
+              />
               </div>
 
               <div className="flex-1">
@@ -2888,16 +3075,26 @@ const handleNext = async () => {
 {/* --- NAVEGACIÓN INFERIOR COMPLETAMENTE ALINEADA --- */}
 <div className="flex justify-between items-center w-full mt-6">
 
-  {/* Botón rojo – VOLVER AL DASHBOARD */}
-  <Link href="/dashboard">
-    <Button
-      variant="outline"
-      style={{ backgroundColor: "#db200b", color: "white" }}
-      className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-    >
-      ←
-    </Button>
-  </Link>
+{/* Botón rojo – VOLVER AL DASHBOARD */}
+<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Link href="/dashboard">
+        <Button
+          variant="outline"
+          style={{ backgroundColor: "#db200b", color: "white" }}
+          className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+        >
+          ←
+        </Button>
+      </Link>
+    </TooltipTrigger>
+
+    <TooltipContent side="top">
+      <p>Salir</p>
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
 
   {/* Botones DERECHA – IGUALITOS A LOS SUPERIORES */}
   <div className="flex items-center gap-2">
@@ -2915,7 +3112,7 @@ const handleNext = async () => {
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top">
-          <p>Regresa al paso anterior para revisar los rubros</p>
+          <p>Regresar al paso anterior</p>
         </TooltipContent>
       </Tooltip>
 
@@ -2932,7 +3129,7 @@ const handleNext = async () => {
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top">
-          <p>Guarda y finaliza el proceso actual</p>
+          <p>Finalizar proceso</p>
         </TooltipContent>
       </Tooltip>
 

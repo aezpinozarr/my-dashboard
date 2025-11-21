@@ -173,22 +173,37 @@ export function MainNavigation() {
                     {hasUnread && <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full" />}
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="right">
-                  <SheetHeader>
-                    <SheetTitle>Notificaciones</SheetTitle>
+                <SheetContent
+                  side="right"
+                  className="w-[380px] sm:w-[420px] bg-white shadow-xl border-l border-gray-200 p-0"
+                >
+                  <SheetHeader className="p-4 border-b bg-gray-50">
+                    <SheetTitle className="text-xl font-semibold">Notificaciones</SheetTitle>
                   </SheetHeader>
-                  {notifications.length > 0 ? (
-                    <ul>
-                      {notifications.map((notif: Notificacion) => (
-                        <li key={notif.id} className="mb-2 border-b pb-2">
-                          <p className="text-sm font-semibold">{notif.titulo}</p>
-                          <p className="text-xs text-muted-foreground">{notif.mensaje}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>No hay notificaciones por el momento.</p>
-                  )}
+
+                  <div className="h-full overflow-y-auto p-4 space-y-3">
+                    {notifications.length > 0 ? (
+                      notifications.map((notif: Notificacion) => (
+                        <div
+                          key={notif.id}
+                          className="p-4 rounded-lg border shadow-sm bg-white hover:shadow-md transition-all cursor-pointer"
+                        >
+                          <p className="text-sm font-semibold text-gray-800">{notif.titulo}</p>
+                          <p className="text-xs text-gray-600 mt-1 leading-snug">{notif.mensaje}</p>
+
+                          {!notif.leido && (
+                            <span className="inline-block mt-2 px-2 py-1 text-[10px] font-semibold bg-blue-100 text-blue-600 rounded-full">
+                              Nuevo
+                            </span>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center text-gray-500 text-sm mt-10">
+                        No hay notificaciones por el momento.
+                      </div>
+                    )}
+                  </div>
                 </SheetContent>
               </Sheet>
             </div>
