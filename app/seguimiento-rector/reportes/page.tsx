@@ -71,6 +71,9 @@ type Adjudicado = {
 export default function AdjudicadosPage() {
   // TanStack Table sorting state
   const [sorting, setSorting] = useState<SortingState>([]);
+  // 📌 Estados necesarios para la barra de búsqueda por campo
+  const [filterField, setFilterField] = useState("all");
+  const [search, setSearch] = useState("");
 
   // Column definitions for TanStack Table
   const columns = React.useMemo<ColumnDef<Adjudicado>[]>(
@@ -201,10 +204,9 @@ export default function AdjudicadosPage() {
     []
   );
 
-  // Estados principales (registros, filtro, originales)
+  // Estados principales (registros, originales)
   const [registros, setRegistros] = useState<Adjudicado[]>([]);
   const [registrosOriginales, setRegistrosOriginales] = useState<Adjudicado[]>([]);
-  const [filtro, setFiltro] = useState("");
 
   // 🔍 Filtro simple (ahora usando useMemo)
   const registrosFiltrados = React.useMemo(() => {
@@ -214,24 +216,36 @@ export default function AdjudicadosPage() {
         .toLowerCase()
         .normalize("NFD")
         .replace(/\p{Diacritic}/gu, "");
-    const term = normalize(filtro);
 
-    return registros.filter((r) =>
-      [
-        r.ente,
-        r.ente_clasificacion,
-        r.e_tipo_licitacion,
-        r.rubro,
-        r.rfc,
-        r.razon_social,
-        r.nombre_comercial,
-        r.fundamento,
-      ]
-        .map(normalize)
-        .join(" ")
-        .includes(term)
-    );
-  }, [registros, filtro]);
+    const term = normalize(search);
+
+    if (filterField === "all") {
+      return registros.filter((r) =>
+        [
+          r.id,
+          r.ente,
+          r.e_oficio_invitacion,
+          r.e_tipo_licitacion,
+          r.modalidad_contratacion,
+          r.rubro,
+          r.rfc,
+          r.razon_social,
+          r.fundamento,
+          r.estatus,
+          r.rubro_estatus,
+          r.observaciones,
+        ]
+          .map(normalize)
+          .join(" ")
+          .includes(term)
+      );
+    }
+
+    return registros.filter((r) => {
+      const value = normalize((r as any)[filterField]);
+      return value.includes(term);
+    });
+  }, [registros, search, filterField]);
 
     // ✅ Memorizar solo los datos y columnas, no el hook completo
     const memoData = React.useMemo(() => registrosFiltrados, [registrosFiltrados]);
@@ -518,9 +532,20 @@ export default function AdjudicadosPage() {
           <p className="text-gray-600 text-sm ml-[52px]">
             Listado de procesos con proveedor adjudicado.
           </p>
-          {registros.length > 0 && (
-            <p className="text-sm text-gray-500 mt-1 ml-[52px]">
-              Mostrando {registros.length} {registros.length === 1 ? "registro" : "registros"}.
+          {registrosFiltrados.length > 0 && (
+            <p className="text-muted-foreground text-sm ml-[52px]">
+              {search.trim() === "" ? (
+                <>
+                  <span className="font-bold">{registrosFiltrados.length}</span> registro
+                  {registrosFiltrados.length !== 1 && "s"}.
+                </>
+              ) : (
+                <>
+                  <span className="font-bold">{registrosFiltrados.length}</span> registro
+                  {registrosFiltrados.length !== 1 && "s"} de{" "}
+                  <span className="font-bold">{registrosOriginales.length}</span>.
+                </>
+              )}
             </p>
           )}
         </div>
@@ -630,15 +655,59 @@ export default function AdjudicadosPage() {
         </div>
       </div>
 
-      {/* Barra de búsqueda */}
-      <div className="w-full">
+      {/* 🔍 BARRA DE BÚSQUEDA CON FILTROS */}
+      <div className="w-full mt-2 flex gap-2 items-center">
+        {/* Selector de categoría */}
+        <div className="w-40">
+        <select
+          value={filterField}
+          onChange={(e) => setFilterField(e.target.value)}
+          className="w-full border border-gray-300 rounded-md px-2 py-2 text-sm"
+        >
+          <option value="all">Todos</option>
+          <option value="id">ID</option>
+          <option value="ente">Ente</option>
+          <option value="e_oficio_invitacion">Oficio de invitación</option>
+          <option value="fundamento">Fundamento</option>
+          <option value="modalidad_contratacion">Modalidad de contratación</option>
+          <option value="estatus">Estatus</option>
+          <option value="r_fecha_emision">Fecha de emisión</option>
+          <option value="e_id_partida">Partida</option>
+          <option value="rubro">Rubro</option>
+          <option value="e_monto_presupuesto_suficiencia">Monto del rubro</option>
+          <option value="ramo">Fuente de financiamiento</option>
+          <option value="importe_ajustado_total">Importe con IVA</option>
+          <option value="observaciones">Observaciones</option>
+        </select>
+        </div>
+
+        {/* Input de búsqueda */}
         <Input
           type="text"
-          placeholder="Buscar por ente, proveedor o rubro..."
-          value={filtro}
-          onChange={(e) => setFiltro(e.target.value)}
-          className="w-full h-11 text-base"
+          placeholder={
+            filterField === "all"
+              ? "Buscar en todo…"
+              : `Buscar por ${filterField.replace(/_/g, " ")}…`
+          }
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full"
         />
+
+        {/* Botón limpiar filtros */}
+        {(search.trim() !== "" || filterField !== "all") && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSearch("");
+              setFilterField("all");
+              setRegistros(registrosOriginales);
+            }}
+            className="whitespace-nowrap"
+          >
+            Limpiar
+          </Button>
+        )}
       </div>
 
       {/* Contenido */}

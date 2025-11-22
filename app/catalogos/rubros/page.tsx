@@ -191,8 +191,9 @@ export default function RubrosPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        descripcion: newDescripcion, // 👈 solo esto
-      }),
+      id: newId,
+      descripcion: newDescripcion
+    }),
     });
 
     if (!resp.ok) throw new Error(await resp.text());
@@ -330,6 +331,19 @@ export default function RubrosPage() {
               </DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div className="space-y-1">
+                  <label
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                    htmlFor="new-rubro-id"
+                  >
+                    ID del Rubro
+                  </label>
+                  <Input
+                    id="new-rubro-id"
+                    placeholder="ID"
+                    value={newId}
+                    onChange={(e) => setNewId(e.target.value)}
+                    required
+                  />
                   <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-rubro-descripcion">
                     Descripción
                   </label>
