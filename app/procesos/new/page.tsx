@@ -2471,7 +2471,7 @@ const handleNext = async () => {
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top">
-          <p>Volver al paso {step - 1}</p>
+          <p>Regresar al paso anterior</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -2488,7 +2488,7 @@ const handleNext = async () => {
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top">
-          <p>Avanzar al paso {step + 1}</p>
+          <p>Avanzar al siguiente paso</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

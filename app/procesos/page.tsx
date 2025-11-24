@@ -328,7 +328,7 @@ export default function ProcesosPage() {
 
   // Contextual menu component for actions
   function RowActionsMenu({ id, estatus }: { id: number; estatus?: string | null }) {
-    if (estatus !== 'PREREGISTRADO') return null;
+    if (!['PREREGISTRADO', 'REVISADO'].includes(estatus ?? '')) return null;
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

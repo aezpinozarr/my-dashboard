@@ -240,7 +240,13 @@ function NuevoProcesoPageContent() {
   const [errores, setErrores] = React.useState<Record<string, string>>({});
   // Estado global para errores visuales de partidas (paso 2)
   const [erroresPartida, setErroresPartida] = React.useState<Record<string, string>>({});
-  
+    const handleBotonSuperior = () => {
+  if (step === 1) {
+    handleGuardarPaso1();
+  } else {
+    setStep(step + 1);
+  }
+};
 
   // Paso 1
   const [enteDescripcion, setEnteDescripcion] = React.useState("");
@@ -1475,24 +1481,132 @@ try {
   }
 };
 
+React.useEffect(() => {
+  // Solo cargar rubros en paso 2, 3 o 4
+  if (!(step === 2 || step === 3 || step === 4)) return;
+
+  const partidasConId = partidas.filter((p) => Number(p.id));
+  if (partidasConId.length === 0) {
+    setPresupuestosRubro([]);
+    return;
+  }
+
+  let activo = true;
+
+  (async () => {
+    try {
+      const rubrosPorPartida = await Promise.all(
+        partidasConId.map(async (partida) => {
+          try {
+            const resp = await fetch(
+              `${API_BASE}/procesos/editar/seguimiento-partida-rubro?p_id=-99&p_id_seguimiento_partida=${partida.id}`
+            );
+            const data = await resp.json();
+
+            if (!resp.ok) return [];
+            if (!Array.isArray(data)) return [];
+
+            return data.map((r) => ({
+              id: r.id,
+              p_e_id_rubro: r.e_id_rubro?.toString() || "",
+              rubro_descripcion: r.rubro_descripcion || r.rubro || "",
+              p_e_monto_presupuesto_suficiencia:
+                Number(r.e_monto_presupuesto_suficiencia) || 0,
+              p_id_partida_asociada: partida.e_id_partida?.toString() || "",
+              p_id_seguimiento_partida: Number(partida.id),
+              estatus: r.estatus || "",
+            }));
+          } catch {
+            return [];
+          }
+        })
+      );
+
+      if (!activo) return;
+      setPresupuestosRubro(rubrosPorPartida.flat());
+    } catch {
+      console.error("Error cargando rubros previos");
+    }
+  })();
+
+  return () => {
+    activo = false;
+  };
+}, [step, partidas]);
+
   /* ========================================
      🔹 Render UI (Paso 1, 2, 3)
   ======================================== */
   return (
     <main className="max-w-5xl mx-auto p-6 space-y-6">
       <StepIndicator currentStep={step} />
-      {/* Paso 1 */}
+{/* Paso 1 */}
       {step === 1 && (
           <>
-            <div className="flex items-center gap-3 mb-6">
-              <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
-                <Link href="/dashboard">←</Link>
-              </Button>
-              <h1 className="text-2xl font-bold">Paso 1: Oficio de invitación</h1>
-            </div>
+              <Card>
+              <CardContent className="space-y-4">
+                
+        {/* Encabezado dentro del Card */}
+        <div className="flex justify-between items-center mb-6">
 
-            <Card>
-              <CardContent className="space-y-5 mt-4">
+          {/* IZQUIERDA → botón rojo + título */}
+          <div className="flex items-center gap-3">
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    asChild
+                    style={{ backgroundColor: "#db200b", color: "white" }}
+                    className="cursor-pointer"
+                  >
+                    <Link href="/dashboard">←</Link>
+                  </Button>
+                </TooltipTrigger>
+
+                <TooltipContent side="top">
+                  <p>Salir</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <h1 className="text-2xl font-bold">Paso 1: Oficio de invitación</h1>
+          </div>
+
+              {/* DERECHA → botón azul */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleBotonSuperior}
+                    disabled={loading && step === 1}
+                    className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 
+                              transition-transform flex items-center gap-1 rounded-full px-4 py-2 cursor-pointer"
+                  >
+                    {loading && step === 1 ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="font-bold">Guardando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-bold">{step + 1}</span>
+                        <span className="font-bold">→</span>
+                      </>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+
+                {/* 💬 El tooltip */}
+                <TooltipContent side="top">
+                  <p>Avanza al siguiente paso </p>
+                </TooltipContent>
+
+              </Tooltip>
+            </TooltipProvider>
+
+</div>
+                
                 <div>
                   <Label>Ente</Label>
                   <Input
@@ -1871,49 +1985,129 @@ try {
                   )}
                 </div>
                 
-                <div>
-                  <Label>Usuario</Label>
-                  <Input
-                    value={user?.nombre || "Cargando..."}
-                    disabled
-                    className="bg-gray-100 text-gray-700 cursor-not-allowed"
-                  />
-                </div>
+                {/* Usuario + Botón avanzar EN LA MISMA LÍNEA */}
+                <div className="flex items-end justify-between gap-4">
 
-                <div className="flex justify-end">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={handleGuardarPaso1}
-                          disabled={loading}
-                          style={{ backgroundColor: "#235391", color: "white" }}
-                        >
-                          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Siguiente"}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>Guarda la información y avanza al paso 2</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  {/* Campo Usuario */}
+                  <div className="w-[900%]">
+                    <Label>Usuario</Label>
+                    <Input
+                      value={user?.nombre || "Cargando..."}
+                      disabled
+                      className="bg-gray-100 text-gray-700 cursor-not-allowed w-full"
+                    />
+                  </div>
+
+                  {/* Botón avanzar */}
+                  <div className="w-[30%] flex justify-end">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={handleGuardarPaso1}
+                            disabled={loading}
+                            className="bg-[#235391] hover:bg-[#1e3a8a] transition-transform 
+                                    hover:scale-105 rounded-full px-4 py-2"
+                          >
+                            <div className="flex items-center gap-2">
+                              {loading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <span className="text-white font-bold">{step + 1}</span>
+                                  <span className="text-white font-bold">→</span>
+                                </>
+                              )}
+                            </div>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p>Avanza al siguiente paso</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+
                 </div>
               </CardContent>
             </Card>
           </>
       )}
 
-      {/* Paso 2 */}
+       {/* Paso 2 */}
       {step === 2 && (
         <Card>
-          <CardContent className="space-y-5 mt-4">
-            {/* Contenido del paso 2 sin cambios visuales */}
-            <div className="flex items-center gap-3 mb-6">
-              <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
-                <Link href="/dashboard">←</Link>
-              </Button>
+          <CardContent className="space-y-4">
+          <div className="flex items-center justify-between mb-6 w-full">
+
+            {/* IZQUIERDA → Botón rojo + Título */}
+            <div className="flex items-center gap-3">
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      asChild
+                      style={{ backgroundColor: "#db200b", color: "white" }}
+                      className="cursor-pointer"
+                    >
+                      <Link href="/dashboard">←</Link>
+                    </Button>
+                  </TooltipTrigger>
+
+                  <TooltipContent side="top">
+                    <p>Salir</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
               <h1 className="text-2xl font-bold">Paso 2: Partidas</h1>
             </div>
+
+            {/* DERECHA → Navegación */}
+            <div className="flex items-center gap-2">
+
+              {step > 1 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        onClick={() => setStep(step - 1)}
+                        className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2 cursor-pointer"
+                      >
+                        <span className="text-[#235391] font-bold">← {step - 1}</span>
+                      </Button>
+                    </TooltipTrigger>
+
+                    <TooltipContent side="top">
+                      <p>Regresar al paso anterior</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+
+              {/* Botón Siguiente SUPERIOR — usa la MISMA lógica que el botón inferior */}
+              {step < 4 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                      onClick={handleNext}
+                      className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform flex items-center gap-1 rounded-full px-4 py-2"
+                    >
+                      <span className="font-bold">{step + 1} →</span>
+                    </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Avanza al siguiente paso</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+
+          </div>
             {/* Oficio de invitación bloqueado */}
             <div>
               <Label>Oficio de invitación</Label>
@@ -1924,13 +2118,13 @@ try {
               />
             </div>
             {/* Formulario superior */}
-            <form
-              className="flex flex-col space-y-4 bg-gray-50 rounded-lg p-4 border border-gray-200"
-              onSubmit={e => {
-                e.preventDefault();
-                handleAddPartida();
-              }}
-            >
+           <form
+          className="flex flex-col space-y-4 rounded-lg bg-white px-0 py-4"
+          onSubmit={e => {
+            e.preventDefault();
+            handleAddPartida();
+          }}
+        >
               {/* No. Requisición */}
               <div>
                 <Label>No. Requisición</Label>
@@ -1977,7 +2171,7 @@ try {
                               }));
                             }}
                           >
-                            {row.id} – {row.descripcion} – capitulo: {row.id_capitulo}
+                            {row.id} – {row.descripcion} – id capitulo: {row.id_capitulo} – capitulo: {row.capitulo}
                           </CommandItem>
                         ))}
                       <CommandEmpty>No se encontraron partidas</CommandEmpty>
@@ -2037,7 +2231,7 @@ try {
                 )}
               </div>
               {/* Botón añadir partida */}
-              <div className="flex justify-end mt-4">
+              <div className="flex justify-end mt-0">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -2055,8 +2249,8 @@ try {
                 </TooltipProvider>
               </div>
             </form>
-{/* Tabla de partidas - DISEÑO MEJORADO */}
-            <h2 className="text-lg font-semibold text-[#235391] mb-2">Partidas registradas</h2>
+            {/* Tabla de partidas - DISEÑO MEJORADO */}
+            <h2 className="text-lg font-semibold text-[#235391]">Partidas registradas</h2>
             <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
               <table className="min-w-full text-sm">
                 <thead>
@@ -2087,6 +2281,30 @@ try {
                   )
                   .map((p, index) => {
                     console.log("📌 COLUMNAS DE LA PARTIDA:", p);
+                    // 1. Obtener rubros de esta partida por ID REAL (id de seguimiento)
+                    const rubrosDeLaPartida = presupuestosRubro.filter(
+                      (r) =>
+                        String(r.p_id_seguimiento_partida) === String(p.id) // ← ESTA ES LA RELACIÓN REAL
+                    );
+
+                    // 2. ¿Tiene algún rubro adjudicado?
+                    const tieneRubroAdjudicado = rubrosDeLaPartida.some(
+                      (r) => r.estatus === "ADJUDICADO"
+                    );
+
+                    // 3. ¿Tiene algún proveedor adjudicado?
+                    const tieneProveedorAdjudicado = rubrosDeLaPartida.some((r) =>
+                      proveedores.some(
+                        (prov) =>
+                          prov.id_seguimiento_partida_rubro === r.id &&
+                          prov.estatus === "ADJUDICADO"
+                      )
+                    );
+
+                    // 4. Bloquear el botón si tiene adjudicaciones
+                    const bloquearEliminarPartida = tieneRubroAdjudicado || tieneProveedorAdjudicado;
+
+
                     return (
                       <tr
                         key={index}
@@ -2101,19 +2319,32 @@ try {
                         <td className="px-3 py-2 text-center">
                           {`${p.id_capitulo}`}
                         </td>
-                        <td className="px-3 py-2 text-center">{p.fuente_financiamiento}</td>
+                        <td className="px-3 py-2 text-center">
+                        {`${p.e_id_fuente_financiamiento} – ${p.fuente_financiamiento}`}
+                      </td>
                         <td className="px-3 py-2 text-center">{p.ramo_descripcion}</td>
                         <td className="px-3 py-2 text-center">{p.fondo}</td>
                         <td className="px-3 py-2 text-right w-[1%]">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                            onClick={() => handleEliminarPartida(index)}
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </Button>
-                        </td>
+                      <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={bloquearEliminarPartida}
+                      className={
+                        bloquearEliminarPartida
+                          ? "text-gray-300 cursor-not-allowed"
+                          : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      }
+                      onClick={() => {
+                        if (bloquearEliminarPartida) {
+                          toast.error("No puedes eliminar una partida que tiene rubros o proveedores adjudicados.");
+                          return;
+                        }
+                        handleEliminarPartida(index);
+                      }}
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </Button>
+                    </td>
                       </tr>
                     );
                   })
@@ -2121,68 +2352,70 @@ try {
                 </tbody>
               </table>
             </div>
-            {/* Botones de navegación (dashboard + volver + siguiente) */}
-<div className="flex items-center justify-between mt-6 gap-2 w-full">
-  {/* Botón rojo (dashboard) alineado a la izquierda */}
-  <div className="flex justify-start">
-    <Link href="/dashboard">
-      <Button
-        variant="outline"
-        style={{ backgroundColor: "#db200b", color: "white" }}
-        className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-      >
-        ←
-      </Button>
-    </Link>
-  </div>
-  {/* Volver al paso 1 y Siguiente alineados a la derecha */}
-  <div className="flex items-center gap-2">
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="outline" onClick={() => setStep(1)}>
-            <div
-              style={{
-                width: "28px",
-                height: "28px",
-                borderRadius: "50%",
-                backgroundColor: "#235391",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "14px",
-                fontWeight: "bold",
-              }}
-            >
-              1
-            </div>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Regresa al paso anterior</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
 
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            onClick={handleNext}
-            className="bg-[#235391] text-white hover:bg-[#1e3a8a] transition-colors"
-          >
-            Siguiente
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Continúa al paso 3: Rubros</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  </div>
-</div>
+              {/* Botones inferiores alineados */}
+              <div className="flex justify-between items-center mt-6 w-full">
+
+              {/* Botón regresar al dashboard */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link href="/dashboard">
+                      <Button
+                        variant="outline"
+                        style={{ backgroundColor: "#db200b", color: "white" }}
+                        className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                      >
+                        ←
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+
+                  <TooltipContent side="top">
+                    <p>Salir</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* Botones de navegación */}
+              <div className="flex items-center gap-2">
+                <TooltipProvider>
+
+                  {/* Botón Volver (paso 1) */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        onClick={() => setStep(1)}
+                        className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+                      >
+                        <span className="text-[#235391] font-bold">← 1</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Regresa al paso anterior</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* Botón Siguiente */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        onClick={handleNext}
+                        className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+                      >
+                        <span className="font-bold">3 →</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Avanza al siguiente paso</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                </TooltipProvider>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -2193,23 +2426,19 @@ try {
 {(() => {
   const rubroInputRef = React.useRef<any>(null);
 
-  // 🟡 Ctrl+S para guardar rubros solo cuando estás en el paso 3
+  // 🟡 Ctrl+S para guardar rubros
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        step === 3 &&
-        ((e.ctrlKey && e.key === "s") || (e.metaKey && e.key === "s"))
-      ) {
+      if (step === 3 && ((e.ctrlKey && e.key === "s") || (e.metaKey && e.key === "s"))) {
         e.preventDefault();
         handleGuardarRubros();
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [step, handleGuardarRubros]);
 
-  // 🔹 Cargar rubros existentes cuando entras al Paso 3
+  // 🟦 Cargar rubros existentes del seguimiento
   React.useEffect(() => {
     if (step !== 3 && step !== 4) return;
 
@@ -2219,71 +2448,122 @@ try {
       return;
     }
 
-    let isMounted = true;
+    let activo = true;
 
     (async () => {
       try {
         const rubrosPorPartida = await Promise.all(
           partidasConId.map(async (partida) => {
             try {
-              const url = `${API_BASE}/procesos/editar/seguimiento-partida-rubro?p_id=-99&p_id_seguimiento_partida=${partida.id}`;
-              const resp = await fetch(url);
+              const resp = await fetch(
+                `${API_BASE}/procesos/editar/seguimiento-partida-rubro?p_id=-99&p_id_seguimiento_partida=${partida.id}`
+              );
               const data = await resp.json();
+              console.log("📌 RUBROS QUE REGRESA EL BACKEND:", data);
 
-              if (!resp.ok) {
-                console.error("❌ Error HTTP cargando rubros:", data);
-                return [];
-              }
+              if (!resp.ok) return [];
               if (!Array.isArray(data)) return [];
 
-              return data.map((r: any) => ({
-                id: r.id,
-                p_e_id_rubro: r.e_id_rubro?.toString() || "",
-                rubro_descripcion: r.rubro_descripcion || r.rubro || "",
-                p_e_monto_presupuesto_suficiencia: formatMoney(
-                  String(
-                    r.e_monto_presupuesto_suficiencia ??
-                      r.monto_presupuesto_suficiencia ??
-                      ""
-                  )
-                ),
-                p_id_partida_asociada: partida.e_id_partida?.toString() || "",
-                p_id_seguimiento_partida: Number(partida.id),
-              }));
-            } catch (err) {
-              console.error("❌ Error al consultar rubros por partida:", partida.id, err);
+            return data.map((r) => ({
+              id: r.id,
+              p_e_id_rubro: r.e_id_rubro?.toString() || "",
+              rubro_descripcion: r.rubro_descripcion || r.rubro || "",
+              p_e_monto_presupuesto_suficiencia: Number(r.e_monto_presupuesto_suficiencia) || 0,
+              p_id_partida_asociada: partida.e_id_partida?.toString() || "",
+              p_id_seguimiento_partida: Number(partida.id),
+              estatus: r.estatus || "",
+            }));
+            } catch {
               return [];
             }
           })
         );
 
-        if (!isMounted) return;
+        if (!activo) return;
         setPresupuestosRubro(rubrosPorPartida.flat());
-      } catch (err) {
-        if (!isMounted) return;
-        console.error("❌ Error al cargar rubros del seguimiento:", err);
-      }
+      } catch {}
     })();
 
     return () => {
-      isMounted = false;
+      activo = false;
     };
   }, [step, partidas]);
 
-  // 👈 OJO: el return condicional va DESPUÉS de los hooks
   if (step !== 3) return null;
 
   return (
     <Card>
-      <CardContent className="space-y-5 mt-4">
-        <div className="flex items-center gap-3 mb-6">
-          <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
-            <Link href="/dashboard">←</Link>
-          </Button>
-          <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
+      <CardContent className="space-y-6 mt-4">
+
+        {/* ========================================================= */}
+        {/* 🟦 ENCABEZADO — CON TOOLTIP */}
+        {/* ========================================================= */}
+        <div className="flex items-center justify-between w-full mb-6">
+
+          {/* IZQUIERDA */}
+          <div className="flex items-center gap-3">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    asChild
+                    style={{ backgroundColor: "#db200b", color: "white" }}
+                    className="cursor-pointer hover:scale-105 transition-transform"
+                  >
+                    <Link href="/dashboard">←</Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Salir</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
+          </div>
+
+          {/* DERECHA */}
+          <div className="flex items-center gap-2">
+
+            {/* ← Paso anterior */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep(2)}
+                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+                  >
+                    <span className="text-[#235391] font-bold">← 2</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Regresar al paso anterior</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* → Paso siguiente */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleGuardarRubros}
+                    className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+                  >
+                    <span className="font-bold">4 →</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Avanza al siguiente paso</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+          </div>
         </div>
 
-        {/* Oficio invitación */}
+        {/* ========================================================= */}
+        {/* OFICIO INVITACIÓN */}
+        {/* ========================================================= */}
         <div>
           <Label>Oficio de invitación</Label>
           <Input
@@ -2293,7 +2573,9 @@ try {
           />
         </div>
 
-        {/* Formulario rubros */}
+        {/* ========================================================= */}
+        {/* FORMULARIO — UI NEW PAGE + lÓGICA EDIT PAGE */}
+        {/* ========================================================= */}
         <div className="p-4 rounded border border-gray-200 bg-gray-50 mb-4">
           <form
             className="space-y-4"
@@ -2306,31 +2588,28 @@ try {
                 return;
               }
 
-              if (
-                !nuevoRubro.p_e_monto_presupuesto_suficiencia ||
-                !nuevoRubro.p_id_partida_asociada
-              ) {
+              if (!nuevoRubro.p_e_monto_presupuesto_suficiencia || !nuevoRubro.p_id_partida_asociada) {
                 toast.warning("Completa los campos antes de añadir el rubro.");
                 return;
               }
 
-              const existeRubro = presupuestosRubro.some(
+              const existe = presupuestosRubro.some(
                 (r) =>
                   r.p_e_id_rubro === nuevoRubro.p_e_id_rubro &&
                   r.p_id_partida_asociada === nuevoRubro.p_id_partida_asociada
               );
-              if (existeRubro) {
+
+              if (existe) {
                 toast.warning("Este rubro ya fue añadido.");
                 return;
               }
 
               try {
                 const partidaAsociada = partidas.find(
-                  (p) =>
-                    String(p.e_id_partida) ===
-                    String(nuevoRubro.p_id_partida_asociada)
+                  (p) => String(p.e_id_partida) === String(nuevoRubro.p_id_partida_asociada)
                 );
-                if (!partidaAsociada || !partidaAsociada.id) {
+
+                if (!partidaAsociada?.id) {
                   toast.warning("La partida asociada no es válida.");
                   return;
                 }
@@ -2340,13 +2619,9 @@ try {
                   p_id_seguimiento_partida: Number(partidaAsociada.id),
                   p_id: 0,
                   p_e_id_rubro: nuevoRubro.p_e_id_rubro,
-                  p_e_monto_presupuesto_suficiencia:
-                    parseFloat(
-                      (nuevoRubro.p_e_monto_presupuesto_suficiencia || "").replace(
-                        /[^\d.-]/g,
-                        ""
-                      )
-                    ) || 0,
+                  p_e_monto_presupuesto_suficiencia: parseFloat(
+                    (nuevoRubro.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d.-]/g, "")
+                  ) || 0,
                 };
 
                 const resp = await fetch(
@@ -2370,27 +2645,25 @@ try {
                   },
                 ]);
 
-                setNuevoRubro((prev) => ({
-                  ...prev,
+                setNuevoRubro({
                   p_e_id_rubro: "",
                   rubro_descripcion: "",
                   p_e_monto_presupuesto_suficiencia: "",
-                }));
+                  p_id_partida_asociada: "",
+                });
 
                 toast.success("Rubro añadido correctamente");
-              } catch (err) {
-                console.error(err);
+              } catch {
                 toast.error("Error al añadir rubro");
               }
             }}
           >
-            {/* Partida asociada */}
+
+            {/* PARTIDA */}
             <div>
               <Label>Partida asociada</Label>
               <select
-                className={`border rounded-md p-2 w-full ${
-                  erroresRubro.p_id_partida_asociada ? "border-red-500" : ""
-                }`}
+                className="border rounded-md p-2 w-full"
                 value={nuevoRubro.p_id_partida_asociada}
                 onChange={(e) =>
                   setNuevoRubro((prev) => ({
@@ -2402,15 +2675,13 @@ try {
                 <option value="">Seleccione partida...</option>
                 {partidas.map((p, idx) => (
                   <option key={p.e_id_partida || idx} value={p.e_id_partida}>
-                    {`Partida #${idx + 1} — ${p.e_id_partida ?? "—"} — ${
-                      p.partida_descripcion ?? "—"
-                    }`}
+                    {`Partida #${idx + 1} — ${p.e_id_partida} — ${p.partida_descripcion}`}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Rubro + Monto */}
+            {/* RUBRO + MONTO */}
             <div className="flex gap-4">
               <div className="w-[70%]">
                 <Label>Rubro</Label>
@@ -2427,12 +2698,11 @@ try {
                       }))
                     }
                   />
-                  {Boolean((nuevoRubro.p_e_id_rubro || "").trim()) && (
+                  {Boolean(nuevoRubro.p_e_id_rubro) && (
                     <CommandList>
                       {rubros
                         .filter((rb) => {
-                          const q =
-                            (nuevoRubro.p_e_id_rubro || "").toLowerCase();
+                          const q = nuevoRubro.p_e_id_rubro.toLowerCase();
                           return (
                             rb.id?.toString().toLowerCase().includes(q) ||
                             rb.descripcion?.toLowerCase().includes(q)
@@ -2459,15 +2729,13 @@ try {
               </div>
 
               <div className="w-[30%]">
-                <Label>Monto presupuesto suficiencia</Label>
+                <Label>Monto</Label>
                 <Input
                   value={nuevoRubro.p_e_monto_presupuesto_suficiencia}
                   onChange={(e) =>
                     setNuevoRubro((prev) => ({
                       ...prev,
-                      p_e_monto_presupuesto_suficiencia: formatMoney(
-                        e.target.value
-                      ),
+                      p_e_monto_presupuesto_suficiencia: formatMoney(e.target.value),
                     }))
                   }
                   placeholder="$0.00"
@@ -2475,32 +2743,39 @@ try {
               </div>
             </div>
 
-            {/* Botón añadir */}
+            {/* AÑADIR BOTÓN */}
             <div className="flex justify-end">
-              <Button style={{ backgroundColor: "#10c706", color: "white" }}>
-                Añadir rubro
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button style={{ backgroundColor: "#10c706", color: "white" }}>
+                      Añadir rubro
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Agregar un nuevo rubro a la lista</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </form>
         </div>
 
+        {/* ========================================================= */}
         {/* TABLA DE RUBROS */}
+        {/* ========================================================= */}
         <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
-                <th className="px-3 py-2 font-semibold text-center">
-                  Partida asociada
-                </th>
+                <th className="px-3 py-2 font-semibold text-center">Partida</th>
                 <th className="px-3 py-2 font-semibold text-center">Clave</th>
                 <th className="px-3 py-2 font-semibold text-center">Rubro</th>
                 <th className="px-3 py-2 font-semibold text-center">Monto</th>
-                <th
-                  className="px-3 py-2 text-center"
-                  style={{ width: "40px" }}
-                ></th>
+                <th className="px-3 py-2 text-center" style={{ width: "40px" }}></th>
               </tr>
             </thead>
+
             <tbody>
               {presupuestosRubro.length === 0 ? (
                 <tr>
@@ -2512,95 +2787,152 @@ try {
                 presupuestosRubro.map((r, i) => (
                   <tr
                     key={i}
-                    className={`border-b ${
-                      i % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    } hover:bg-gray-100`}
+                    className={`border-b ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
                   >
-                    <td className="text-justify leading-tight">
+                    <td className="px-3 py-2 text-center">
                       {(() => {
                         const partida = partidas.find(
-                          (p) =>
-                            String(p.e_id_partida) ===
-                            String(r.p_id_partida_asociada)
+                          (p) => String(p.e_id_partida) === String(r.p_id_partida_asociada)
                         );
                         return partida
-                          ? `#${
-                              partidas.indexOf(partida) + 1
-                            } — ${partida.e_id_partida ?? "—"} — ${
-                              partida.partida_descripcion ?? "—"
-                            }`
+                          ? `${partida.e_id_partida} — ${partida.partida_descripcion}`
                           : "Sin asignar";
                       })()}
                     </td>
+
                     <td className="px-3 py-2 text-center">{r.p_e_id_rubro}</td>
+                    <td className="px-3 py-2 text-center">{r.rubro_descripcion}</td>
+                    <td className="text-right">{formatMoney(r.p_e_monto_presupuesto_suficiencia.toString())}</td>
+
                     <td className="px-3 py-2 text-center">
-                      {r.rubro_descripcion}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      {r.p_e_monto_presupuesto_suficiencia}
-                    </td>
-                    <td
-                      className="px-3 py-2 text-center"
-                      style={{ width: "40px" }}
-                    >
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        onClick={async () => {
-                          const rubro = presupuestosRubro[i];
-                          if (!rubro || !rubro.id) {
-                            toast.warning("Este rubro no tiene ID.");
-                            setPresupuestosRubro((prev) =>
-                              prev.filter((_, idx) => idx !== i)
-                            );
-                            return;
-                          }
-                          if (
-                            !confirm("¿Seguro que deseas eliminar este rubro?")
-                          )
-                            return;
-                          try {
-                            const partidaAsociada = partidas.find(
-                              (p) =>
-                                String(p.e_id_partida) ===
-                                String(rubro.p_id_partida_asociada)
-                            );
-                            if (!partidaAsociada || !partidaAsociada.id) {
-                              toast.warning("Partida asociada inválida.");
-                              return;
-                            }
-                            const payload = {
-                              p_accion: "ELIMINAR",
-                              p_id_seguimiento_partida: Number(partidaAsociada.id),
-                              p_id: Number(rubro.id),
-                              p_e_id_rubro: rubro.p_e_id_rubro,
-                              p_e_monto_presupuesto_suficiencia: 0,
-                            };
-                            const resp = await fetch(
-                              `${API_BASE}/procesos/editar/ente-seguimiento-partida-rubro-captura`,
-                              {
-                                method: "PUT",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                },
-                                body: JSON.stringify(payload),
-                              }
-                            );
-                            const data = await resp.json();
-                            if (!resp.ok) throw new Error(JSON.stringify(data));
-                            toast.success("Rubro eliminado correctamente.");
-                            setPresupuestosRubro((prev) =>
-                              prev.filter((_, idx) => idx !== i)
-                            );
-                          } catch (err) {
-                            console.error(err);
-                            toast.error("Error al eliminar rubro");
-                          }
-                        }}
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+<Button
+  variant="ghost"
+  size="icon"
+  disabled={r.estatus === "ADJUDICADO"}
+  className={
+    r.estatus === "ADJUDICADO"
+      ? "text-gray-300 cursor-not-allowed"
+      : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+  }
+  onClick={async () => {
+    // 🚫 Bloqueo por adjudicación
+    if (r.estatus === "ADJUDICADO") {
+      toast.error("No puedes eliminar un rubro adjudicado.");
+      return;
+    }
+
+    // 🚫 Si es el único rubro
+    if (presupuestosRubro.length === 1) {
+      toast.warning("Agrega un rubro antes de eliminar este.");
+      return;
+    }
+
+    const rubro = presupuestosRubro[i];
+
+    if (!rubro?.id) {
+      toast.warning("Este rubro no tiene ID.");
+      setPresupuestosRubro((prev) => prev.filter((_, idx) => idx !== i));
+      return;
+    }
+
+    try {
+      // se mantiene TODO tu código tal cual
+      const respProv = await fetch(
+        `${API_BASE}/procesos/seguimiento/proveedores-por-rubro/${rubro.id}`
+      );
+
+      const proveedoresAsociados = respProv.ok ? await respProv.json() : [];
+
+      if (proveedoresAsociados.length > 0) {
+        const seguro = confirm(
+          `⚠ Este rubro tiene ${proveedoresAsociados.length} proveedor(es) asociado(s).\n` +
+          `Si continúas, estos proveedores serán ELIMINADOS.\n\n` +
+          `¿Deseas continuar?`
+        );
+        if (!seguro) return;
+
+        for (const prov of proveedoresAsociados) {
+          const payloadProveedor = {
+            p_accion: "ELIMINAR",
+            p_id: prov.id,
+            p_id_seguimiento_partida_rubro: prov.id_seguimiento_partida_rubro,
+            p_e_rfc_proveedor: prov.e_rfc_proveedor,
+          };
+
+          await fetch(
+            `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payloadProveedor),
+            }
+          );
+        }
+
+        toast.info(
+          `Se eliminaron ${proveedoresAsociados.length} proveedores asociados.`
+        );
+      }
+
+      const partidaAsociada = partidas.find(
+        (p) =>
+          String(p.e_id_partida) ===
+          String(
+            rubro.p_id_partida_asociada ??
+              rubro.p_id_partida ??
+              rubro.e_id_partida
+          )
+      );
+
+      if (!partidaAsociada?.id) {
+        toast.warning("Partida asociada inválida.");
+        return;
+      }
+
+      const payload = {
+        p_accion: "ELIMINAR",
+        p_id_seguimiento_partida: Number(partidaAsociada.id),
+        p_id: Number(rubro.id),
+        p_e_id_rubro: rubro.p_e_id_rubro || "0",
+        p_e_monto_presupuesto_suficiencia: 0,
+      };
+
+      const resp = await fetch(
+        `${API_BASE}/procesos/editar/ente-seguimiento-partida-rubro-captura`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        console.error("❌ Error al eliminar rubro:", data);
+        toast.error("No se pudo eliminar el rubro del servidor.");
+        return;
+      }
+
+      toast.success("Rubro eliminado correctamente.");
+      setPresupuestosRubro((prev) => prev.filter((_, idx) => idx !== i));
+    } catch (err) {
+      console.error("❌ Error al eliminar rubro:", err);
+      toast.error("Error al eliminar rubro");
+    }
+  }}
+>
+  <Trash2 className="w-5 h-5" />
+</Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p>Eliminar rubro</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </td>
                   </tr>
                 ))
@@ -2609,113 +2941,187 @@ try {
           </table>
         </div>
 
-         {/* Navegación */}
-<div className="flex items-center justify-between mt-6 gap-2 w-full">
-  {/* Botón rojo (dashboard) alineado a la izquierda */}
-  <div className="flex justify-start">
-    <Link href="/dashboard">
-      <Button
-        variant="outline"
-        style={{ backgroundColor: "#db200b", color: "white" }}
-        className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-      >
-        ←
-      </Button>
-    </Link>
-  </div>
+        {/* ========================================================= */}
+        {/* NAVEGACIÓN INFERIOR — Con Tooltips */}
+        {/* ========================================================= */}
+        <div className="flex items-center justify-between mt-6 gap-2 w-full">
 
-  {/* Volver al paso 2 y Siguiente alineados a la derecha */}
-  <div className="flex items-center gap-2">
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="outline" onClick={() => setStep(2)}>
-                           <div
-                             style={{
-                               width: "28px",
-                               height: "28px",
-                               borderRadius: "50%",
-                               backgroundColor: "#235391",
-                               color: "white",
-                               display: "flex",
-                               alignItems: "center",
-                               justifyContent: "center",
-                               fontSize: "14px",
-                               fontWeight: "bold",
-                             }}
-                           >
-                             2
-                           </div>
-                         </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Regresar al paso 2: Partidas</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+          {/* Botón rojo salir */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/dashboard">
+                  <Button
+                    variant="outline"
+                    style={{ backgroundColor: "#db200b", color: "white" }}
+                    className="cursor-pointer transition-transform duration-150 hover:scale-105 hover:brightness-110"
+                  >
+                    ←
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="top">Salir</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            onClick={handleGuardarRubros}
-            style={{ backgroundColor: "#235391", color: "white" }}
-            className="transition-transform duration-150 hover:scale-105 hover:bg-[#1e3a8a]"
-          >
-            Siguiente
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Avanzar al paso 4: Proveedor</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  </div>
-</div>
+          {/* Botones de pasos */}
+          <div className="flex items-center gap-2">
+
+            {/* Volver al paso 2 */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep(2)}
+                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+                  >
+                    <span className="text-[#235391] font-bold">← 2</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Regresar al paso anterior</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Siguiente */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleGuardarRubros}
+                    className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+                  >
+                    <span className="font-bold">4 →</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Avanza al siguiente paso</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+          </div>
+        </div>
+
       </CardContent>
     </Card>
   );
 })()}
 
-      {/* Paso 4 */}
+{/* Paso 4 */}
 {step === 4 && (() => {
   return (
     <Card>
-      <CardContent className="space-y-5 mt-4">
-        <div>
-      </div>
+      <CardContent className="space-y-0">
+        
+        {/* ---------------- ENCABEZADO SUPERIOR ---------------- */}
+        <div className="flex justify-between items-center w-full mb-6">
 
+          {/* IZQUIERDA */}
+          <div className="flex items-center gap-3">
 
-        <div className="flex items-center gap-3 mb-6">
-        <Button asChild style={{ backgroundColor: "#db200b", color: "white" }}>
-          <Link href="/dashboard">←</Link>
-        </Button>
-        <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
-      </div>
+            {/* Botón rojo salir */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    asChild
+                    style={{ backgroundColor: "#db200b", color: "white" }}
+                    className="cursor-pointer hover:scale-105 transition-transform"
+                  >
+                    <Link href="/dashboard">←</Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Salir</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-      {/* Campo de Oficio de invitación - abajo del título */}
-      <div className="mb-4">
-        <Label>Oficio de invitación</Label>
-        <Input
-          value={form.oficio_invitacion ?? ""}
-          disabled
-          className="bg-gray-100 text-gray-700 cursor-not-allowed w-full"
-        />
+            <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
+          </div>
+
+          {/* DERECHA */}
+          <div className="flex items-center gap-2">
+
+            {/* Volver */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep(step - 1)}
+                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+                  >
+                    <span className="text-[#235391] font-bold">← {step - 1}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Regresar al paso anterior</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Finalizar */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleFinalizarProceso}
+                    className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
+                    style={{ backgroundColor: "#FFBF00" }}
+                  >
+                    Finalizar
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Finalizar proceso</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
 
-        {/* Formulario para añadir proveedor */}
-        <div className="p-4 rounded border border-gray-200 bg-gray-50 mb-4">
+        {/* ---------------- OFICIO ---------------- */}
+        <div className="mb-4">
+          <Label>Oficio de invitación</Label>
+          <Input
+            value={form.oficio_invitacion ?? ""}
+            disabled
+            className="bg-gray-100 text-gray-700 cursor-not-allowed w-full"
+          />
+        </div>
+
+        {/* ---------------- FORMULARIO PRINCIPAL ---------------- */}
+        <div className="flex flex-col space-y-4 rounded-lg bg-white px-0 py-4">
           <form
             className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"
             onSubmit={async e => {
               e.preventDefault();
 
-              if (!form.p_e_id_rubro_partida || !form.e_rfc_proveedor.trim() || !form.e_importe_sin_iva) {
-                toast.warning("Por favor completa todos los campos obligatorios antes de continuar.");
+              // 🔥 Conservando la LÓGICA original del EDIT
+              if (!form.p_e_id_rubro_partida) {
+                setErroresProveedor(prev => ({ ...prev, p_e_id_rubro_partida: "Selecciona un rubro" }));
+                toast.warning("Selecciona un rubro/partida.");
+                return;
+              }
+
+              if (!form.e_rfc_proveedor.trim()) {
+                setErroresProveedor(prev => ({ ...prev, e_rfc_proveedor: "RFC requerido" }));
+                toast.warning("Ingresa un RFC válido.");
+                return;
+              }
+
+              if (!form.e_importe_sin_iva) {
+                setErroresProveedor(prev => ({ ...prev, e_importe_sin_iva: "Importe requerido" }));
+                toast.warning("Ingresa un importe sin IVA.");
                 return;
               }
 
               try {
+                // Validación: proveedor ya existe
                 const existe = proveedores.some(
                   (p) =>
                     p.e_rfc_proveedor === form.e_rfc_proveedor &&
@@ -2727,72 +3133,45 @@ try {
                 }
 
                 const idRubroSeleccionado = Number(form.p_e_id_rubro_partida);
-                if (!idRubroSeleccionado || Number.isNaN(idRubroSeleccionado)) {
-                  toast.warning("Selecciona un rubro/partida válido.");
-                  return;
-                }
-
-                const rfcNormalizado = (form.e_rfc_proveedor || "").trim().toUpperCase();
-                const rubroSeleccionado = presupuestosRubro.find(
-                  (r) => String(r.id) === String(idRubroSeleccionado)
-                );
-                const partidaAsociada = rubroSeleccionado
-                  ? partidas.find(
-                      (p) => String(p.e_id_partida) === String(rubroSeleccionado.p_id_partida_asociada)
-                    )
-                  : null;
-                const etiquetaRubro =
-                  form.rubro_partida_texto ||
-                  (rubroSeleccionado && partidaAsociada
-                    ? `${partidaAsociada.e_id_partida} | Rubro ${
-                        rubroSeleccionado.p_e_id_rubro
-                      } — ${rubroSeleccionado.rubro_descripcion}`
-                    : "Rubro sin descripción");
-
-                const importeSinIva = normalizeCurrencyValue(form.e_importe_sin_iva) ?? 0;
-                const importeTotal = normalizeCurrencyValue(form.e_importe_total) ?? 0;
 
                 const payloadProveedor = {
                   p_accion: "NUEVO",
                   p_id_seguimiento_partida_rubro: idRubroSeleccionado,
                   p_id: 0,
-                  p_e_rfc_proveedor: rfcNormalizado,
+                  p_e_rfc_proveedor: form.e_rfc_proveedor,
                   p_e_razon_social: form.razon_social,
                   p_e_nombre_comercial: form.nombre_comercial,
                   p_e_persona_juridica: form.persona_juridica,
                   p_e_correo_electronico: form.correo_electronico,
-                  p_e_entidad_federativa:
-                    Number(form.entidad_federativa || selectedEntidadId) || 0,
-                  p_e_importe_sin_iva: importeSinIva,
-                  p_e_importe_total: importeTotal,
+                  p_e_entidad_federativa: parseInt(selectedEntidadId),
+                  p_e_importe_sin_iva: parseFloat((form.e_importe_sin_iva || "").replace(/[^\d.-]/g, "")) || 0,
+                  p_e_importe_total: parseFloat((form.e_importe_total || "").replace(/[^\d.-]/g, "")) || 0,
                 };
 
                 const resp = await fetch(
-                  `${API_BASE}/procesos/editar/ente-seguimiento-partida-rubro-proveedor-captura`,
+                  `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`,
                   {
-                    method: "PUT",
+                    method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payloadProveedor),
                   }
                 );
+
                 const data = await resp.json();
                 if (!resp.ok) throw new Error(JSON.stringify(data));
 
                 toast.success("Proveedor añadido correctamente.");
+
                 setProveedores(prev => [
                   ...prev,
                   {
-                    e_rfc_proveedor: rfcNormalizado,
+                    e_rfc_proveedor: form.e_rfc_proveedor,
                     razon_social: form.razon_social,
                     nombre_comercial: form.nombre_comercial,
-                    e_importe_sin_iva: formatCurrencyMx(Math.round(importeSinIva)),
-                    e_importe_total: formatCurrencyMx(importeTotal, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    }),
+                    e_importe_sin_iva: form.e_importe_sin_iva,
+                    e_importe_total: form.e_importe_total,
                     p_e_id_rubro_partida: form.p_e_id_rubro_partida,
-                    rubro_partida: etiquetaRubro,
-                    p_id_seguimiento_partida_rubro: idRubroSeleccionado,
+                    rubro_partida: form.rubro_partida_texto || "",
                     id: data.resultado,
                   },
                 ]);
@@ -2802,8 +3181,6 @@ try {
                   e_rfc_proveedor: "",
                   e_importe_sin_iva: "",
                   e_importe_total: "",
-                  p_e_id_rubro_partida: prev.p_e_id_rubro_partida,
-                  rubro_partida_texto: prev.rubro_partida_texto,
                 }));
               } catch (err) {
                 console.error("❌ Error al añadir proveedor:", err);
@@ -2811,321 +3188,142 @@ try {
               }
             }}
           >
-            {/* Rubro / Partida */}
+
+            {/* ---------------- SELECT RUBRO ---------------- */}
             <div className="md:col-span-3">
               <Label>Seleccionar Rubro y Partida</Label>
               <select
-              className="border rounded-md p-2 w-full"
-              value={form.p_e_id_rubro_partida || ""}
-              onChange={(e) => {
-                const selectedOption = e.target.options[e.target.selectedIndex];
-                setForm((prev) => ({
-                  ...prev,
-                  p_e_id_rubro_partida: e.target.value,
-                  rubro_partida_texto: selectedOption.text, // ✅ guarda el texto visible
-                }));
-              }}
-            >
+                className={`border rounded-md p-2 w-full ${
+                  erroresProveedor.p_e_id_rubro_partida ? "border-red-500 focus:ring-red-500" : ""
+                }`}
+                value={form.p_e_id_rubro_partida || ""}
+                onChange={(e) => {
+                  setErroresProveedor(prev => ({ ...prev, p_e_id_rubro_partida: "" }));
+
+                  const selectedOption = e.target.options[e.target.selectedIndex];
+                  setForm(prev => ({
+                    ...prev,
+                    p_e_id_rubro_partida: e.target.value,
+                    rubro_partida_texto: selectedOption.text,
+                  }));
+                }}
+              >
                 <option value="">Seleccione rubro/partida…</option>
-                {presupuestosRubro.map((r, idx) => {
-                  const idValido = Number(r.id) || 0;
-                  const partidaAsociada =
-                    partidas.find((p) => String(p.e_id_partida) === String(r.p_id_partida_asociada));
-                  const textoPartida = partidaAsociada
-                    ? `${partidaAsociada.e_id_partida}`
-                    : "Partida no encontrada";
+
+                {presupuestosRubro.map((r) => {
+                  const idValido = r.id || Number(sessionStorage.getItem("idRubroCreado")) || 0;
+                  const partidaAsociada = partidas.find(
+                    (p) => String(p.e_id_partida) === String(r.p_id_partida_asociada)
+                  );
                   return (
                     <option key={`${r.p_e_id_rubro}-${idValido}`} value={idValido}>
-                      {textoPartida} | Rubro {r.p_e_id_rubro} — {r.rubro_descripcion}
+                      {partidaAsociada ? partidaAsociada.e_id_partida : "Partida"} | Rubro {r.p_e_id_rubro} — {r.rubro_descripcion}
                     </option>
                   );
                 })}
               </select>
             </div>
 
-            {/* RFC del proveedor */}
+            {/* ---------------- RFC + BOTONES ---------------- */}
             <div className="md:col-span-3">
               <Label>RFC del proveedor</Label>
-              {/* Botones Ver/Añadir Proveedor */}
-<div className="flex items-center gap-3 mt-3">
-  <Button
-    type="button"
-    variant="outline"
-    onClick={() => setShowVerProveedoresDialog(true)}
-    className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
-  >
-    <Eye className="w-5 h-5" />
-    Ver proveedores
-  </Button>
 
-  <Button
-    type="button"
-    variant="outline"
-    onClick={() => setShowNuevoProveedorDialog(true)}
-    className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
-  >
-    <UserPlus className="w-5 h-5" />
-    Añadir proveedor
-  </Button>
-</div>
+              {/* Botones Ver y Añadir */}
+              <div className="flex items-center gap-3 mt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowVerProveedoresDialog(true)}
+                  className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
+                >
+                  <Eye className="w-5 h-5" /> Ver proveedores
+                </Button>
 
-{/* Dialog para ver proveedores */}
-<Dialog open={showVerProveedoresDialog} onOpenChange={setShowVerProveedoresDialog}>
-  <DialogContent className="max-w-4xl">
-    <DialogHeader>
-      <DialogTitle>Listado de Proveedores</DialogTitle>
-      <p className="text-sm text-gray-500">Consulta los proveedores registrados.</p>
-    </DialogHeader>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowNuevoProveedorDialog(true)}
+                  className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
+                >
+                  <UserPlus className="w-5 h-5" /> Añadir proveedor
+                </Button>
+              </div>
 
-    <Input
-      placeholder="Buscar por RFC o razón social..."
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      className="my-3"
-    />
-
-    <div className="max-h-[400px] overflow-y-auto border rounded-md">
-      <table className="min-w-full text-sm">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="py-2 px-4 text-left">RFC</th>
-            <th className="py-2 px-4 text-left">Razón Social</th>
-            <th className="py-2 px-4 text-left">Correo</th>
-            <th className="py-2 px-4 text-left">Entidad</th>
-          </tr>
-        </thead>
-        <tbody>
-          {proveedoresDialog
-            .filter(
-              (p) =>
-                p.rfc.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                p.razon_social.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-            .map((prov) => (
-              <tr key={prov.rfc} className="border-b">
-                <td className="py-2 px-4">{prov.rfc}</td>
-                <td className="py-2 px-4">{prov.razon_social}</td>
-                <td className="py-2 px-4">{prov.correo_electronico}</td>
-                <td className="py-2 px-4">{prov.entidad_federativa}</td>
-              </tr>
-            ))}
-        </tbody>
-      </table>
-    </div>
-  </DialogContent>
-</Dialog>
-
-{/* Dialog para añadir proveedor */}
-<Dialog open={showNuevoProveedorDialog} onOpenChange={setShowNuevoProveedorDialog}>
-  <DialogContent className="max-w-md">
-    <DialogHeader>
-      <DialogTitle>Añadir nuevo proveedor</DialogTitle>
-      <p className="text-sm text-gray-500">Completa los datos del proveedor.</p>
-    </DialogHeader>
-
-    <form
-      onSubmit={async (e) => {
-        e.preventDefault();
-        e.stopPropagation(); // 🚫 Evita que el evento llegue al formulario principal
-        const form = e.currentTarget;
-        const data = {
-          p_rfc: form.rfc.value,
-          p_razon_social: form.razon_social.value,
-          p_nombre_comercial: form.nombre_comercial.value,
-          p_persona_juridica: form.persona_juridica.value,
-          p_correo_electronico: form.correo_electronico.value,
-          p_id_entidad_federativa: parseInt(selectedEntidadId || "0"),
-        };
-
-        try {
-          const resp = await fetch(`${API_BASE}/catalogos/sp_cat_proveedor_gestionar_dialog`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-          });
-          const result = await resp.json();
-          if (!resp.ok) throw new Error(result.detail || "Error en la petición");
-          toast.success("Proveedor agregado correctamente");
-          setShowNuevoProveedorDialog(false);
-          // 🔄 Actualizar el catálogo de proveedores después de añadir uno nuevo
-          try {
-            const proveedoresResp = await fetch(`${API_BASE}/catalogos/proveedores`);
-            const proveedoresData = await proveedoresResp.json();
-            setCatalogoProveedores(proveedoresData);
-          } catch (err) {
-            console.error("❌ Error al refrescar catálogo de proveedores:", err);
-          }
-        } catch (err) {
-          toast.error("Error al agregar proveedor");
-        }
-      }}
-      className="space-y-3"
-    >
-      <Input name="rfc" placeholder="RFC" required />
-      <Input name="razon_social" placeholder="Razón Social" required />
-      <Input name="nombre_comercial" placeholder="Nombre Comercial" />
-
-      {/* Persona Jurídica */}
-      <div>
-        <Label>Persona Jurídica</Label>
-        <div className="space-y-2 mt-2">
-          <label className="flex items-center space-x-2">
-            <input
-              type="radio"
-              name="persona_juridica"
-              value="PERSONA FÍSICA"
-            />
-            <span>PERSONA FÍSICA</span>
-          </label>
-          <label className="flex items-center space-x-2">
-            <input
-              type="radio"
-              name="persona_juridica"
-              value="PERSONA MORAL"
-            />
-            <span>PERSONA MORAL</span>
-          </label>
-        </div>
-      </div>
-
-      <Input name="correo_electronico" placeholder="Correo electrónico" type="email" />
-
-      {/* Entidad Federativa */}
-      <div>
-        <Label>Entidad Federativa</Label>
-        <Command>
-          <CommandInput
-            placeholder="Buscar entidad..."
-            value={entidadQuery}
-            onValueChange={(val) => {
-              setEntidadQuery(val);
-              setMostrarListaEntidades(val.trim().length > 0);
-            }}
-          />
-
-          {mostrarListaEntidades && entidadQuery.trim().length > 0 && (
-            <CommandList>
-              {entidades
-                .filter((ent) =>
-                  ent.descripcion.toLowerCase().includes(entidadQuery.toLowerCase())
-                )
-                .map((ent) => (
-                  <CommandItem
-                    key={ent.id}
-                    onSelect={() => {
-                      setSelectedEntidadId(String(ent.id));
-                      setEntidadQuery(ent.descripcion);
-                      setMostrarListaEntidades(false);
-                    }}
-                  >
-                    {ent.descripcion}
-                  </CommandItem>
-                ))}
-            </CommandList>
-          )}
-        </Command>
-      </div>
-
-      <div className="flex justify-end gap-2 mt-4">
-        <Button
-          variant="outline"
-          onClick={() => setShowNuevoProveedorDialog(false)}
-        >
-          Cancelar
-        </Button>
-        <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white">
-          Guardar
-        </Button>
-      </div>
-    </form>
-  </DialogContent>
-</Dialog>
+              {/* Input RFC con Command */}
               <div className="relative">
-                <div className="mt-4">
-                  <Command shouldFilter={false}>
-                    <CommandInput
-                      ref={rfcInputRef}
-                      placeholder="Escribe RFC..."
-                      value={form.e_rfc_proveedor}
-                      onValueChange={(value) => {
-                        setForm((prev) => ({
-                          ...prev,
-                          e_rfc_proveedor: value,
-                        }));
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    ref={rfcInputRef}
+                    placeholder="Escribe RFC..."
+                    className={`mt-3 ${erroresProveedor.e_rfc_proveedor ? "border border-red-500" : ""}`}
+                    value={form.e_rfc_proveedor}
+                    onValueChange={(value) => {
+                      setErroresProveedor(prev => ({ ...prev, e_rfc_proveedor: "" }));
+                      setForm(prev => ({ ...prev, e_rfc_proveedor: value }));
+                      setMostrarLista(value.trim().length > 0);
+                    }}
+                  />
 
-                        // 🔁 Si el usuario borra o cambia texto, vuelve a mostrar la lista
-                        if (value.trim().length > 0) {
-                          setMostrarLista(true);
-                        } else {
-                          setMostrarLista(false);
-                        }
-                      }}
-                    />
-                    {/* ✅ Mostrar CommandList solo cuando el usuario escribe */}
-                    {form.e_rfc_proveedor.trim().length > 0 && mostrarLista && (
-                      <CommandList className="absolute top-full left-0 z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                        {catalogoProveedores
-                          .filter((p) => {
-                            const rfc = p.rfc || p.e_rfc_proveedor || "";
-                            return rfc.toLowerCase().includes((form.e_rfc_proveedor || "").toLowerCase());
-                          })
-                          .map((p) => {
-                            const rfc = p.rfc || p.e_rfc_proveedor;
-                            return (
-                              <CommandItem
-                                key={rfc}
-                                value={rfc}
-                                onSelect={() => {
-                                  setForm((prev) => ({
-                                    ...prev,
-                                    e_rfc_proveedor: rfc,
-                                    razon_social: p.razon_social || "",
-                                    nombre_comercial: p.nombre_comercial || "",
-                                  }));
+                  {form.e_rfc_proveedor.trim().length > 0 && mostrarLista && (
+                    <CommandList className="absolute top-full left-0 z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {catalogoProveedores
+                        .filter((p) =>
+                          (p.rfc || p.e_rfc_proveedor || "")
+                            .toLowerCase()
+                            .includes(form.e_rfc_proveedor.toLowerCase())
+                        )
+                        .map((p) => (
+                          <CommandItem
+                            key={p.rfc}
+                            value={p.rfc}
+                            onSelect={() => {
+                              setForm(prev => ({
+                                ...prev,
+                                e_rfc_proveedor: p.rfc,
+                                razon_social: p.razon_social,
+                                nombre_comercial: p.nombre_comercial,
+                              }));
 
-                                  // ✅ Inserta el valor seleccionado directamente en el input
-                                  if (rfcInputRef.current) {
-                                    rfcInputRef.current.value = rfc;
-                                    rfcInputRef.current.blur(); // 🔒 Cierra el foco para que desaparezca la lista
-                                  }
-
-                                  // ✅ Oculta la lista inmediatamente al seleccionar
-                                  setMostrarLista(false);
-                                }}
-                              >
-                                {rfc} — {p.razon_social || "—"} — {p.nombre_comercial || "—"}
-                              </CommandItem>
-                            );
-                          })}
-                        {catalogoProveedores.length === 0 && (
-                          <CommandEmpty>No se encontraron resultados</CommandEmpty>
-                        )}
-                      </CommandList>
-                    )}
-                  </Command>
-                </div>
+                              if (rfcInputRef.current) {
+                                rfcInputRef.current.value = p.rfc;
+                                rfcInputRef.current.blur();
+                              }
+                              setMostrarLista(false);
+                            }}
+                          >
+                            {p.rfc} — {p.razon_social}
+                          </CommandItem>
+                        ))}
+                    </CommandList>
+                  )}
+                </Command>
               </div>
             </div>
 
-            {/* Importe sin IVA y total */}
+            {/* ---------------- IMPORTES ---------------- */}
             <div className="md:col-span-3 flex items-end gap-2">
               <div className="flex-1">
                 <Label>Importe sin IVA</Label>
                 <Input
                   value={form.e_importe_sin_iva || ""}
                   onChange={(e) => {
+                    setErroresProveedor(prev => ({ ...prev, e_importe_sin_iva: "" }));
+
                     const digits = e.target.value.replace(/\D/g, "");
                     const amount = digits ? parseInt(digits, 10) : 0;
 
-                    setForm((prev) => ({
+                    setForm(prev => ({
                       ...prev,
                       e_importe_sin_iva: digits ? `$${amount.toLocaleString("es-MX")}` : "",
                       e_importe_total: digits
-                        ? `$${(amount * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        ? `$${(amount * 1.16).toLocaleString("es-MX", {
+                            minimumFractionDigits: 2,
+                          })}`
                         : "",
                     }));
                   }}
                   placeholder="$0.00"
+                  className={`${erroresProveedor.e_importe_sin_iva ? "border border-red-500" : ""}`}
                 />
               </div>
 
@@ -3133,11 +3331,12 @@ try {
                 <Label>Importe total con IVA (16%)</Label>
                 <Input
                   disabled
-                  className="bg-gray-100 text-gray-700 cursor-not-allowed"
                   value={form.e_importe_total || ""}
+                  className="bg-gray-100 text-gray-700 cursor-not-allowed"
                 />
               </div>
 
+              {/* Botón añadir */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -3158,119 +3357,151 @@ try {
           </form>
         </div>
 
-        {/* Tabla de proveedores */}
-{/* Tabla de proveedores añadidos */}
-<h2 className="text-lg font-semibold text-[#235391] mb-2">Proveedores añadidos</h2>
-<div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
-  <table className="min-w-full text-sm">
-    <thead>
-      <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
-        <th className="px-3 py-2 font-semibold text-center">Rubro / Partida</th>
-        <th className="px-3 py-2 font-semibold text-center">RFC</th>
-        <th className="px-3 py-2 font-semibold text-center">Razón social</th>
-        <th className="px-3 py-2 font-semibold text-center">Importe sin IVA</th>
-        <th className="px-3 py-2 font-semibold text-center">Importe total</th>
-        <th className="px-3 py-2 text-center" style={{ width: "40px" }}></th>
-      </tr>
-    </thead>
-    <tbody>
-      {proveedores.length === 0 ? (
-        <tr>
-          <td colSpan={7} className="py-3 text-center text-gray-400">
-            No hay proveedores añadidos.
-          </td>
-        </tr>
-      ) : (
-        proveedores.map((p, index) => (
-          <tr
-            key={index}
-            className={`border-b ${
-              index % 2 === 0 ? "bg-white" : "bg-gray-50"
-            } hover:bg-gray-100 transition-colors`}
-          >
-            <td className="text-justify leading-tight">{p.rubro_partida || "—"}</td>
-            <td className="px-3 py-2 text-center">{p.e_rfc_proveedor}</td>
-            <td className="px-3 py-2 text-center">{p.razon_social}</td>
-            <td className="px-3 py-2 text-center">{p.e_importe_sin_iva}</td>
-            <td className="px-3 py-2 text-center">{p.e_importe_total}</td>
-            <td className="px-3 py-2 text-center" style={{ width: "40px" }}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-              onClick={() => handleEliminarProveedor(index)}
-            >
-              <Trash2 className="w-5 h-5" />
-            </Button>
-          </td>
-          </tr>
-        ))
-      )}
-    </tbody>
-  </table>
-</div>
+        {/* ---------------- TABLA DE PROVEEDORES ---------------- */}
+        <h2 className="text-lg font-semibold text-[#235391] mb-2">Proveedores añadidos</h2>
 
-        {/* Botones de navegación */}
-        <div className="flex justify-start gap-3 mt-6">
+        <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
+                <th className="px-3 py-2 text-center">RUBRO / PARTIDA</th>
+                <th className="px-3 py-2 text-center">RFC</th>
+                <th className="px-3 py-2 text-center">RAZÓN SOCIAL</th>
+                <th className="px-3 py-2 text-center">IMPORTE SIN IVA</th>
+                <th className="px-3 py-2 text-center">IMPORTE TOTAL</th>
+                <th className="px-3 py-2 text-center" style={{ width: "40px" }}></th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {proveedores.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-3 text-center text-gray-400">
+                    No hay proveedores añadidos.
+                  </td>
+                </tr>
+              ) : (
+                proveedores.map((p, index) => (
+                  <tr
+                    key={index}
+                    className={`border-b ${
+                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    } hover:bg-gray-100 transition-colors`}
+                  >
+                    <td className="text-justify px-3 py-2">{p.rubro_partida || "—"}</td>
+                    <td className="text-center px-3 py-2">{p.e_rfc_proveedor}</td>
+                    <td className="text-center px-3 py-2">{p.razon_social}</td>
+                    <td className="text-center px-3 py-2">{p.e_importe_sin_iva}</td>
+                    <td className="text-center px-3 py-2">{p.e_importe_total}</td>
+
+                    {/* === BOTÓN CORREGIDO === */}
+                    <td className="text-center px-3 py-2" style={{ width: "40px" }}>
+                      {(() => {
+                        const rubroProveedor = presupuestosRubro.find(
+                          (r) => Number(r.id) === Number(p.p_e_id_rubro_partida)
+                        );
+
+                        const estaAdjudicado = rubroProveedor?.estatus === "ADJUDICADO";
+
+                        return (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={estaAdjudicado}
+                            className={
+                              estaAdjudicado
+                                ? "text-gray-300 cursor-not-allowed"
+                                : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            }
+                            onClick={() => {
+                              if (estaAdjudicado) {
+                                toast.error("No puedes eliminar un proveedor de un rubro adjudicado.");
+                                return;
+                              }
+                              handleEliminarProveedor(index);
+                            }}
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </Button>
+                        );
+                      })()}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ---------------- NAVEGACIÓN INFERIOR ---------------- */}
+        <div className="flex justify-between items-center w-full mt-6">
+
+          {/* Volver al dashboard */}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" onClick={() => setStep(3)}>
-                           <div
-                             style={{
-                               width: "28px",
-                               height: "28px",
-                               borderRadius: "50%",
-                               backgroundColor: "#235391",
-                               color: "white",
-                               display: "flex",
-                               alignItems: "center",
-                               justifyContent: "center",
-                               fontSize: "14px",
-                               fontWeight: "bold",
-                             }}
-                           >
-                             3
-                           </div>
-                         </Button>
+                <Link href="/dashboard">
+                  <Button
+                    variant="outline"
+                    style={{ backgroundColor: "#db200b", color: "white" }}
+                    className="cursor-pointer transition-transform hover:scale-105 hover:brightness-110"
+                  >
+                    ←
+                  </Button>
+                </Link>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>Regresa al paso anterior para revisar los rubros</p>
-              </TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  style={{ backgroundColor: "#582497ff", color: "white" }}
-                  onClick={handleFinalizarProceso}
-                >
-                  Finalizar
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Guarda y finaliza el proceso actual</p>
+              <TooltipContent side="top">
+                <p>Salir</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-                </div>
-          {/* Botón regresar al dashboard (inferior, SOLO paso 3) */}
-          <div className="mt-6 flex justify-start">
-            <Link href="/dashboard">
-              <Button
-                variant="outline"
-                style={{ backgroundColor: "#db200b", color: "white" }}
-                className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-              >
-                ←
-              </Button>
-            </Link>
+
+          {/* Botones derecha */}
+          <div className="flex items-center gap-2">
+
+            {/* Volver */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep(3)}
+                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391]"
+                  >
+                    <span className="text-[#235391] font-bold">← 3</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Regresar al paso anterior</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Finalizar */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    onClick={handleFinalizarProceso}
+                    className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
+                    style={{ backgroundColor: "#FFBF00" }}
+                  >
+                    Finalizar
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Finalizar proceso</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
+        </div>
+
       </CardContent>
     </Card>
   );
-})()} {/* ← cierra el paso 4 */}
+})()}
 
     </main>
   );
