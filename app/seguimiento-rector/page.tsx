@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -91,17 +92,21 @@ export default function SeguimientoRectorPage() {
   const [showTableSheet, setShowTableSheet] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   // Detectar si viene ?cambios=1 desde el ente
- const params = useSearchParams();
-const hayCambios = params.get("cambios") === "1";
+ function CambiosHandler() {
+  const params = useSearchParams();
+  const hayCambios = params.get("cambios") === "1";
 
-// Limpiar el query param de ?cambios=1 para no dejarlo pegado en la URL
-useEffect(() => {
-  if (hayCambios) {
-    const url = new URL(window.location.href);
-    url.searchParams.delete("cambios");
-    window.history.replaceState(null, "", url.toString());
-  }
-}, [hayCambios]);
+  useEffect(() => {
+    if (hayCambios) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("cambios");
+      window.history.replaceState(null, "", url.toString());
+    }
+  }, [hayCambios]);
+
+  return null;
+}
+
 
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
     expander: true,
@@ -396,6 +401,12 @@ useEffect(() => {
   // ===============================
   return (
     <main className="w-full p-6 space-y-6 bg-white min-h-screen">
+
+        {/* 🔹 Manejo del query ?cambios=1 dentro de Suspense */}
+    <Suspense fallback={null}>
+      <CambiosHandler />
+    </Suspense>
+    
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
