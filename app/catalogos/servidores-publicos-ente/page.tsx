@@ -3,6 +3,12 @@
 import * as React from "react";
 import { VisibilityState } from "@tanstack/react-table";
 import Link from "next/link";
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipContent
+} from "@/components/ui/tooltip";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -193,7 +199,10 @@ export default function ServidoresPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         {/* Título y regreso */}
         <div className="flex items-center gap-3">
-          <Link href="/dashboard">
+          <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link href="/dashboard">
           <Button
             variant="outline"
             style={{ backgroundColor: "#db200b", color: "white" }}
@@ -202,6 +211,13 @@ export default function ServidoresPage() {
             ←
           </Button>
         </Link>
+      </TooltipTrigger>
+
+      <TooltipContent side="bottom" className="text-xs">
+        Salir
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
           <div>
             <h1 className="text-2xl font-bold">Servidores Públicos</h1>
             {servidoresFiltrados.length > 0 && (
@@ -348,33 +364,97 @@ export default function ServidoresPage() {
       ) : (
         <DataTable
         data={servidoresFiltrados}
-        columns={[
-          { header: "ID", accessorKey: "id" },
-          { header: "Nombre", accessorKey: "nombre" },
-          { header: "Cargo", accessorKey: "cargo" },
-          {
-            header: "Activo",
-            accessorKey: "activo",
-            cell: ({ row }) => (row.original.activo ? "✅" : "❌"),
-          },
-          { header: "Ente", accessorKey: "ente_publico" },
-          { header: "Siglas", accessorKey: "ente_siglas" },
-          { header: "Clasificación", accessorKey: "ente_clasificacion" },
-          {
-            header: "Acciones",
-            cell: ({ row }) => (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleVincular(row.original.id)}
-                className="cursor-pointer"
-                style={{ borderColor: "#235391", color: "#235391" }}
-              >
-                Vincular
-              </Button>
-            ),
-          },
-        ]}
+columns={[
+  {
+    accessorKey: "id",
+    header: () => <div className="text-center w-full">ID</div>,
+    cell: ({ getValue }) => (
+      <div className="text-center w-full">
+        {String(getValue() ?? "—")}
+      </div>
+    ),
+    size: 80,
+  },
+  {
+    accessorKey: "nombre",
+    header: () => <div className="text-center w-full">Nombre</div>,
+    cell: ({ getValue }) => (
+      <div className="text-center w-full">
+        {String(getValue() ?? "—")}
+      </div>
+    ),
+    size: 200,
+  },
+  {
+    accessorKey: "cargo",
+    header: () => <div className="text-center w-full">Cargo</div>,
+    cell: ({ getValue }) => (
+      <div className="text-center w-full">
+        {String(getValue() ?? "—")}
+      </div>
+    ),
+    size: 200,
+  },
+  {
+    accessorKey: "activo",
+    header: () => <div className="text-center w-full">Activo</div>,
+    cell: ({ row }) => (
+      <div className="text-center w-full">
+        {row.original.activo ? "✅ Sí" : "❌ No"}
+      </div>
+    ),
+    size: 120,
+  },
+  {
+    accessorKey: "ente_publico",
+    header: () => <div className="text-center w-full">Ente</div>,
+    cell: ({ getValue }) => (
+      <div className="text-center w-full">
+        {String(getValue() ?? "—")}
+      </div>
+    ),
+    size: 200,
+  },
+  {
+    accessorKey: "ente_siglas",
+    header: () => <div className="text-center w-full">Siglas</div>,
+    cell: ({ getValue }) => (
+      <div className="text-center w-full">
+        {String(getValue() ?? "—")}
+      </div>
+    ),
+    size: 150,
+  },
+  {
+    accessorKey: "ente_clasificacion",
+    header: () => <div className="text-center w-full">Clasificación</div>,
+    cell: ({ getValue }) => (
+      <div className="text-center w-full">
+        {String(getValue() ?? "—")}
+      </div>
+    ),
+    size: 180,
+  },
+  {
+    id: "acciones",
+    header: () => <div className="text-center w-full">Acciones</div>,
+    enableSorting: false,
+    cell: ({ row }) => (
+      <div className="text-center w-full">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleVincular(row.original.id)}
+          className="cursor-pointer"
+          style={{ borderColor: "#235391", color: "#235391" }}
+        >
+          Vincular
+        </Button>
+      </div>
+    ),
+    size: 160,
+  },
+]}
         columnVisibility={columnVisibility} // ✅ ahora controlas desde el page
         setColumnVisibility={setColumnVisibility} // ✅ setter reactivo
         onTableInit={setTableInstance}

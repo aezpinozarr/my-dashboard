@@ -1218,7 +1218,7 @@ const handleNext = async () => {
                     style={{ backgroundColor: "#db200b", color: "white" }}
                     className="cursor-pointer"
                   >
-                    <Link href="/dashboard">←</Link>
+                    <Link href="/procesos">←</Link>
                   </Button>
                 </TooltipTrigger>
 
@@ -1709,7 +1709,7 @@ const handleNext = async () => {
                       style={{ backgroundColor: "#db200b", color: "white" }}
                       className="cursor-pointer"
                     >
-                      <Link href="/dashboard">←</Link>
+                      <Link href="/procesos">←</Link>
                     </Button>
                   </TooltipTrigger>
 
@@ -1983,7 +1983,7 @@ const handleNext = async () => {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Link href="/dashboard">
+                    <Link href="/procesos">
                       <Button
                         variant="outline"
                         style={{ backgroundColor: "#db200b", color: "white" }}
@@ -2079,7 +2079,7 @@ const handleNext = async () => {
           style={{ backgroundColor: "#db200b", color: "white" }}
           className="cursor-pointer hover:scale-105 transition-transform"
         >
-          <Link href="/dashboard">←</Link>
+          <Link href="/procesos">←</Link>
         </Button>
       </TooltipTrigger>
 
@@ -2437,7 +2437,7 @@ const handleNext = async () => {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex justify-start">
-                  <Link href="/dashboard">
+                  <Link href="/procesos">
                     <Button
                       variant="outline"
                       style={{ backgroundColor: "#db200b", color: "white" }}
@@ -2523,7 +2523,7 @@ const handleNext = async () => {
                           style={{ backgroundColor: "#db200b", color: "white" }}
                           className="cursor-pointer hover:scale-105 transition-transform"
                         >
-                          <Link href="/dashboard">←</Link>
+                          <Link href="/procesos">←</Link>
                         </Button>
                       </TooltipTrigger>
 
@@ -3079,7 +3079,7 @@ const handleNext = async () => {
 <TooltipProvider>
   <Tooltip>
     <TooltipTrigger asChild>
-      <Link href="/dashboard">
+      <Link href="/procesos">
         <Button
           variant="outline"
           style={{ backgroundColor: "#db200b", color: "white" }}

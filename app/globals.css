@@ -121,12 +121,27 @@
   }
 
   @layer base {
-  button,
-  [role="button"],
-  .cursor-pointer {
-    cursor: pointer !important;
+    button,
+    [role="button"],
+    .cursor-pointer {
+      cursor: pointer !important;
+    }
+  }
+
+@layer base {
+  /* Desactivar hover de TODAS las celdas */
+  tr td:hover {
+    background-color: inherit !important;
+  }
+
+  /* También anular hover que venga desde Shadcn */
+  tbody tr:hover td {
+    background-color: inherit !important;
+  }
+
+  tbody tr.no-hover:hover td {
+    background-color: inherit !important;
   }
 }
 
-  
-}
+} /* <-- AQUÍ CIERRA @layer base */

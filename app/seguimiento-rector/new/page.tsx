@@ -2,6 +2,12 @@
 import { Eye, UserPlus, Loader2 } from "lucide-react";
 // eslint-disable-next-line
 import React, { useEffect, useState, Suspense } from "react";
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipContent
+} from "@/components/ui/tooltip";
 import Link from "next/link";
 function StepIndicator({ step, steps }: { step: number; steps: string[] }) {
   return (
@@ -1151,16 +1157,26 @@ useEffect(() => {
 
             {/* IZQUIERDA */}
             <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="icon"
-                type="button"
-                style={{ backgroundColor: "#db200b", color: "white" }}
-                onClick={() => router.push("/seguimiento-rector")}
-                className="rounded-md shadow-sm cursor-pointer"
-              >
-                <span className="text-lg">←</span>
-              </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    type="button"
+                    style={{ backgroundColor: "#db200b", color: "white" }}
+                    onClick={() => router.push("/seguimiento-rector")}
+                    className="rounded-md shadow-sm cursor-pointer"
+                  >
+                    <span className="text-lg">←</span>
+                  </Button>
+                </TooltipTrigger>
+
+                <TooltipContent side="bottom" className="text-xs">
+                  Salir
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
               <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
                 <CardTitle className="text-gray-700 text-lg">Detalle del Seguimiento</CardTitle>

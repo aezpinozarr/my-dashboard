@@ -3,9 +3,16 @@
 
 import * as React from "react";
 import { RotateCcw, CopyX } from "lucide-react";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipContent
+} from "@/components/ui/tooltip";
 import {
   useReactTable,
   getCoreRowModel,
@@ -219,21 +226,64 @@ export default function EntesPage() {
   // Definir columnas para TanStack Table
   // ======================
   const columns = React.useMemo<ColumnDef<Ente>[]>(() => [
-    { accessorKey: "id", header: "ID" },
-    { accessorKey: "descripcion", header: "Descripción" },
-    { accessorKey: "siglas", header: "Siglas" },
-    { accessorKey: "clasificacion", header: "Clasificación" },
-    { accessorKey: "ente_tipo_descripcion", header: "Tipo" },
-    {
-      accessorKey: "activo",
-      header: showDeleted ? "Estado" : "Activo",
-      cell: ({ getValue }) =>
-        showDeleted
-          ? "🗑️ Eliminado"
-          : getValue()
-          ? "✅ Sí"
-          : "❌ No",
+    { accessorKey: "id", header: () => <div className="text-center w-full">ID</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
+      size: 180,
     },
+    { accessorKey: "descripcion", header: () => <div className="text-center w-full">Descripción</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
+      size: 180,
+    },
+    { accessorKey: "siglas", header: () => <div className="text-center w-full">Siglas</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
+      size: 180,
+    },
+    { accessorKey: "clasificacion",       header: () => <div className="text-center w-full">Clasificación</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
+      size: 180,
+    },
+    { accessorKey: "ente_tipo_descripcion",       header: () => <div className="text-center w-full">Tipo</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
+      size: 180,
+    },
+    {
+  accessorKey: "activo",
+  header: () => (
+    <div className="text-center w-full">
+      {showDeleted ? "Estado" : "Activo"}
+    </div>
+  ),
+  cell: ({ getValue }) => (
+    <div className="text-center w-full">
+      {showDeleted
+        ? "🗑️ Eliminado"
+        : getValue()
+        ? "✅ Sí"
+        : "❌ No"}
+    </div>
+  ),
+  size: 140,
+}
   ], [showDeleted]);
 
   const table = useReactTable({
@@ -357,24 +407,33 @@ export default function EntesPage() {
             setShowDeleted={setShowDeleted}
             onNewClick={() => setIsNewDialogOpen(true)}
           />
-          <Button
-            size="icon"
-            variant="outline"
-            title={showDeleted ? "Mostrar activos" : "Mostrar eliminados"}
-            onClick={() => setShowDeleted(!showDeleted)}
-            className={`transition-all border-2 shadow-sm ${
-              showDeleted
-                ? "border-red-600 bg-red-50 hover:bg-red-100 text-red-700"
-                : "border-gray-300 hover:border-red-400 text-gray-600 hover:text-red-700"
-            } transition-transform duration-150 ease-in-out hover:scale-105 cursor-pointer cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110`}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <CopyX className="w-5 h-5" />
-          </Button>
+          <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => setShowDeleted(!showDeleted)}
+                className={`transition-all border-2 shadow-sm ${
+                  showDeleted
+                    ? "border-red-600 bg-red-50 hover:bg-red-100 text-red-700"
+                    : "border-gray-300 hover:border-red-400 text-gray-600 hover:text-red-700"
+                } transition-transform duration-150 ease-in-out hover:scale-105 cursor-pointer hover:brightness-110`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <CopyX className="w-5 h-5" />
+              </Button>
+            </TooltipTrigger>
+
+            <TooltipContent side="bottom" className="text-xs">
+              {showDeleted ? "Mostrar activos" : "Mostrar eliminados"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         </div>
       </div>
 
@@ -517,18 +576,43 @@ export default function EntesPage() {
                   {headerGroup.headers.map(header => {
                     const isSorted = header.column.getIsSorted();
                     return (
-                      <TableHead
-                        key={header.id}
-                        onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
-                        style={{ cursor: header.column.getCanSort() ? "pointer" : undefined }}
-                        className={header.column.getCanSort() ? "hover:bg-gray-100 select-none" : ""}
-                      >
-                        <div className="flex items-center gap-1">
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                          {isSorted === "asc" && <ChevronUp size={16} className="inline ml-1" />}
-                          {isSorted === "desc" && <ChevronDown size={16} className="inline ml-1" />}
-                        </div>
-                      </TableHead>
+                       <TableHead
+  key={header.id}
+  style={{
+    minWidth: header.getSize() ? header.getSize() : undefined,
+    cursor: header.column.getCanSort() ? "pointer" : undefined,
+  }}
+  onClick={
+    header.column.getCanSort()
+      ? header.column.getToggleSortingHandler()
+      : undefined
+  }
+  className={cn(
+    header.column.getCanSort() && "select-none",
+    "py-2 px-3 text-xs font-semibold text-white bg-[#2563eb] text-center border-b border-gray-200"
+  )}
+  aria-sort={
+    header.column.getIsSorted()
+      ? header.column.getIsSorted() === "asc"
+        ? "ascending"
+        : "descending"
+      : undefined
+  }
+>
+  <div className="flex items-center justify-center gap-1">
+    {flexRender(header.column.columnDef.header, header.getContext())}
+    {header.column.getCanSort() && (
+      <span>
+        {header.column.getIsSorted() === "asc" && (
+          <ChevronUp size={14} className="inline" />
+        )}
+        {header.column.getIsSorted() === "desc" && (
+          <ChevronDown size={14} className="inline" />
+        )}
+      </span>
+    )}
+  </div>
+</TableHead>
                     );
                   })}
                 </TableRow>
@@ -542,15 +626,23 @@ export default function EntesPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                table.getRowModel().rows.map(row => (
-                  <TableRow key={row.id}>
+                table.getRowModel().rows.map((row, idx) => (
+                <React.Fragment key={row.original.id}>
+                  <TableRow
+                    className={cn(
+                      idx % 2 === 0 ? "bg-white" : "bg-gray-200",
+                      "no-hover",
+                      "transition-none"
+                    )}
+                  >
                     {row.getVisibleCells().map(cell => (
-                      <TableCell key={cell.id}>
+                      <TableCell key={cell.id} className="py-2 px-3 align-top">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}
                   </TableRow>
-                ))
+                </React.Fragment>
+              ))
               )}
             </TableBody>
           </Table>

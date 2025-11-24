@@ -4,6 +4,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipContent
+} from "@/components/ui/tooltip";
 import {
   Card,
   CardContent,
@@ -371,41 +378,68 @@ export default function ProveedoresPage() {
     () => [
       {
         accessorKey: "rfc",
-        header: "RFC",
-        cell: ({ row }) => row.original.rfc,
-      },
+        header: () => <div className="text-center w-full">RFC</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
+      size: 180,
+    },
       {
         accessorKey: "razon_social",
-        header: "Razón Social",
-        cell: ({ row }) => row.original.razon_social,
-      },
+        header: () => <div className="text-center w-full">Razón social</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
+      size: 180,
+    },
       {
         accessorKey: "correo_electronico",
-        header: "Correo",
-        cell: ({ row }) => row.original.correo_electronico,
-      },
+        header: () => <div className="text-center w-full">Correo</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
+      size: 180,
+    },
       {
         accessorKey: "entidad_federativa",
-        header: "Entidad",
-        cell: ({ row }) => row.original.entidad_federativa,
-      },
+        header: () => <div className="text-center w-full">Entidad</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
+      size: 180,
+    },
       {
-        id: "acciones",
-        header: "Acciones",
-        cell: ({ row }) => (
-          <div className="flex justify-start -ml-4">
-            <RowActionButtons
-              id={row.original.rfc}
-              editPath="/catalogos/proveedores/edit"
-              onEdit={handleEditClick}
-              onDelete={(id) => toggleEstadoProveedor(id)}
-              onRestore={(id) => toggleEstadoProveedor(id, true)}
-              showDeleted={showDeleted}
-            />
-          </div>
-        ),
-        enableSorting: false,
-      },
+  id: "acciones",
+  header: () => (
+    <div className="text-center w-full">
+      Acciones
+    </div>
+  ),
+  cell: ({ row }) => (
+    <div className="text-center w-full">
+      <div className="flex justify-center">
+        <RowActionButtons
+          id={row.original.rfc}
+          editPath="/catalogos/proveedores/edit"
+          onEdit={handleEditClick}
+          onDelete={(id) => toggleEstadoProveedor(id)}
+          onRestore={(id) => toggleEstadoProveedor(id, true)}
+          showDeleted={showDeleted}
+        />
+      </div>
+    </div>
+  ),
+  size: 120,
+  enableSorting: false,
+}
     ],
     [showDeleted]
   );
@@ -479,25 +513,34 @@ export default function ProveedoresPage() {
             table={table}
             onNewClick={handleNewProveedorClick}
           />
-          <Button
-            size="icon"
-            variant="outline"
-            title={showDeleted ? "Mostrar activos" : "Mostrar eliminados"}
-            onClick={() => setShowDeleted(!showDeleted)}
-            className={`transition-all border-2 shadow-sm ${
-              showDeleted
-                ? "border-red-600 bg-red-50 hover:bg-red-100 text-red-700"
-                : "border-gray-300 hover:border-red-400 text-gray-600 hover:text-red-700"
-            }`}
-            style={{
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <CopyX className="w-5 h-5" />
-          </Button>
+          <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => setShowDeleted(!showDeleted)}
+                className={`transition-all border-2 shadow-sm ${
+                  showDeleted
+                    ? "border-red-600 bg-red-50 hover:bg-red-100 text-red-700"
+                    : "border-gray-300 hover:border-red-400 text-gray-600 hover:text-red-700"
+                }`}
+                style={{
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <CopyX className="w-5 h-5" />
+              </Button>
+            </TooltipTrigger>
+
+            <TooltipContent side="bottom" className="text-xs">
+              {showDeleted ? "Mostrar activos" : "Mostrar eliminados"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         </div>
       {/* Dialogo de nuevo proveedor */}
       <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
@@ -753,34 +796,42 @@ export default function ProveedoresPage() {
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
                     <TableHead
-                      key={header.id}
-                      colSpan={header.colSpan}
-                      className={
-                        header.column.getCanSort()
-                          ? "hover:bg-gray-100 select-none cursor-pointer transition"
-                          : ""
-                      }
-                      onClick={
-                        header.column.getCanSort()
-                          ? header.column.getToggleSortingHandler()
-                          : undefined
-                      }
-                    >
-                      <div className="flex items-center gap-1">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getCanSort() ? (
-                          <span className="ml-1 text-gray-500 flex flex-col justify-center">
-                            {header.column.getIsSorted() === "asc" ? (
-                              <ChevronUp className="w-4 h-4 inline-block" />
-                            ) : header.column.getIsSorted() === "desc" ? (
-                              <ChevronDown className="w-4 h-4 inline-block" />
-                            ) : (
-                              <span className="w-4 h-4" />
-                            )}
-                          </span>
-                        ) : null}
-                      </div>
-                    </TableHead>
+  key={header.id}
+  style={{
+    minWidth: header.getSize() ? header.getSize() : undefined,
+    cursor: header.column.getCanSort() ? "pointer" : undefined,
+  }}
+  onClick={
+    header.column.getCanSort()
+      ? header.column.getToggleSortingHandler()
+      : undefined
+  }
+  className={cn(
+    header.column.getCanSort() && "select-none",
+    "py-2 px-3 text-xs font-semibold text-white bg-[#2563eb] text-center border-b border-gray-200"
+  )}
+  aria-sort={
+    header.column.getIsSorted()
+      ? header.column.getIsSorted() === "asc"
+        ? "ascending"
+        : "descending"
+      : undefined
+  }
+>
+  <div className="flex items-center justify-center gap-1">
+    {flexRender(header.column.columnDef.header, header.getContext())}
+    {header.column.getCanSort() && (
+      <span>
+        {header.column.getIsSorted() === "asc" && (
+          <ChevronUp size={14} className="inline" />
+        )}
+        {header.column.getIsSorted() === "desc" && (
+          <ChevronDown size={14} className="inline" />
+        )}
+      </span>
+    )}
+  </div>
+</TableHead>
                   ))}
                 </TableRow>
               ))}
@@ -796,19 +847,23 @@ export default function ProveedoresPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                table.getRowModel().rows.map((row) => (
+                 table.getRowModel().rows.map((row, idx) => (
+                <React.Fragment key={row.id}>
                   <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                    className={row.original.activo ? "" : "bg-red-50"}
+                    className={cn(
+                      idx % 2 === 0 ? "bg-white" : "bg-gray-200", // alterna colores
+                      "no-hover",
+                      "transition-none"
+                    )}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
+                      <TableCell key={cell.id} className="py-2 px-3">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}
                   </TableRow>
-                ))
+                </React.Fragment>
+              ))
               )}
             </TableBody>
           </Table>

@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -8,7 +10,7 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
-import { Settings2, CircleEllipsis, ChevronUp, ChevronDown } from "lucide-react";
+import { Settings2, EllipsisVertical, ChevronUp, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -88,17 +90,30 @@ export default function SeguimientoRectorPage() {
 
   const [showTableSheet, setShowTableSheet] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
+  // Detectar si viene ?cambios=1 desde el ente
+ const params = useSearchParams();
+const hayCambios = params.get("cambios") === "1";
+
+// Limpiar el query param de ?cambios=1 para no dejarlo pegado en la URL
+useEffect(() => {
+  if (hayCambios) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("cambios");
+    window.history.replaceState(null, "", url.toString());
+  }
+}, [hayCambios]);
 
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
     expander: true,
     id: true,
     ente: true,
     e_oficio_invitacion: true,
-    ente_clasificacion: true,
+    ente_clasificacion: false,
     e_tipo_licitacion: true,
     tipo_licitacion_no_veces_descripcion: true,
     servidor_publico_emite: true,
     e_fecha_y_hora_reunion: true,
+    e_servidor_publico_cargo: false,
   });
 
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -130,17 +145,17 @@ export default function SeguimientoRectorPage() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 p-0 -mt-1"
-                  tabIndex={0}
-                  type="button"
-                >
-                  <CircleEllipsis
-                    size={18}
-                    className="fill-blue-600 stroke-white hover:fill-blue-700 transition-colors"
-                  />
-                </Button>
+  variant="ghost"
+  size="icon"
+  className="h-8 w-8 p-0 -mt-1"
+  tabIndex={0}
+  type="button"
+>
+  <EllipsisVertical
+    size={18}
+    className="text-blue-600 hover:text-blue-700 transition-colors"
+  />
+</Button>
               </DropdownMenuTrigger>
 
               <DropdownMenuContent align="start" className="w-40">
@@ -177,8 +192,12 @@ export default function SeguimientoRectorPage() {
     },
     {
       accessorKey: "e_oficio_invitacion",
-      header: "Oficio de Invitación",
-      cell: ({ getValue }) => getValue() || "—",
+      header: () => <div className="text-center w-full">Oficio de Invitación</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
       size: 180,
     },
     {
@@ -188,11 +207,29 @@ export default function SeguimientoRectorPage() {
       size: 150,
     },
     {
-      accessorKey: "ente_clasificacion",
-      header: "Clasificación",
+      accessorKey: "e_fecha_y_hora_reunion",
+      header: "Fecha Reunión",
       cell: ({ getValue }) => getValue() || "—",
-      size: 120,
+      size: 140,
     },
+
+    {
+      accessorKey: "ente_clasificacion",
+      header: () => <div className="text-center w-full">Clasificación</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
+      size: 180,
+    },
+    {
+        accessorKey: "e_tipo_evento",
+        header: "Tipo de Evento",
+        cell: ({ getValue }: { getValue: () => any }) => getValue() || "—",
+        size: 120,
+      },
+
     {
       accessorKey: "e_tipo_licitacion",
       header: "Tipo Licitación",
@@ -201,22 +238,30 @@ export default function SeguimientoRectorPage() {
     },
     {
       accessorKey: "tipo_licitacion_no_veces_descripcion",
-      header: "No. Veces",
-      cell: ({ getValue }) => getValue() || "—",
-      size: 110,
+      header: () => <div className="text-center w-full">No. de veces</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
+      size: 180,
     },
     {
       accessorKey: "servidor_publico_emite",
-      header: "Emite",
-      cell: ({ getValue }) => getValue() || "—",
-      size: 160,
+      header: () => <div className="text-center w-full">Oficio de Invitación</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
+      size: 180,
     },
-    {
-      accessorKey: "e_fecha_y_hora_reunion",
-      header: "Fecha Reunión",
-      cell: ({ getValue }) => getValue() || "—",
-      size: 140,
-    },
+      {
+        accessorKey: "e_servidor_publico_cargo",
+        header: "Cargo",
+        cell: ({ getValue }: { getValue: () => any }) => getValue() || "—",
+        size: 120,
+      },
   ];
 
   
@@ -354,15 +399,25 @@ export default function SeguimientoRectorPage() {
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard">
-            <Button
-              variant="outline"
-              style={{ backgroundColor: "#db200b", color: "white" }}
-              className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-            >
-              ←
-            </Button>
-          </Link>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/dashboard">
+                <Button
+                  variant="outline"
+                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                >
+                  ←
+                </Button>
+              </Link>
+            </TooltipTrigger>
+
+            <TooltipContent side="bottom" className="text-xs">
+              Salir
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Seguimiento Rector — Preregistrados</h1>
             <p className="text-gray-600 text-sm">
@@ -451,37 +506,43 @@ export default function SeguimientoRectorPage() {
               <TableRow>
                 {table.getHeaderGroups()[0].headers.map((header) => (
                   <TableHead
-                    key={header.id}
-                    style={{
-                      minWidth: header.getSize() ? header.getSize() : undefined,
-                      cursor: header.column.getCanSort() ? "pointer" : undefined,
-                    }}
-                    onClick={
-                      header.column.getCanSort()
-                        ? header.column.getToggleSortingHandler()
-                        : undefined
-                    }
-                    className={`py-2 px-3 text-xs font-semibold text-gray-600 border-b border-gray-200 bg-gray-50 ${
-                      header.column.getCanSort() ? "select-none hover:bg-gray-100" : ""
-                    }`}
-                    aria-sort={
-                      header.column.getIsSorted()
-                        ? header.column.getIsSorted() === "asc"
-                          ? "ascending"
-                          : "descending"
-                        : undefined
-                    }
-                  >
-                    <div className="flex items-center gap-1">
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {header.column.getCanSort() && (
-                        <span>
-                          {header.column.getIsSorted() === "asc" && <ChevronUp size={14} className="inline" />}
-                          {header.column.getIsSorted() === "desc" && <ChevronDown size={14} className="inline" />}
-                        </span>
-                      )}
-                    </div>
-                  </TableHead>
+  key={header.id}
+  style={{
+    minWidth: header.getSize() ? header.getSize() : undefined,
+    cursor: header.column.getCanSort() ? "pointer" : undefined,
+  }}
+  onClick={
+    header.column.getCanSort()
+      ? header.column.getToggleSortingHandler()
+      : undefined
+  }
+  className={cn(
+    header.column.getCanSort() && "select-none",
+    "py-2 px-3 text-xs font-semibold text-white bg-[#2563eb] text-center border-b border-gray-200"
+  )}
+  aria-sort={
+    header.column.getIsSorted()
+      ? header.column.getIsSorted() === "asc"
+        ? "ascending"
+        : "descending"
+      : undefined
+  }
+>
+  <div className="flex items-center justify-center gap-1">
+    {flexRender(header.column.columnDef.header, header.getContext())}
+    
+    {header.column.getCanSort() && (
+      <span>
+        {header.column.getIsSorted() === "asc" && (
+          <ChevronUp size={14} className="inline" />
+        )}
+        {header.column.getIsSorted() === "desc" && (
+          <ChevronDown size={14} className="inline" />
+        )}
+      </span>
+    )}
+  </div>
+</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
@@ -493,15 +554,23 @@ export default function SeguimientoRectorPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.original.id} className="transition-colors">
+              table.getRowModel().rows.map((row, idx) => (
+                <React.Fragment key={row.original.id}>
+                  <TableRow
+                    className={cn(
+                      idx % 2 === 0 ? "bg-white" : "bg-gray-200",
+                      "no-hover",
+                      "transition-none"
+                    )}
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id} className="py-2 px-3 align-top">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}
                   </TableRow>
-                ))
+                </React.Fragment>
+              ))
               )}
             </TableBody>
           </Table>

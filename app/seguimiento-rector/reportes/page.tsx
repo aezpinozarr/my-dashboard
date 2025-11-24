@@ -1,6 +1,13 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipContent
+} from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, List, LayoutGrid } from "lucide-react";
@@ -76,133 +83,198 @@ export default function AdjudicadosPage() {
   const [search, setSearch] = useState("");
 
   // Column definitions for TanStack Table
-  const columns = React.useMemo<ColumnDef<Adjudicado>[]>(
-    () => [
-      {
-        accessorKey: "id",
-        header: "ID",
-        cell: info => info.getValue(),
-        enableSorting: true,
-      },
-      {
-        accessorKey: "ente",
-        header: "Ente",
-        cell: info => info.getValue(),
-        enableSorting: true,
-      },
-      {
-        accessorKey: "fundamento",
-        header: "Fundamento",
-        cell: info => {
-          const row = info.row.original;
-          return (
-            <>
-              {row.fundamento}
-              {row.fundamiento_clasificacion ? ` (${row.fundamiento_clasificacion})` : ""}
-            </>
-          );
-        },
-        enableSorting: true,
-      },
-      {
-        accessorKey: "modalidad_contratacion",
-        header: "Modalidad de contratación",
-        cell: info => info.row.original.modalidad_contratacion ?? info.row.original.e_tipo_licitacion ?? "—",
-        enableSorting: true,
-      },
-      {
-        accessorKey: "estatus",
-        header: "Estatus general",
-        cell: info => {
-          const row = info.row.original;
-          return row.estatus || row.rubro_estatus || "—";
-        },
-        enableSorting: true,
-        sortingFn: (a, b) => {
-          // Simple localeCompare for estatus/rubro_estatus
-          const valA = a.original.estatus || a.original.rubro_estatus || "";
-          const valB = b.original.estatus || b.original.rubro_estatus || "";
-          return valA.localeCompare(valB);
-        },
-      },
-      {
-        accessorKey: "r_fecha_emision",
-        header: "Fecha de emisión",
-        cell: info => info.getValue(),
-        enableSorting: true,
-        sortingFn: (a, b) => {
-          // Compare as timestamps (date)
-          return new Date(a.original.r_fecha_emision).getTime() - new Date(b.original.r_fecha_emision).getTime();
-        },
-      },
-      {
-        accessorKey: "e_oficio_invitacion",
-        header: "Oficio de invitación",
-        cell: info => info.row.original.e_oficio_invitacion ?? "—",
-        enableSorting: true,
-      },
-      {
-        accessorKey: "e_id_partida",
-        header: "Partida",
-        cell: info => info.row.original.e_id_partida ?? "",
-        enableSorting: true,
-      },
-      {
-        accessorKey: "rubro",
-        header: "Rubro",
-        cell: info => {
-          const row = info.row.original;
-          return `${row.id_rubro ?? ""} - ${row.rubro}`;
-        },
-        enableSorting: true,
-        sortingFn: (a, b) => {
-          const aStr = `${a.original.id_rubro ?? ""} - ${a.original.rubro}`;
-          const bStr = `${b.original.id_rubro ?? ""} - ${b.original.rubro}`;
-          return aStr.localeCompare(bStr);
-        },
-      },
-      {
-        accessorKey: "e_monto_presupuesto_suficiencia",
-        header: "Monto del rubro",
-        cell: info => formatCurrency(info.row.original.e_monto_presupuesto_suficiencia),
-        enableSorting: true,
-        sortingFn: (a, b) => {
-          return (a.original.e_monto_presupuesto_suficiencia ?? 0) - (b.original.e_monto_presupuesto_suficiencia ?? 0);
-        },
-      },
-      {
-        accessorKey: "ramo",
-        header: "Fuente de financiamiento",
-        cell: info => info.row.original.ramo ?? "",
-        enableSorting: true,
-      },
-      {
-        accessorKey: "importe_ajustado_total",
-        header: "Importe con IVA",
-        cell: info => formatCurrency(info.row.original.importe_ajustado_total),
-        enableSorting: true,
-        sortingFn: (a, b) => {
-          return (a.original.importe_ajustado_total ?? 0) - (b.original.importe_ajustado_total ?? 0);
-        },
-      },
-      {
-        accessorKey: "adjudicado",
-        header: "Adjudicado",
-        cell: info => {
-          const row = info.row.original;
-          return `${row.rfc} — ${row.razon_social ?? ""}`;
-        },
-        enableSorting: true,
-      },
-      {
-        accessorKey: "observaciones",
-        header: "Observaciones",
-        cell: info => info.row.original.observaciones ?? "",
-        enableSorting: true,
-      },
-    ],
-    []
-  );
+  const columns = React.useMemo<ColumnDef<Adjudicado>[]>(() => [
+    {
+  id: "estatus_point",
+  header: () => null, // No muestra encabezado
+  size: 40,
+  enableSorting: false,
+  cell: ({ row }) => {
+    const est = (row.original.estatus || row.original.rubro_estatus || "—").toUpperCase();
+
+    // 🎨 Mismo sistema de colores que me pediste
+    const getColor = (estatus: string) => {
+      if (estatus === "ADJUDICADO") return "#22c55e";   // verde
+      if (estatus === "DIFERIMIENTO") return "#ff8800"; // naranja
+      if (estatus === "CANCELADO") return "#ef4444";    // rojo
+      return "#939596";                                 // gris desierto
+    };
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className="w-3 h-3 rounded-full mx-auto"
+              style={{ backgroundColor: getColor(est) }}
+            />
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {est}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  },
+},
+
+  {
+    accessorKey: "id",
+    header: () => <div className="text-center w-full">ID</div>,
+    cell: ({ getValue }) => (
+      <div className="text-center w-full">{String(getValue() ?? "—")}</div>
+    ),
+    size: 80,
+    enableSorting: true,
+  },
+  {
+    accessorKey: "ente",
+    header: () => <div className="text-center w-full">Ente</div>,
+    cell: ({ getValue }) => (
+      <div className="text-center w-full">{String(getValue() ?? "—")}</div>
+    ),
+    size: 180,
+    enableSorting: true,
+  },
+  {
+    accessorKey: "fundamento",
+    header: () => <div className="text-center w-full">Fundamento</div>,
+    cell: ({ row }) => (
+      <div className="text-center w-full">
+        {row.original.fundamento}
+        {row.original.fundamiento_clasificacion
+          ? ` (${row.original.fundamiento_clasificacion})`
+          : ""}
+      </div>
+    ),
+    size: 220,
+    enableSorting: true,
+  },
+  {
+    accessorKey: "modalidad_contratacion",
+    header: () => (
+      <div className="text-center w-full">Modalidad de contratación</div>
+    ),
+    cell: ({ row }) => (
+      <div className="text-center w-full">
+        {row.original.modalidad_contratacion ??
+          row.original.e_tipo_licitacion ??
+          "—"}
+      </div>
+    ),
+    size: 200,
+    enableSorting: true,
+  },
+  {
+    accessorKey: "r_fecha_emision",
+    header: () => <div className="text-center w-full">Fecha de emisión</div>,
+    cell: ({ getValue }) => (
+      <div className="text-center w-full">{String(getValue() ?? "—")}</div>
+    ),
+    size: 160,
+    enableSorting: true,
+    sortingFn: (a, b) =>
+      new Date(a.original.r_fecha_emision).getTime() -
+      new Date(b.original.r_fecha_emision).getTime(),
+  },
+  {
+    accessorKey: "e_oficio_invitacion",
+    header: () => (
+      <div className="text-center w-full">Oficio de invitación</div>
+    ),
+    cell: ({ row }) => (
+      <div className="text-center w-full">
+        {row.original.e_oficio_invitacion ?? "—"}
+      </div>
+    ),
+    size: 180,
+    enableSorting: true,
+  },
+  {
+    accessorKey: "e_id_partida",
+    header: () => <div className="text-center w-full">Partida</div>,
+    cell: ({ row }) => (
+      <div className="text-center w-full">
+        {row.original.e_id_partida ?? ""}
+      </div>
+    ),
+    size: 120,
+    enableSorting: true,
+  },
+  {
+    accessorKey: "rubro",
+    header: () => <div className="text-center w-full">Rubro</div>,
+    cell: ({ row }) => (
+      <div className="text-center w-full">
+        {(row.original.id_rubro ?? "") + " - " + row.original.rubro}
+      </div>
+    ),
+    size: 200,
+    enableSorting: true,
+    sortingFn: (a, b) => {
+      const aStr = `${a.original.id_rubro ?? ""} - ${a.original.rubro}`;
+      const bStr = `${b.original.id_rubro ?? ""} - ${b.original.rubro}`;
+      return aStr.localeCompare(bStr);
+    },
+  },
+  {
+    accessorKey: "e_monto_presupuesto_suficiencia",
+    header: () => (
+      <div className="text-center w-full">Monto del rubro</div>
+    ),
+    cell: ({ row }) => (
+      <div className="text-center w-full">
+        {formatCurrency(row.original.e_monto_presupuesto_suficiencia)}
+      </div>
+    ),
+    size: 180,
+    enableSorting: true,
+  },
+  {
+    accessorKey: "ramo",
+    header: () => (
+      <div className="text-center w-full">Fuente de financiamiento</div>
+    ),
+    cell: ({ row }) => (
+      <div className="text-center w-full">{row.original.ramo ?? ""}</div>
+    ),
+    size: 180,
+    enableSorting: true,
+  },
+  {
+    accessorKey: "importe_ajustado_total",
+    header: () => (
+      <div className="text-center w-full">Importe con IVA</div>
+    ),
+    cell: ({ row }) => (
+      <div className="text-center w-full">
+        {formatCurrency(row.original.importe_ajustado_total)}
+      </div>
+    ),
+    size: 180,
+    enableSorting: true,
+  },
+  {
+    accessorKey: "adjudicado",
+    header: () => <div className="text-center w-full">Adjudicado</div>,
+    cell: ({ row }) => (
+      <div className="text-center w-full">
+        {row.original.rfc} — {row.original.razon_social ?? ""}
+      </div>
+    ),
+    size: 220,
+    enableSorting: true,
+  },
+  {
+    accessorKey: "observaciones",
+    header: () => <div className="text-center w-full">Observaciones</div>,
+    cell: ({ row }) => (
+      <div className="text-center w-full">{row.original.observaciones ?? ""}</div>
+    ),
+    size: 220,
+    enableSorting: true,
+  },
+], []);
 
   // Estados principales (registros, originales)
   const [registros, setRegistros] = useState<Adjudicado[]>([]);
@@ -518,15 +590,25 @@ export default function AdjudicadosPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex flex-col">
           <div className="flex items-center gap-3">
-            <Link href="/dashboard">
-              <Button
-                variant="outline"
-                style={{ backgroundColor: "#db200b", color: "white" }}
-                className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-              >
-                ←
-              </Button>
-            </Link>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/dashboard">
+                  <Button
+                    variant="outline"
+                    style={{ backgroundColor: "#db200b", color: "white" }}
+                    className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                  >
+                    ←
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+
+              <TooltipContent side="bottom" className="text-xs">
+                Salir
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
             <h1 className="text-2xl font-bold text-gray-900">Reporte de Adjudicaciones</h1>
           </div>
           <p className="text-gray-600 text-sm ml-[52px]">
@@ -718,47 +800,89 @@ export default function AdjudicadosPage() {
       ) : (
         <div>
           {/* 📋 Vista Tabla */}
-          <div className={view === "table" ? "block" : "hidden"}>
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map(headerGroup => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map(header => {
-                      const isSorted = header.column.getIsSorted();
-                      return (
-                        <TableHead
-                          key={header.id}
-                          onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
-                          style={{
-                            cursor: header.column.getCanSort() ? "pointer" : undefined,
-                            userSelect: "none",
-                          }}
-                          className={header.column.getCanSort() ? "hover:bg-gray-100 select-none" : ""}
-                        >
-                          <div className="flex items-center gap-1">
-                            {flexRender(header.column.columnDef.header, header.getContext())}
-                            {isSorted === "asc" && <ChevronUp size={16} className="inline ml-1" />}
-                            {isSorted === "desc" && <ChevronDown size={16} className="inline ml-1" />}
-                          </div>
-                        </TableHead>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows.map(row => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map(cell => (
-                      <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+{/* 📋 Vista Tabla */}
+<div className={view === "table" ? "block" : "hidden"}>
+  <div className="w-full overflow-x-auto border rounded-lg bg-white shadow-sm">
+    <Table>
+      <TableHeader>
+        {table.getHeaderGroups().map(headerGroup => (
+          <TableRow key={headerGroup.id}>
+            {headerGroup.headers.map(header => (
+              <TableHead
+                key={header.id}
+                style={{
+                  minWidth: header.getSize() ? header.getSize() : undefined,
+                  cursor: header.column.getCanSort() ? "pointer" : undefined,
+                }}
+                onClick={
+                  header.column.getCanSort()
+                    ? header.column.getToggleSortingHandler()
+                    : undefined
+                }
+                className={cn(
+                  header.column.getCanSort() && "select-none",
+                  "py-2 px-3 text-xs font-semibold text-white bg-[#2563eb] text-center border-b border-gray-200"
+                )}
+                aria-sort={
+                  header.column.getIsSorted()
+                    ? header.column.getIsSorted() === "asc"
+                      ? "ascending"
+                      : "descending"
+                    : undefined
+                }
+              >
+                <div className="flex items-center justify-center gap-1">
+                  {flexRender(header.column.columnDef.header, header.getContext())}
+
+                  {header.column.getCanSort() && (
+                    <span>
+                      {header.column.getIsSorted() === "asc" && (
+                        <ChevronUp size={14} className="inline" />
+                      )}
+                      {header.column.getIsSorted() === "desc" && (
+                        <ChevronDown size={14} className="inline" />
+                      )}
+                    </span>
+                  )}
+                </div>
+              </TableHead>
+            ))}
+          </TableRow>
+        ))}
+      </TableHeader>
+
+      <TableBody>
+        {table.getRowModel().rows.length === 0 ? (
+          <TableRow>
+            <TableCell
+              colSpan={columns.length}
+              className="text-center text-gray-400 py-4"
+            >
+              No hay registros disponibles.
+            </TableCell>
+          </TableRow>
+        ) : (
+          table.getRowModel().rows.map((row, idx) => (
+            <TableRow
+              key={row.id}
+              className={cn(
+                idx % 2 === 0 ? "bg-white" : "bg-gray-200",
+                "no-hover",
+                "transition-none"
+              )}
+            >
+              {row.getVisibleCells().map(cell => (
+                <TableCell key={cell.id} className="py-2 px-3 align-top">
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))
+        )}
+      </TableBody>
+    </Table>
+  </div>
+</div>
 
           {/* 🏛️ Vista Tarjetas */}
           <div className={view === "cards" ? "grid gap-6 sm:grid-cols-2 lg:grid-cols-3" : "hidden"}>
@@ -802,19 +926,54 @@ export default function AdjudicadosPage() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {grupo.registros.map((r) => (
-                              <TableRow key={`${r.id}-${r.id_rubro}-${r.rfc}`}>
-                                <TableCell>{r.estatus || r.rubro_estatus || "—"}</TableCell>
-                                <TableCell>{r.e_id_partida ?? ""}</TableCell>
-                                <TableCell>{`${r.id_rubro ?? ""} - ${r.rubro}`}</TableCell>
-                                <TableCell>{formatCurrency(r.e_monto_presupuesto_suficiencia)}</TableCell>
-                                <TableCell>{r.ramo ?? ""}</TableCell>
-                                <TableCell>{formatCurrency(r.importe_ajustado_total)}</TableCell>
-                                <TableCell>{`${r.rfc} — ${r.razon_social ?? ""}`}</TableCell>
-                                <TableCell>{r.observaciones ?? ""}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
+  {grupo.registros.map((r) => {
+    const estatus = r.estatus || r.rubro_estatus || "—";
+
+    // 🎨 Colores por estatus
+    let color = "#939596"; // gris por defecto
+    if (estatus === "ADJUDICADO") color = "#22c55e";
+    if (estatus === "DIFERIMIENTO") color = "#ff8800";
+    if (estatus === "CANCELADO") color = "#ef4444";
+
+    return (
+      <TableRow key={`${r.id}-${r.id_rubro}-${r.rfc}`}>
+        {/* ⭐ Estatus + indicador + tooltip */}
+        <TableCell className="text-center">
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex items-center justify-center">
+          <span
+            className="w-3 h-3 rounded-full inline-block"
+            style={{
+              backgroundColor:
+                (r.estatus === "ADJUDICADO" && "#22c55e") ||
+                (r.estatus === "DIFERIMIENTO" && "#ff8800") ||
+                (r.estatus === "CANCELADO" && "#ef4444") ||
+                "#939596",
+            }}
+          ></span>
+        </div>
+      </TooltipTrigger>
+
+      <TooltipContent side="top">
+        {r.estatus || r.rubro_estatus || "—"}
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+</TableCell>
+
+        <TableCell>{r.e_id_partida ?? ""}</TableCell>
+        <TableCell>{`${r.id_rubro ?? ""} - ${r.rubro}`}</TableCell>
+        <TableCell>{formatCurrency(r.e_monto_presupuesto_suficiencia)}</TableCell>
+        <TableCell>{r.ramo ?? ""}</TableCell>
+        <TableCell>{formatCurrency(r.importe_ajustado_total)}</TableCell>
+        <TableCell>{`${r.rfc} — ${r.razon_social ?? ""}`}</TableCell>
+        <TableCell>{r.observaciones ?? ""}</TableCell>
+      </TableRow>
+    );
+  })}
+</TableBody>
                         </Table>
                       </div>
                     </div>

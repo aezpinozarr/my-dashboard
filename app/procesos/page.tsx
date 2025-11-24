@@ -6,7 +6,7 @@ import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
 import { Button } from "@/components/ui/button";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { CheckCircle, Loader2, LayoutGrid, List, ChevronDown, ChevronUp, Settings2, ChevronRight, Download, PlusCircle, LogOut, CircleEllipsis } from "lucide-react";
+import { CheckCircle, Loader2, LayoutGrid, List, ChevronDown, ChevronUp, Settings2, ChevronRight, Download, PlusCircle, LogOut, EllipsisVertical } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { Input } from "@/components/ui/input";
@@ -100,7 +100,13 @@ export default function ProcesosPage() {
   const [expandedSections, setExpandedSections] = useState<Record<string, { rector: boolean; presupuesto: boolean }>>({});
   // --- TABLE VIEW LOGIC ---
   // Column definitions for TanStack Table
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
+  ente_clasificacion: false,
+  e_servidor_publico_cargo: false,
+});
+
+
+
   const [sorting, setSorting] = React.useState<SortingState>([]);
   // Column visibility for Rector and Presupuesto subtables
   const [columnVisibilityRector, setColumnVisibilityRector] = useState<Record<string, boolean>>({});
@@ -333,16 +339,16 @@ export default function ProcesosPage() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 p-0 -mt-1"  // 🔹 sube el icono ligeramente
-          >
-            <CircleEllipsis
-              size={18}
-              className="fill-blue-600 stroke-white hover:fill-blue-700 transition-colors"
-            />
-            <span className="sr-only">Más acciones</span>
-          </Button>
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 p-0 -mt-1"
+        >
+          <EllipsisVertical
+            size={18}
+            className="text-blue-600 hover:text-blue-700 transition-colors"
+          />
+          <span className="sr-only">Más acciones</span>
+        </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => router.push(`/procesos/edit?id=${id}&step=1`)}>
@@ -429,8 +435,11 @@ export default function ProcesosPage() {
       {
         accessorKey: "e_oficio_invitacion",
         header: "Oficio de invitación",
-        cell: ({ getValue }: { getValue: () => any }) => getValue() || "—",
-        size: 180,
+        cell: ({ getValue }) => (
+          <div className="text-center w-full">
+            {String(getValue() ?? "—")}
+          </div>
+        ),
       },
       {
         accessorKey: "ente",
@@ -439,11 +448,21 @@ export default function ProcesosPage() {
         size: 150,
       },
       {
-        accessorKey: "ente_clasificacion",
-        header: "Clasificación",
+        accessorKey: "e_fecha_y_hora_reunion",
+        header: "Fecha de reunión",
         cell: ({ getValue }: { getValue: () => any }) => getValue() || "—",
-        size: 120,
+        size: 140,
       },
+          {
+      accessorKey: "ente_clasificacion",
+      header: () => <div className="text-center w-full">Clasificación</div>,
+      cell: ({ getValue }) => (
+        <div className="text-center w-full">
+          {String(getValue() ?? "—")}
+        </div>
+      ),
+      size: 180,
+    },
       {
         accessorKey: "e_tipo_evento",
         header: "Tipo de Evento",
@@ -458,27 +477,30 @@ export default function ProcesosPage() {
       },
       {
         accessorKey: "tipo_licitacion_no_veces_descripcion",
-        header: "No. de veces",
-        cell: ({ getValue }: { getValue: () => any }) => getValue() || "—",
-        size: 110,
+        header: () => <div className="text-center w-full">No. de veces</div>,
+        cell: ({ getValue }) => (
+          <div className="text-center w-full">
+            {String(getValue() ?? "—")}
+          </div>
+        ),
       },
       {
         accessorKey: "servidor_publico_emite",
-        header: "Servidor Público que emite",
-        cell: ({ getValue }: { getValue: () => any }) => getValue() || "—",
-        size: 160,
+        header: () => <div className="text-center w-full">Emite</div>,
+        cell: ({ getValue }) => (
+          <div className="text-center w-full">
+            {String(getValue() ?? "—")}
+          </div>
+        ),
       },
       {
         accessorKey: "e_servidor_publico_cargo",
-        header: "Cargo",
-        cell: ({ getValue }: { getValue: () => any }) => getValue() || "—",
-        size: 120,
-      },
-      {
-        accessorKey: "e_fecha_y_hora_reunion",
-        header: "Fecha de reunión",
-        cell: ({ getValue }: { getValue: () => any }) => getValue() || "—",
-        size: 140,
+        header: () => <div className="text-center w-full">Cargo</div>,
+        cell: ({ getValue }) => (
+          <div className="text-center w-full">
+            {String(getValue() ?? "—")}
+          </div>
+        ),
       },
     ],
     [expandedRows]
@@ -523,15 +545,25 @@ export default function ProcesosPage() {
       {/* ENCABEZADO */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard">
-          <Button
-            variant="outline"
-            style={{ backgroundColor: "#db200b", color: "white" }}
-            className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-          >
-            ←
-          </Button>
-        </Link>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/dashboard">
+                <Button
+                  variant="outline"
+                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                >
+                  ←
+                </Button>
+              </Link>
+            </TooltipTrigger>
+
+            <TooltipContent side="bottom" className="text-xs">
+              Salir
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
           <div>
             <h1 className="text-2xl font-bold">
               Seguimiento de Procesos
@@ -621,39 +653,43 @@ export default function ProcesosPage() {
             <TableHeader>
               <TableRow>
                 {table.getHeaderGroups()[0].headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    style={{
-                      minWidth: header.getSize() ? header.getSize() : undefined,
-                      cursor: header.column.getCanSort() ? "pointer" : undefined,
-                    }}
-                    onClick={
-                      header.column.getCanSort()
-                        ? header.column.getToggleSortingHandler()
-                        : undefined
-                    }
-                    className={cn(
-                      header.column.getCanSort() && "select-none hover:bg-gray-100",
-                      "py-2 px-3 text-xs font-semibold text-gray-600 border-b border-gray-200 bg-gray-50"
-                    )}
-                    aria-sort={
-                      header.column.getIsSorted()
-                        ? header.column.getIsSorted() === "asc"
-                          ? "ascending"
-                          : "descending"
-                        : undefined
-                    }
-                  >
-                    <div className="flex items-center gap-1">
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {header.column.getCanSort() && (
-                        <span>
-                          {header.column.getIsSorted() === "asc" && <ChevronUp size={14} className="inline" />}
-                          {header.column.getIsSorted() === "desc" && <ChevronDown size={14} className="inline" />}
-                        </span>
-                      )}
-                    </div>
-                  </TableHead>
+                 <TableHead
+  key={header.id}
+  style={{
+    minWidth: header.getSize() ? header.getSize() : undefined,
+    cursor: header.column.getCanSort() ? "pointer" : undefined,
+  }}
+  onClick={
+    header.column.getCanSort()
+      ? header.column.getToggleSortingHandler()
+      : undefined
+  }
+  className={cn(
+    header.column.getCanSort() && "select-none",
+    "py-2 px-3 text-xs font-semibold text-white bg-[#2563eb] text-center border-b border-gray-200"
+  )}
+  aria-sort={
+    header.column.getIsSorted()
+      ? header.column.getIsSorted() === "asc"
+        ? "ascending"
+        : "descending"
+      : undefined
+  }
+>
+  <div className="flex items-center justify-center gap-1">
+    {flexRender(header.column.columnDef.header, header.getContext())}
+    {header.column.getCanSort() && (
+      <span>
+        {header.column.getIsSorted() === "asc" && (
+          <ChevronUp size={14} className="inline" />
+        )}
+        {header.column.getIsSorted() === "desc" && (
+          <ChevronDown size={14} className="inline" />
+        )}
+      </span>
+    )}
+  </div>
+</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
@@ -665,14 +701,15 @@ export default function ProcesosPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                table.getRowModel().rows.map((row) => (
-                  <React.Fragment key={row.original.id}>
-                    <TableRow
-                      className={cn(
-                        "transition-colors",
-                        expandedRows[row.original.id] && "bg-blue-50"
-                      )}
-                    >
+                table.getRowModel().rows.map((row, idx) => (
+                <React.Fragment key={row.original.id}>
+                 <TableRow
+                  className={cn(
+                    idx % 2 === 0 ? "bg-white" : "bg-gray-200",
+                    "no-hover",
+                    "transition-none"
+                  )}
+                >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id} className="py-2 px-3 align-top">
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}

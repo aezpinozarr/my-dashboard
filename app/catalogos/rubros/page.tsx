@@ -3,9 +3,16 @@
 import * as React from "react";
 import { ChevronUp, ChevronDown, Settings2, CopyX } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
 import { RowActionButtons } from "@/components/shared/RowActionButtons";
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipContent
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   useReactTable,
@@ -308,19 +315,28 @@ export default function RubrosPage() {
             setShowDeleted={setShowDeleted}
             onNewClick={() => setIsNewDialogOpen(true)}
           />
-          <Button
-            size="icon"
-            variant="outline"
-            title={showDeleted ? "Mostrar activos" : "Mostrar eliminados"}
-            onClick={() => setShowDeleted(!showDeleted)}
-            className={`transition-all border-2 shadow-sm ${
-              showDeleted
-                ? "border-red-600 bg-red-50 hover:bg-red-100 text-red-700"
-                : "border-gray-300 hover:border-red-400 text-gray-600 hover:text-red-700"
-            }`}
-          >
-            <CopyX className="w-5 h-5" />
-          </Button>
+          <TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button
+        size="icon"
+        variant="outline"
+        onClick={() => setShowDeleted(!showDeleted)}
+        className={`transition-all border-2 shadow-sm ${
+          showDeleted
+            ? "border-red-600 bg-red-50 hover:bg-red-100 text-red-700"
+            : "border-gray-300 hover:border-red-400 text-gray-600 hover:text-red-700"
+        }`}
+      >
+        <CopyX className="w-5 h-5" />
+      </Button>
+    </TooltipTrigger>
+
+    <TooltipContent side="bottom" className="text-xs">
+      {showDeleted ? "Mostrar activos" : "Mostrar eliminados"}
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
           {/* Diálogo para crear nuevo rubro */}
           <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
             <DialogContent className="max-w-md p-6">
@@ -462,17 +478,20 @@ export default function RubrosPage() {
                     const isSorted = header.column.getIsSorted();
                     return (
                       <TableHead
-                        key={header.id}
-                        onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
-                        style={{ cursor: header.column.getCanSort() ? "pointer" : undefined }}
-                        className={header.column.getCanSort() ? "hover:bg-gray-100 select-none" : ""}
-                      >
-                        <div className="flex items-center gap-1">
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                          {isSorted === "asc" && <ChevronUp size={16} />}
-                          {isSorted === "desc" && <ChevronDown size={16} />}
-                        </div>
-                      </TableHead>
+  key={header.id}
+  onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
+  style={{ cursor: header.column.getCanSort() ? "pointer" : undefined }}
+  className={cn(
+    header.column.getCanSort() && "select-none",
+    "py-2 px-3 text-xs font-semibold text-white bg-[#2563eb] text-center border-b border-gray-200"
+  )}
+>
+  <div className="flex items-center gap-1">
+    {flexRender(header.column.columnDef.header, header.getContext())}
+    {isSorted === "asc" && <ChevronUp size={16} />}
+    {isSorted === "desc" && <ChevronDown size={16} />}
+  </div>
+</TableHead>
                     );
                   })}
                 </TableRow>
@@ -486,15 +505,23 @@ export default function RubrosPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                table.getRowModel().rows.map(row => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map(cell => (
-                      <TableCell key={cell.id}>
+                table.getRowModel().rows.map((row, idx) => (
+                <React.Fragment key={row.id}>
+                  <TableRow
+                    className={cn(
+                      idx % 2 === 0 ? "bg-white" : "bg-gray-200", // alterna colores
+                      "no-hover",
+                      "transition-none"
+                    )}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className="py-2 px-3">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}
                   </TableRow>
-                ))
+                </React.Fragment>
+              ))
               )}
             </TableBody>
           </Table>

@@ -20,6 +20,13 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
+
 interface Props {
   viewMode: "table" | "cards";
   setViewMode: (mode: "table" | "cards") => void;
@@ -27,7 +34,7 @@ interface Props {
   showExport?: boolean;
   newPath?: string;
   hideNew?: boolean;
-  table?: any; // ✅ nueva prop para recibir la instancia de la tabla
+  table?: any;
   showDeleted: boolean;
   setShowDeleted: React.Dispatch<React.SetStateAction<boolean>>;
   columnVisibility?: Record<string, boolean>;
@@ -48,142 +55,188 @@ export function ActionButtonsGroup({
   onNewClick,
 }: Props) {
   const router = useRouter();
+
   return (
-    <div className="flex flex-col items-end gap-2">
-      {/* Fila superior: selector de vista a la izquierda y Nuevo/Salir a la derecha */}
-      <div className="flex items-center justify-between w-full">
-        
-        {viewMode === "table" && (
-          <div className="flex items-center rounded-full border border-gray-300 overflow-hidden shadow-sm bg-white mr-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-[#F1F3F4] transition-all duration-200"
-                  title="Columnas"
-                >
-                  <Settings2 size={18} className="text-gray-700" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-h-80 overflow-auto">
-                {table?.getAllLeafColumns().map((column: any) =>
-                  column.id !== "expander" ? (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      checked={
-                        columnVisibility && column.id in columnVisibility
-                          ? columnVisibility[column.id]
-                          : column.getIsVisible()
-                      }
-                      onCheckedChange={(checked) => {
-                        if (setColumnVisibility) {
-                          setColumnVisibility({
-                            ...columnVisibility,
-                            [column.id]: checked,
-                          });
-                        }
-                        column.toggleVisibility(checked);
-                      }}
-                    >
-                      {column.columnDef.header as string}
-                    </DropdownMenuCheckboxItem>
-                  ) : null
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <button
-              onClick={onExport}
-              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border-l border-gray-300 hover:bg-[#F1F3F4] transition-all duration-200"
-              title="Exportar CSV"
-            >
-              <Download size={18} className="text-gray-700" />
-            </button>
-          </div>
-        )}
-
-        {/* Selector de vista estilo Google Drive */}
-        <div className="flex items-center rounded-full border border-gray-300 overflow-hidden shadow-sm bg-white mr-6">
-          <button
-            onClick={() => setViewMode("table")}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 text-sm transition-all duration-200",
-              viewMode === "table"
-                ? "bg-[#E8F0FE] text-[#1A73E8] font-medium"
-                : "text-gray-600 hover:bg-[#F1F3F4]"
-            )}
-          >
-            <List
-              size={18}
-              className={cn(
-                "transition-colors duration-200",
-                viewMode === "table" ? "text-[#1A73E8]" : "text-gray-600"
-              )}
-            />
-            {viewMode === "table" && (
-              <CheckCircle size={16} className="text-[#1A73E8]" />
-            )}
-          </button>
-
-          <button
-            onClick={() => setViewMode("cards")}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 text-sm transition-all duration-200 border-l border-gray-300",
-              viewMode === "cards"
-                ? "bg-[#E8F0FE] text-[#1A73E8] font-medium"
-                : "text-gray-600 hover:bg-[#F1F3F4]"
-            )}
-          >
-            <LayoutGrid
-              size={18}
-              className={cn(
-                "transition-colors duration-200",
-                viewMode === "cards" ? "text-[#1A73E8]" : "text-gray-600"
-              )}
-            />
-            {viewMode === "cards" && (
-              <CheckCircle size={16} className="text-[#1A73E8]" />
-            )}
-          </button>
-        </div>
-
-        {/* Nuevo y Salir unidos estilo selector */}
-        <div className="flex items-center rounded-full overflow-hidden shadow-sm border border-gray-300 bg-white">
+    <TooltipProvider delayDuration={100}>
+      <div className="flex flex-col items-end gap-2">
+        <div className="flex items-center justify-between w-full">
           
-          {/* Nuevo */}
-          {!hideNew && (
-            <button
-              onClick={() => {
-                if (newPath) {
-                  router.push(newPath);
-                } else if (onNewClick) {
-                  onNewClick();
+          {/* ---------------------- TOOLTIP: CONFIGURAR COLUMNAS + EXPORTAR ---------------------- */}
+          {viewMode === "table" && (
+            <div className="flex items-center rounded-full border border-gray-300 overflow-hidden shadow-sm bg-white mr-3">
+
+              {/* Configurar columnas */}
+              {/* Personalizar columnas */}
+<Tooltip>
+  <TooltipTrigger asChild>
+    <button
+      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-[#F1F3F4] transition-all duration-200"
+      onClick={(e) => {
+        e.stopPropagation(); // ⚠ evita que el tooltip se cancele
+      }}
+    >
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <span className="flex items-center">
+            <Settings2 size={18} className="text-gray-700" />
+          </span>
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent align="end" className="max-h-80 overflow-auto">
+          {table?.getAllLeafColumns().map((column: any) =>
+            column.id !== "expander" ? (
+              <DropdownMenuCheckboxItem
+                key={column.id}
+                checked={
+                  columnVisibility && column.id in columnVisibility
+                    ? columnVisibility[column.id]
+                    : column.getIsVisible()
                 }
-              }}
-              className="px-4 py-2 flex items-center justify-center bg-[#34e004] hover:bg-[#34e004] text-white text-sm transition-all duration-200"
-              title="Nuevo"
-            >
-              <PlusCircle size={20} />
-            </button>
+                onCheckedChange={(checked) => {
+                  if (setColumnVisibility) {
+                    setColumnVisibility({
+                      ...columnVisibility,
+                      [column.id]: checked,
+                    });
+                  }
+                  column.toggleVisibility(checked);
+                }}
+              >
+                {typeof column.columnDef.header === "function"
+                ? column.columnDef.header({ column })
+                : column.columnDef.header}
+              </DropdownMenuCheckboxItem>
+            ) : null
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </button>
+  </TooltipTrigger>
+
+  <TooltipContent side="bottom">
+    Personalizar columnas
+  </TooltipContent>
+</Tooltip>
+
+              {/* Exportar CSV */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onExport}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border-l border-gray-300 hover:bg-[#F1F3F4] transition-all duration-200"
+                  >
+                    <Download size={18} className="text-gray-700" />
+                  </button>
+                </TooltipTrigger>
+
+                <TooltipContent side="bottom">Exportar CSV</TooltipContent>
+              </Tooltip>
+            </div>
           )}
 
-          {/* Divider */}
-          {!hideNew && (
-            <div className="w-px bg-gray-300" />
-          )}
+          {/* ---------------------- TOOLTIP: SELECTOR VISTA TABLA / TARJETAS ---------------------- */}
+          <div className="flex items-center rounded-full border border-gray-300 overflow-hidden shadow-sm bg-white mr-6">
 
-          {/* Salir */}
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-4 py-2 flex items-center justify-center bg-[#db200b] hover:bg-[#db200b] text-white text-sm transition-all duration-200"
-            title="Salir al dashboard"
-          >
-            <LogOut size={20} />
-          </button>
+            {/* Vista tabla */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setViewMode("table")}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 text-sm transition-all duration-200",
+                    viewMode === "table"
+                      ? "bg-[#E8F0FE] text-[#1A73E8] font-medium"
+                      : "text-gray-600 hover:bg-[#F1F3F4]"
+                  )}
+                >
+                  <List
+                    size={18}
+                    className={cn(
+                      "transition-colors duration-200",
+                      viewMode === "table" ? "text-[#1A73E8]" : "text-gray-600"
+                    )}
+                  />
+                  {viewMode === "table" && (
+                    <CheckCircle size={16} className="text-[#1A73E8]" />
+                  )}
+                </button>
+              </TooltipTrigger>
+
+              <TooltipContent side="bottom">Vista de tabla</TooltipContent>
+            </Tooltip>
+
+            {/* Vista tarjetas */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setViewMode("cards")}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 text-sm transition-all duration-200 border-l border-gray-300",
+                    viewMode === "cards"
+                      ? "bg-[#E8F0FE] text-[#1A73E8] font-medium"
+                      : "text-gray-600 hover:bg-[#F1F3F4]"
+                  )}
+                >
+                  <LayoutGrid
+                    size={18}
+                    className={cn(
+                      "transition-colors duration-200",
+                      viewMode === "cards" ? "text-[#1A73E8]" : "text-gray-600"
+                    )}
+                  />
+                  {viewMode === "cards" && (
+                    <CheckCircle size={16} className="text-[#1A73E8]" />
+                  )}
+                </button>
+              </TooltipTrigger>
+
+              <TooltipContent side="bottom">Vista de tarjetas</TooltipContent>
+            </Tooltip>
+
+          </div>
+
+          {/* ---------------------- TOOLTIP: NUEVO + SALIR ---------------------- */}
+          <div className="flex items-center rounded-full overflow-hidden shadow-sm border border-gray-300 bg-white">
+
+            {/* Nuevo */}
+            {!hideNew && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => {
+                      if (newPath) router.push(newPath);
+                      else if (onNewClick) onNewClick();
+                    }}
+                    className="px-4 py-2 flex items-center justify-center bg-[#34e004] hover:bg-[#2fcc03] text-white text-sm transition-all duration-200"
+                  >
+                    <PlusCircle size={20} />
+                  </button>
+                </TooltipTrigger>
+
+                <TooltipContent side="bottom">Nuevo</TooltipContent>
+              </Tooltip>
+            )}
+
+            {!hideNew && <div className="w-px bg-gray-300" />}
+
+            {/* Salir */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => router.push("/dashboard")}
+                  className="px-4 py-2 flex items-center justify-center bg-[#db200b] hover:bg-[#c61b0a] text-white text-sm transition-all duration-200"
+                >
+                  <LogOut size={20} />
+                </button>
+              </TooltipTrigger>
+
+              <TooltipContent side="bottom">Salir</TooltipContent>
+            </Tooltip>
+
+          </div>
 
         </div>
-
       </div>
-
-    </div>
+    </TooltipProvider>
   );
 }

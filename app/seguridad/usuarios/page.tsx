@@ -2,6 +2,12 @@
 "use client";
 
 import * as React from "react";
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipContent
+} from "@/components/ui/tooltip";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
@@ -374,44 +380,65 @@ export default function UsuariosPage() {
 
   // TanStack Table columns
   const columns = React.useMemo<ColumnDef<Usuario>[]>(() => [
-    {
-      header: "ID",
-      accessorKey: "id",
-      cell: info => info.getValue(),
-    },
-    {
-      header: "Usuario",
-      accessorKey: "username",
-      cell: info => info.getValue(),
-    },
-    {
-      header: "Nombre",
-      accessorKey: "nombre",
-      cell: info => info.getValue() || "Sin nombre",
-    },
-    {
-      header: "Tipo",
-      accessorKey: "tipo",
-      cell: info => info.getValue() || "—",
-    },
-    {
-        header: "Acciones",
-        id: "acciones",
-        cell: ({ row }) => (
-          <div className="flex justify-start -ml-4">
-            <RowActionButtons
-              id={String(row.original.id)}
-              editPath={`/seguridad/usuarios/edit/${row.original.id}`}
-              onEdit={() => handleEditUser(row.original.id)}
-              onDelete={() => eliminarUsuario(row.original.id)}
-            />
-          </div>
-        ),
-        enableSorting: false,
-        size: 80,
-      },
-
-  ], []);
+  {
+    accessorKey: "id",
+    header: () => <div className="text-center w-full">ID</div>,
+    cell: ({ getValue }) => (
+      <div className="text-center w-full">
+        {String(getValue() ?? "—")}
+      </div>
+    ),
+    size: 80,
+  },
+  {
+    accessorKey: "username",
+    header: () => <div className="text-center w-full">Usuario</div>,
+    cell: ({ getValue }) => (
+      <div className="text-center w-full">
+        {String(getValue() ?? "—")}
+      </div>
+    ),
+    size: 160,
+  },
+  {
+    accessorKey: "nombre",
+    header: () => <div className="text-center w-full">Nombre</div>,
+    cell: ({ getValue }) => (
+      <div className="text-center w-full">
+        {String(getValue() || "Sin nombre")}
+      </div>
+    ),
+    size: 200,
+  },
+  {
+    accessorKey: "tipo",
+    header: () => <div className="text-center w-full">Tipo</div>,
+    cell: ({ getValue }) => (
+      <div className="text-center w-full">
+        {String(getValue() ?? "—")}
+      </div>
+    ),
+    size: 140,
+  },
+  {
+    id: "acciones",
+    header: () => <div className="text-center w-full">Acciones</div>,
+    enableSorting: false,
+    size: 120,
+    cell: ({ row }) => (
+      <div className="text-center w-full">
+        <div className="flex justify-center">
+          <RowActionButtons
+            id={String(row.original.id)}
+            editPath={`/seguridad/usuarios/edit/${row.original.id}`}
+            onEdit={() => handleEditUser(row.original.id)}
+            onDelete={() => eliminarUsuario(row.original.id)}
+          />
+        </div>
+      </div>
+    ),
+  },
+], []);
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const table = useReactTable({
@@ -429,15 +456,25 @@ export default function UsuariosPage() {
       {/* ENCABEZADO */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard">
-          <Button
-            variant="outline"
-            style={{ backgroundColor: "#db200b", color: "white" }}
-            className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-          >
-            ←
-          </Button>
-        </Link>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/dashboard">
+                <Button
+                  variant="outline"
+                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+                >
+                  ←
+                </Button>
+              </Link>
+            </TooltipTrigger>
+
+            <TooltipContent side="bottom" className="text-xs">
+              Salir
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold">Usuarios</h1>
