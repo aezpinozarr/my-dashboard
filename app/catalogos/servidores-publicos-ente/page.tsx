@@ -224,13 +224,13 @@ export default function ServidoresPage() {
             <p className="text-muted-foreground text-sm">
               {search.trim() === "" ? (
                 <>
-                  Mostrando{" "}
+                  {" "}
                   <span className="font-bold">{servidoresFiltrados.length}</span>{" "}
                   registro{servidoresFiltrados.length !== 1 && "s"}.
                 </>
               ) : (
                 <>
-                  Mostrando{" "}
+                  {" "}
                   <span className="font-bold">{servidoresFiltrados.length}</span>{" "}
                   registro{servidoresFiltrados.length !== 1 && "s"} de{" "}
                   <span className="font-bold">{servidores.length}</span>.

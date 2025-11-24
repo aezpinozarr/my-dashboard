@@ -482,7 +482,7 @@ export default function UsuariosPage() {
             </div>
             {usuariosFiltrados.length > 0 && (
             <p className="text-muted-foreground text-sm">
-              Mostrando{" "}
+              {" "}
               <span className="font-bold">{usuariosFiltrados.length}</span>{" "}
               registro{usuariosFiltrados.length !== 1 && "s"}
               {filtro.trim() !== "" && (
