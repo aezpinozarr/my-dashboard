@@ -483,13 +483,13 @@ export default function ProveedoresPage() {
             <p className="text-muted-foreground text-sm">
               {search.trim() === "" ? (
                 <>
-                  Mostrando{" "}
+                  {" "}
                   <span className="font-bold">{proveedoresFiltrados.length}</span>{" "}
                   registro{proveedoresFiltrados.length !== 1 && "s"}.
                 </>
               ) : (
                 <>
-                  Mostrando{" "}
+                  {" "}
                   <span className="font-bold">{proveedoresFiltrados.length}</span>{" "}
                   registro{proveedoresFiltrados.length !== 1 && "s"} de{" "}
                   <span className="font-bold">{proveedores.length}</span>.
