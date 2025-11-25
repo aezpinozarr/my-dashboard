@@ -105,7 +105,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         icon: SquareTerminal,
         isActive: openMenus.includes("Rector"),
         items: [
-          { title: "Seguimiento de rector", url: "/seguimiento-rector" },
+          { title: "Seguimientos", url: "/seguimiento-rector/seguimientos" },
+          { title: "Preregistrados", url: "/seguimiento-rector" },
           { title: "Reportes P. Ajudicados", url: "/seguimiento-rector/reportes" },
         ],
       },

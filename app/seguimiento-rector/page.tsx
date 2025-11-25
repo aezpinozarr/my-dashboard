@@ -86,6 +86,7 @@ export default function SeguimientoRectorPage() {
   const [search, setSearch] = useState("");
   const [rawSearch, setRawSearch] = useState("");
   const router = useRouter();
+  const [originalRegistros, setOriginalRegistros] = useState<Preregistro[]>([]);
 
   const [detalle, setDetalle] = useState<any[]>([]);
 
@@ -345,25 +346,29 @@ export default function SeguimientoRectorPage() {
   // ===============================
   // 🔹 Cargar preregistrados
   // ===============================
-  const cargarRegistros = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`${API_BASE}/rector/seguimiento-preregistrados`);
-      const data = await res.json();
-      const lista = Array.isArray(data)
-        ? data
-        : Array.isArray(data.resultado)
-        ? data.resultado
-        : [];
+const cargarRegistros = async () => {
+  try {
+    setLoading(true);
+    const res = await fetch(`${API_BASE}/rector/seguimiento-preregistrados`);
+    const data = await res.json();
+    const lista = Array.isArray(data)
+      ? data
+      : Array.isArray(data.resultado)
+      ? data.resultado
+      : [];
 
-      const sorted = lista.sort((a: any, b: any) => b.id - a.id);
-      setRegistros(sorted);
-    } catch (err) {
-      console.error("❌ Error al cargar preregistrados:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const sorted = lista.sort((a: any, b: any) => b.id - a.id);
+
+    // 🔥 GUARDAR LOS ORIGINALES Y LOS ACTUALES
+    setOriginalRegistros(sorted);
+    setRegistros(sorted);
+
+  } catch (err) {
+    console.error("❌ Error al cargar preregistrados:", err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     cargarRegistros();
@@ -430,16 +435,27 @@ export default function SeguimientoRectorPage() {
           </Tooltip>
         </TooltipProvider>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Seguimiento Rector — Preregistrados</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Preregistrados</h1>
             <p className="text-gray-600 text-sm">
-              Listado de procesos preregistrados concluidos por los entes.
+              Listado de procesos concluidos por los entes.
             </p>
 
             {registros.length > 0 && (
-              <p className="text-sm text-gray-500 mt-1">
-                Mostrando {registros.length} {registros.length === 1 ? "registro" : "registros"}.
-              </p>
-            )}
+  <p className="text-muted-foreground text-sm mt-1">
+    {search.trim() === "" ? (
+      <>
+        <span className="font-bold">{registros.length}</span> registro
+        {registros.length !== 1 && "s"}.
+      </>
+    ) : (
+      <>
+        <span className="font-bold">{registrosFiltrados.length}</span> registro
+        {registrosFiltrados.length !== 1 && "s"} de{" "}
+        <span className="font-bold">{originalRegistros.length}</span>.
+      </>
+    )}
+  </p>
+)}
           </div>
         </div>
 

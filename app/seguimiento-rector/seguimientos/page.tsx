@@ -334,7 +334,7 @@ export default function ProcesosPage() {
 
   // Contextual menu component for actions
   function RowActionsMenu({ id, estatus }: { id: number; estatus?: string | null }) {
-    if (!['PREREGISTRADO',].includes(estatus ?? '')) return null;
+    if (!['',].includes(estatus ?? '')) return null;
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -566,10 +566,10 @@ export default function ProcesosPage() {
         </TooltipProvider>
           <div>
             <h1 className="text-2xl font-bold">
-              Seguimiento de Procesos
+              Seguimientos
             </h1>
             <p className="text-gray-600 text-sm">
-              Registros elaborados por tu ente.
+              Seguimientos elaborados por tu ente.
             </p>
             {data.length > 0 && (
             <p className="text-muted-foreground text-sm">
@@ -594,7 +594,7 @@ export default function ProcesosPage() {
           setViewMode={setViewMode}
           onExport={() => console.log("Exportar CSV (implementación pendiente)")}
           showExport={viewMode === "table"}
-          newPath="/procesos/new"
+          hideNew
           table={table} // ✅ pasa la instancia de la tabla
         />
       </div>
@@ -889,7 +889,7 @@ export default function ProcesosPage() {
                                           console.log("🔍 Presupuestos del seguimiento:", row.original.presupuestos);
                                           return row.original.presupuestos && row.original.presupuestos.length > 0 ? (
                                             row.original.presupuestos.map((pres, idx) => (
-                                              <TableRow key={idx}>
+<TableRow key={idx}>
                                               {columnsPresupuesto
                                                 .filter(col => columnVisibilityPresupuesto[col.id] ?? true)
                                                 .map(col => (

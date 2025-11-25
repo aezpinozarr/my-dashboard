@@ -2346,19 +2346,20 @@ useEffect(() => {
                                   <TableCell>
                                     <div className="flex items-center gap-2">
                                       {row.estatus && (
-                                        <span
-                                          className={`w-2.5 h-2.5 rounded-full ${
-                                            ["ADJUDICADO", "DIFERIMIENTO"].includes(
-                                              row.estatus
-                                            )
-                                              ? "bg-green-500"
-                                              : row.estatus ===
-                                                "CANCELADO"
-                                              ? "bg-red-500"
-                                              : "bg-blue-500"
-                                          }`}
-                                        ></span>
-                                      )}
+                                      <span
+                                        className={`w-2.5 h-2.5 rounded-full`}
+                                        style={{
+                                          backgroundColor:
+                                            row.estatus === "ADJUDICADO"
+                                              ? "#22c55e"
+                                              : row.estatus === "DIFERIMIENTO"
+                                              ? "#ff8800"
+                                              : row.estatus === "CANCELADO"
+                                              ? "#ef4444"
+                                              : "#939596",
+                                        }}
+                                      ></span>
+                                    )}
                                       {row.estatus || "—"}
                                     </div>
                                   </TableCell>
