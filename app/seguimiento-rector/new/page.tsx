@@ -1150,160 +1150,168 @@ useEffect(() => {
       {/* Step Indicator visual */}
       <StepIndicator step={pasoActual} steps={steps} />
 
-     {/* Card Detalle del Seguimiento SIEMPRE visible */}
-      {detalleGeneral && (
-        <Card className="border shadow-sm bg-gray-50">
-          <CardHeader className="flex flex-row items-center justify-between space-x-4">
+      {/* Card Detalle del Seguimiento SIEMPRE visible */}
+{detalleGeneral && (
+  <Card className="border shadow-sm bg-gray-50">
+    
+    {/* HEADER — AHORA CON EL BOTÓN ARRIBA A LA DERECHA */}
+    <CardHeader className="flex flex-row items-center justify-between">
 
-            {/* IZQUIERDA */}
-            <div className="flex items-center space-x-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    type="button"
-                    style={{ backgroundColor: "#db200b", color: "white" }}
-                    onClick={() => router.push("/seguimiento-rector")}
-                    className="rounded-md shadow-sm cursor-pointer"
-                  >
-                    <span className="text-lg">←</span>
-                  </Button>
-                </TooltipTrigger>
+      {/* IZQUIERDA: Flecha + Título + Oficio */}
+      <div className="flex items-center gap-3">
 
-                <TooltipContent side="bottom" className="text-xs">
-                  Salir
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-              <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
-                <CardTitle className="text-gray-700 text-lg">Detalle del Seguimiento</CardTitle>
-                <span className="text-gray-600 font-medium">
-                  Oficio de invitación:{" "}
-                  <span className="text-gray-800">
-                    {detalleGeneral.e_oficio_invitacion || "—"}
-                  </span>
-                </span>
-              </div>
-            </div>
-          </CardHeader>
-
-
-         <CardContent className="text-sm text-gray-800 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2">
-          {/* ID */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
-            <strong>ID:</strong> {selectedId}
-          </div>
-
-          {/* Ente */}
-          <div>
-            <strong>Ente:</strong> {detalleGeneral.ente}
-          </div>
-
-          {/* Tipo de Licitación */}
-          <div>
-            <strong>Tipo de Licitación:</strong> {detalleGeneral.e_tipo_licitacion}
-          </div>
-
-          {/* No. de veces */}
-          <div className="mt-[-19px]">
-            <strong>No. de veces:</strong>{" "}
-            {detalleGeneral.e_tipo_licitacion_no_veces
-              ? `${detalleGeneral.tipo_licitacion_no_veces_descripcion || ""}`
-              : "—"}
-          </div>
-
-          {/* Tipo de Evento */}
-          <div>
-            <strong>Tipo de Evento:</strong> {detalleGeneral.e_tipo_evento}
-          </div>
-
-          {/* Estatus + Botón a la derecha */}
-          <div className="flex items-center justify-between col-span-2 sm:col-span-1 mt-[-4px]">
-
-            {/* Estatus Actual */}
-            <div className="flex items-center gap-2">
-              <strong>Estatus actual:</strong>
-              <span
-                className={`px-3 py-1 text-sm font-semibold rounded-md ${
-                  (estatusGeneral || detalleGeneral.r_estatus) === "PREREGISTRADO"
-                    ? "bg-yellow-100 text-yellow-800"
-                    : (estatusGeneral || detalleGeneral.r_estatus) === "REVISADO"
-                    ? "bg-green-100 text-green-800"
-                    : (estatusGeneral || detalleGeneral.r_estatus) === "CANCELADO"
-                    ? "bg-red-100 text-red-800"
-                    : "bg-gray-100 text-gray-800"
-                }`}
-              >
-                {estatusGeneral || detalleGeneral.r_estatus || "—"}
-              </span>
-            </div>
-
-            {/* ⭐ BOTÓN A LA DERECHA DEL ESTATUS */}
-            {pasoActual === 1 && estatusGeneral === "REVISADO" && (
-            <div className="relative ml-auto">
+        {/* Flecha */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
               <Button
+                variant="outline"
+                size="icon"
                 type="button"
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                onMouseEnter={() => setShowTooltipAvanzarTop(true)}
-                onMouseLeave={() => setShowTooltipAvanzarTop(false)}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  if (!validateStep1Fields()) {
-                    toast.error("❌ Completa todos los campos obligatorios antes de avanzar");
-                    return;
-                  }
-
-                  const formEl = document.querySelector('form');
-                  if (formEl) {
-                    formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
-                  }
-
-                  setTimeout(() => setStep(2), 500);
-                }}
+                style={{ backgroundColor: "#db200b", color: "white" }}
+                onClick={() => router.push("/seguimiento-rector")}
+                className="rounded-md shadow-sm cursor-pointer"
               >
-                Avanzar al paso 2
+                <span className="text-lg">←</span>
               </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              Salir
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
-              {showTooltipAvanzarTop && (
-                <div className="absolute bottom-full right-0 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
-                  Avanza al siguiente paso
-                </div>
-              )}
-            </div>
-            )}
+        {/* Texto */}
+        <div className="flex flex-col">
+          <CardTitle className="text-gray-700 text-lg">Detalle del Seguimiento</CardTitle>
+          <span className="text-gray-600 font-medium">
+            Oficio de invitación:{" "}
+            <span className="text-gray-800">
+              {detalleGeneral.e_oficio_invitacion || "—"}
+            </span>
+          </span>
+        </div>
+      </div>
 
-            {estatusGeneral === "CANCELADO" && (
-              <div className="relative">
-                <Button
-                  type="button"
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                  onMouseEnter={() => setShowTooltipFinalizar(true)}
-                  onMouseLeave={() => setShowTooltipFinalizar(false)}
-                  onClick={(e) => {
-                    const formEl = document.querySelector("form");
-                    if (formEl) {
-                      // @ts-ignore
-                      formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
-                    }
-                  }}
-                >
-                  Finalizar proceso
-                </Button>
+      {/* DERECHA — BOTÓN (AVANZAR O FINALIZAR) */}
+      <div className="flex items-center">
 
-                {showTooltipFinalizar && (
-                  <div className="absolute bottom-full right-0 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
-                    Terminar proceso. No se podrá avanzar a adjudicación.
-                  </div>
-                )}
+        {/* AVANZAR AL PASO 2 */}
+        {pasoActual === 1 && estatusGeneral === "REVISADO" && (
+          <div className="relative">
+            <Button
+              type="button"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onMouseEnter={() => setShowTooltipAvanzarTop(true)}
+              onMouseLeave={() => setShowTooltipAvanzarTop(false)}
+              onClick={(e) => {
+              e.preventDefault();
+              if (!validateStep1Fields()) return;
+
+              const formEl = document.querySelector("form");
+              if (formEl) {
+                formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+              }
+
+              setTimeout(() => setStep(2), 500);
+            }}
+            >
+              Avanzar al paso 2
+            </Button>
+
+            {showTooltipAvanzarTop && (
+              <div className="absolute bottom-full right-0 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
+                Avanza al siguiente paso
               </div>
             )}
           </div>
-        </CardContent>
-        </Card>
-      )}
+        )}
+
+        {/* FINALIZAR PROCESO */}
+        {estatusGeneral === "CANCELADO" && (
+          <div className="relative">
+            <Button
+              type="button"
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onMouseEnter={() => setShowTooltipFinalizar(true)}
+              onMouseLeave={() => setShowTooltipFinalizar(false)}
+              onClick={(e) => {
+              e.preventDefault();
+              if (!validateStep1Fields()) return;
+
+              const formEl = document.querySelector("form");
+              if (formEl) {
+                formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+              }
+            }}
+            >
+              Finalizar proceso
+            </Button>
+
+            {showTooltipFinalizar && (
+              <div className="absolute bottom-full right-0 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
+                Terminar proceso. No se podrá avanzar a adjudicación.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+    </CardHeader>
+
+    {/* CONTENIDO DEL CARD */}
+    <CardContent className="text-sm text-gray-800 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2">
+
+      {/* ID */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+        <strong>ID:</strong> {selectedId}
+      </div>
+
+      {/* Ente */}
+      <div>
+        <strong>Ente:</strong> {detalleGeneral.ente}
+      </div>
+
+      {/* Tipo de Licitación */}
+      <div>
+        <strong>Tipo de Licitación:</strong> {detalleGeneral.e_tipo_licitacion}
+      </div>
+
+      {/* No. de veces */}
+      <div className="mt-[-19px]">
+        <strong>No. de veces:</strong>{" "}
+        {detalleGeneral.e_tipo_licitacion_no_veces
+          ? `${detalleGeneral.tipo_licitacion_no_veces_descripcion || ""}`
+          : "—"}
+      </div>
+
+      {/* Tipo de Evento */}
+      <div>
+        <strong>Tipo de Evento:</strong> {detalleGeneral.e_tipo_evento}
+      </div>
+
+      {/* Estatus */}
+      <div className="flex items-center gap-2 col-span-2 sm:col-span-1 mt-[-4px]">
+        <strong>Estatus actual:</strong>
+        <span
+          className={`px-3 py-1 text-sm font-semibold rounded-md ${
+            (estatusGeneral || detalleGeneral.r_estatus) === "PREREGISTRADO"
+              ? "bg-yellow-100 text-yellow-800"
+              : (estatusGeneral || detalleGeneral.r_estatus) === "REVISADO"
+              ? "bg-green-100 text-green-800"
+              : (estatusGeneral || detalleGeneral.r_estatus) === "CANCELADO"
+              ? "bg-red-100 text-red-800"
+              : "bg-gray-100 text-gray-800"
+          }`}
+        >
+          {estatusGeneral || detalleGeneral.r_estatus || "—"}
+        </span>
+      </div>
+
+    </CardContent>
+
+  </Card>
+)}
 
       {/* Paso 1: Gestión del Rector */}
 {pasoActual === 1 && (
