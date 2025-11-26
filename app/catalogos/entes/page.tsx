@@ -226,6 +226,35 @@ export default function EntesPage() {
   // Definir columnas para TanStack Table
   // ======================
   const columns = React.useMemo<ColumnDef<Ente>[]>(() => [
+    {
+    id: "acciones",
+    header: () => null,
+
+    enableSorting: false,
+    enableHiding: false,
+    size: 1,
+
+    cell: ({ row }) => (
+      <div
+        className="
+          sticky right-0 
+          z-20
+          bg-inherit 
+          pr-3 flex justify-end
+        "
+      >
+        <RowActionButtons
+          id={row.original.id}
+          editPath="/catalogos/entes/edit"
+          onEdit={() => handleEditClick(row.original.id)}
+          onDelete={() => toggleEstado(row.original.id)}
+          onRestore={() => toggleEstado(row.original.id, true)}
+          showDeleted={showDeleted}
+        />
+      </div>
+    ),
+  },
+  
     { accessorKey: "id", header: () => <div className="text-center w-full">ID</div>,
       cell: ({ getValue }) => (
         <div className="text-center w-full">
@@ -266,24 +295,7 @@ export default function EntesPage() {
       ),
       size: 180,
     },
-    {
-  accessorKey: "activo",
-  header: () => (
-    <div className="text-center w-full">
-      {showDeleted ? "Estado" : "Activo"}
-    </div>
-  ),
-  cell: ({ getValue }) => (
-    <div className="text-center w-full">
-      {showDeleted
-        ? "🗑️ Eliminado"
-        : getValue()
-        ? "✅ Sí"
-        : "❌ No"}
-    </div>
-  ),
-  size: 140,
-}
+
   ], [showDeleted]);
 
   const table = useReactTable({
@@ -636,7 +648,7 @@ export default function EntesPage() {
                     )}
                   >
                     {row.getVisibleCells().map(cell => (
-                      <TableCell key={cell.id} className="py-2 px-3 align-top">
+                      <TableCell key={cell.id} className="py-2 px-3 align-middle">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}

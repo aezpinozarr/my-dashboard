@@ -232,30 +232,34 @@ export default function RubrosPage() {
   // 🧩 Columnas para TanStack Table
   // ======================
   const columns = React.useMemo<ColumnDef<Rubro>[]>(() => [
-    { accessorKey: "id", header: "ID" },
-    { accessorKey: "descripcion", header: "Descripción" },
-    {
-      accessorKey: "activo",
-      header: "Activo",
-      cell: ({ getValue }) => (getValue() ? "✅" : "❌"),
-    },
-    {
-      id: "acciones",
-      header: "Acciones",
-      cell: ({ row }) => (
-        <div className="flex justify-start -ml-4">
-          <RowActionButtons
-            id={row.original.id}
-            editPath=""
-            onEdit={() => handleEditClick(row.original.id)}
-            onDelete={() => eliminarRubro(row.original.id)}
-            onRestore={() => reactivarRubro(row.original.id)}
-            showDeleted={showDeleted}
-          />
-        </div>
-      ),
-    },
-  ], [showDeleted]);
+  // 🔹 1. Acciones (primera columna)
+{
+  id: "acciones",
+  header: () => null,          // ❌ No muestra título
+  enableSorting: false,        // ❌ No ordena
+  enableHiding: false,         // ❌ No puede ocultarse
+  size: 1,                     // ✔ El ancho mínimo posible
+  cell: ({ row }) => (
+    <div className="flex justify-start pl-2">
+      <RowActionButtons
+        id={row.original.id}
+        editPath=""
+        onEdit={() => handleEditClick(row.original.id)}
+        onDelete={() => eliminarRubro(row.original.id)}
+        onRestore={() => reactivarRubro(row.original.id)}
+        showDeleted={showDeleted}
+      />
+    </div>
+  ),
+},
+
+  // 🔹 2. ID
+  { accessorKey: "id", header: "ID" },
+
+  // 🔹 3. Descripción
+  { accessorKey: "descripcion", header: "Descripción" },
+
+], [showDeleted]);
 
   const table = useReactTable({
     data: rubrosFiltrados,

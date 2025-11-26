@@ -377,6 +377,27 @@ export default function ProveedoresPage() {
   const columns = React.useMemo<ColumnDef<Proveedor>[]>(
     () => [
       {
+      id: "acciones",
+      header: () => null, // 👻 columna invisible
+      size: 1,
+      enableSorting: false,
+      enableHiding: false,
+
+      cell: ({ row }) => (
+        <div className="sticky left-0 z-20 flex items-center pl-1">
+          <RowActionButtons
+            id={row.original.rfc}
+            editPath="/catalogos/proveedores/edit"
+            onEdit={() => handleEditClick(row.original.rfc)}
+            onDelete={() => toggleEstadoProveedor(row.original.rfc)}
+            onRestore={() => toggleEstadoProveedor(row.original.rfc, true)}
+            showDeleted={showDeleted}
+          />
+        </div>
+      ),
+    },
+
+      {
         accessorKey: "rfc",
         header: () => <div className="text-center w-full">RFC</div>,
       cell: ({ getValue }) => (
@@ -416,30 +437,7 @@ export default function ProveedoresPage() {
       ),
       size: 180,
     },
-      {
-  id: "acciones",
-  header: () => (
-    <div className="text-center w-full">
-      Acciones
-    </div>
-  ),
-  cell: ({ row }) => (
-    <div className="text-center w-full">
-      <div className="flex justify-center">
-        <RowActionButtons
-          id={row.original.rfc}
-          editPath="/catalogos/proveedores/edit"
-          onEdit={handleEditClick}
-          onDelete={(id) => toggleEstadoProveedor(id)}
-          onRestore={(id) => toggleEstadoProveedor(id, true)}
-          showDeleted={showDeleted}
-        />
-      </div>
-    </div>
-  ),
-  size: 120,
-  enableSorting: false,
-}
+
     ],
     [showDeleted]
   );
@@ -808,15 +806,10 @@ export default function ProveedoresPage() {
   }
   className={cn(
     header.column.getCanSort() && "select-none",
-    "py-2 px-3 text-xs font-semibold text-white bg-[#2563eb] text-center border-b border-gray-200"
+    "py-2 px-3 text-xs font-semibold text-white text-center border-b border-gray-200",
+    // 🔵 Fuerza el fondo azul también en la columna fantasma
+    "bg-[#2563eb]"
   )}
-  aria-sort={
-    header.column.getIsSorted()
-      ? header.column.getIsSorted() === "asc"
-        ? "ascending"
-        : "descending"
-      : undefined
-  }
 >
   <div className="flex items-center justify-center gap-1">
     {flexRender(header.column.columnDef.header, header.getContext())}

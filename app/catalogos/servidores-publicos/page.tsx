@@ -155,6 +155,36 @@ export default function ServidoresPublicosPage() {
   }, [servidores, search, showDeleted]);
 
 const columns = [
+    {
+  id: "acciones",
+  header: () => null, // 👻 Sin encabezado visible
+  enableSorting: false,
+  enableHiding: false,
+  size: 1,
+
+  cell: ({ row }: { row: any }) => (
+    <div
+      className="
+        sticky left-0 z-20 
+        bg-inherit        /* 🟩 Sigue el color de cada fila */
+        flex items-center pl-2
+      "
+    >
+      <RowActionButtons
+        id={String(row.original.id)}
+        editPath="#"
+        onEdit={() => {
+          setSelectedServidor(row.original);
+          setIsEditDialogOpen(true);
+        }}
+        onDelete={() => toggleEstadoServidor(row.original.id)}
+        onRestore={() => toggleEstadoServidor(row.original.id, true)}
+        showDeleted={showDeleted}
+      />
+    </div>
+  ),
+},
+
   {
     accessorKey: "id",
     header: () => <div className="text-center w-full">ID</div>,
@@ -185,39 +215,7 @@ const columns = [
     ),
     size: 200,
   },
-  {
-    accessorKey: "activo",
-    header: () => <div className="text-center w-full">Activo</div>,
-    cell: ({ getValue }: { getValue: () => any }) => (
-      <div className="text-center w-full">
-        {getValue() ? "✅ Sí" : "❌ No"}
-      </div>
-    ),
-    size: 120,
-  },
-  {
-    id: "acciones",
-    header: () => <div className="text-center w-full">Acciones</div>,
-    enableSorting: false,
-    cell: ({ row }: { row: any }) => (
-      <div className="text-center w-full">
-        <div className="flex justify-center">
-          <RowActionButtons
-            id={String(row.original.id)}
-            editPath="#"
-            onEdit={() => {
-              setSelectedServidor(row.original);
-              setIsEditDialogOpen(true);
-            }}
-            onDelete={() => toggleEstadoServidor(row.original.id)}
-            onRestore={() => toggleEstadoServidor(row.original.id, true)}
-            showDeleted={showDeleted}
-          />
-        </div>
-      </div>
-    ),
-    size: 140,
-  },
+
 ];
 
   // ======================

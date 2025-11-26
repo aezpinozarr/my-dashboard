@@ -365,6 +365,35 @@ export default function ServidoresPage() {
         <DataTable
         data={servidoresFiltrados}
 columns={[
+    {
+    id: "acciones",
+    header: () => null, // 👻 SIN ENCABEZADO
+
+    enableSorting: false,
+    enableHiding: false,
+    size: 1,
+
+    cell: ({ row }) => (
+      <div
+        className="
+          sticky right-0 
+          z-20
+          bg-inherit           /* ⭐ se adapta al color alternado de la fila */
+          pr-3 flex justify-end
+        "
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleVincular(row.original.id)}
+          className="cursor-pointer"
+          style={{ borderColor: '#235391', color: '#235391' }}
+        >
+          Vincular
+        </Button>
+      </div>
+    )
+  },
   {
     accessorKey: "id",
     header: () => <div className="text-center w-full">ID</div>,
@@ -395,16 +424,7 @@ columns={[
     ),
     size: 200,
   },
-  {
-    accessorKey: "activo",
-    header: () => <div className="text-center w-full">Activo</div>,
-    cell: ({ row }) => (
-      <div className="text-center w-full">
-        {row.original.activo ? "✅ Sí" : "❌ No"}
-      </div>
-    ),
-    size: 120,
-  },
+  
   {
     accessorKey: "ente_publico",
     header: () => <div className="text-center w-full">Ente</div>,
@@ -435,25 +455,7 @@ columns={[
     ),
     size: 180,
   },
-  {
-    id: "acciones",
-    header: () => <div className="text-center w-full">Acciones</div>,
-    enableSorting: false,
-    cell: ({ row }) => (
-      <div className="text-center w-full">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleVincular(row.original.id)}
-          className="cursor-pointer"
-          style={{ borderColor: "#235391", color: "#235391" }}
-        >
-          Vincular
-        </Button>
-      </div>
-    ),
-    size: 160,
-  },
+
 ]}
         columnVisibility={columnVisibility} // ✅ ahora controlas desde el page
         setColumnVisibility={setColumnVisibility} // ✅ setter reactivo
