@@ -29,17 +29,7 @@ import { Loader2, PlusCircle, Trash2, Eye, UserPlus } from "lucide-react";
 import { useUser } from "@/context/UserContext";
 import { toast } from "sonner";
 
-/* ========================================
-   🔹 Configuración del backend
-======================================== */
-const API_BASE =
-  typeof window !== "undefined"
-    ? window.location.hostname.includes("railway")
-      ? "https://backend-licitacion-production.up.railway.app"
-      : window.location.hostname.includes("onrender")
-      ? "https://backend-licitacion-1.onrender.com"
-      : "http://127.0.0.1:8000"
-    : "http://127.0.0.1:8000";
+
 
 /* ========================================
    🔹 Utilidades
@@ -204,7 +194,7 @@ const API_BASE =
       ? "https://backend-licitacion-1.onrender.com"
       : "http://127.0.0.1:8000"
     : "http://127.0.0.1:8000";
-    
+
   const from = params.get("from"); // "dashboard" o null
   const router = useRouter();
   const [step, setStep] = React.useState<number>(1);
