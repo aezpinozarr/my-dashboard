@@ -1157,41 +1157,84 @@ useEffect(() => {
     {/* HEADER — AHORA CON EL BOTÓN ARRIBA A LA DERECHA */}
     <CardHeader className="flex flex-row items-center justify-between">
 
-      {/* IZQUIERDA: Flecha + Título + Oficio */}
-      <div className="flex items-center gap-3">
+{/* IZQUIERDA: Flecha + Título + Oficio + Botones superiores */}
+<div className="flex items-center gap-3">
 
-        {/* Flecha */}
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                type="button"
-                style={{ backgroundColor: "#db200b", color: "white" }}
-                onClick={() => router.push("/seguimiento-rector")}
-                className="rounded-md shadow-sm cursor-pointer"
-              >
-                <span className="text-lg">←</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              Salir
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+  {/* Flecha SALIR */}
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          type="button"
+          style={{ backgroundColor: "#db200b", color: "white" }}
+          onClick={() => router.push("/seguimiento-rector")}
+          className="rounded-md shadow-sm cursor-pointer"
+        >
+          <span className="text-lg">←</span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-xs">
+        Salir
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
 
-        {/* Texto */}
-        <div className="flex flex-col">
-          <CardTitle className="text-gray-700 text-lg">Detalle del Seguimiento</CardTitle>
-          <span className="text-gray-600 font-medium">
-            Oficio de invitación:{" "}
-            <span className="text-gray-800">
-              {detalleGeneral.e_oficio_invitacion || "—"}
-            </span>
-          </span>
-        </div>
-      </div>
+  {/* ⭐ BOTONES SUPERIORES AGREGADOS AQUÍ */}
+  {estatusGeneral === "REVISADO" && pasoActual === 2 && (
+    <div className="flex items-center gap-2">
+
+      {/* Botón: Regresar al paso anterior */}
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={() => setStep((prev) => Math.max(prev - 1, 1))}
+              className="cursor-pointer"
+            >
+              ← Regresar al paso anterior
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            Regresar al paso anterior
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      {/* Botón: Finalizar proceso */}
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              onClick={finalizarProceso}
+              style={{ backgroundColor: "#db200b", color: "white" }}
+              className="cursor-pointer hover:brightness-110"
+            >
+              Finalizar proceso
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            Finalizar el proceso
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+    </div>
+  )}
+
+  {/* Texto */}
+  <div className="flex flex-col">
+    <CardTitle className="text-gray-700 text-lg">Detalle del Seguimiento</CardTitle>
+    <span className="text-gray-600 font-medium">
+      Oficio de invitación:{" "}
+      <span className="text-gray-800">
+        {detalleGeneral.e_oficio_invitacion || "—"}
+      </span>
+    </span>
+  </div>
+</div>
 
       {/* DERECHA — BOTÓN (AVANZAR O FINALIZAR) */}
       <div className="flex items-center">
@@ -1766,29 +1809,7 @@ useEffect(() => {
   <Card className="shadow-md border">
     <CardHeader className="flex flex-row items-center justify-between">
   <CardTitle>Seleccionar proceso de adjudicación</CardTitle>
-
-  {/* ⭐ Botones superiores duplicados */}
-  <div className="flex items-center gap-3">
-
-    {/* Botón: Regresar al paso anterior */}
-    <Button
-      variant="outline"
-      onClick={() => setStep((prev) => Math.max(prev - 1, 1))}
-      className="cursor-pointer"
-    >
-      ← Regresar al paso anterior
-    </Button>
-
-    {/* Botón: Finalizar proceso */}
-    <Button
-      onClick={finalizarProceso}
-      style={{ backgroundColor: "#db200b", color: "white" }}
-      className="cursor-pointer hover:brightness-110"
-    >
-      Finalizar proceso
-    </Button>
-
-  </div>
+  
 </CardHeader>
 
     <CardContent className="space-y-6">
@@ -2583,45 +2604,74 @@ useEffect(() => {
   </Card>
 )}
 
-    {pasoActual === 2 && (
-      <div className="flex justify-between items-center mt-10">
+   {pasoActual === 2 && (
+  <div className="flex justify-start items-center gap-3 mt-10">
 
-        {/* Botón regresar dashboard */}
-        <Link href="/dashboard">
-          <Button
-            variant="outline"
-            style={{ backgroundColor: "#db200b", color: "white" }}
-            className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-          >
-            ←
-          </Button>
-        </Link>
-
-        {/* Botones derecha */}
-        {estatusGeneral === "REVISADO" && (
-          <div className="flex gap-3">
-
+    {/* Botón rojo SALIR */}
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link href="/dashboard">
             <Button
               variant="outline"
-              onClick={() => setStep((prev) => Math.max(prev - 1, 1))}
-              className="cursor-pointer"
-            >
-              ← Regresar al paso anterior
-            </Button>
-
-            <Button
-              onClick={finalizarProceso}
               style={{ backgroundColor: "#db200b", color: "white" }}
-              className="cursor-pointer hover:brightness-110"
+              className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
             >
-              Finalizar proceso
+              ←
             </Button>
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Salir</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
 
-          </div>
-        )}
+    {/* Botones derecha ahora junto al botón salir */}
+    {estatusGeneral === "REVISADO" && (
+      <>
 
-      </div>
+        {/* BOTÓN REGRESAR AL PASO ANTERIOR */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={() => setStep((prev) => Math.max(prev - 1, 1))}
+                className="cursor-pointer"
+              >
+                ← Regresar al paso anterior
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Regresar al paso anterior</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        {/* BOTÓN FINALIZAR PROCESO */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={finalizarProceso}
+                style={{ backgroundColor: "#db200b", color: "white" }}
+                className="cursor-pointer hover:brightness-110"
+              >
+                Finalizar proceso
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Finalizar el proceso</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+      </>
     )}
+
+  </div>
+)}
     </main>
   );
 }

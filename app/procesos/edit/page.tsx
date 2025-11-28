@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -233,6 +233,7 @@ function NuevoProcesoPageContent() {
   const { user } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
+   const [openSalirDialog, setOpenSalirDialog] = useState(false);
   const seguimientoIdParam = searchParams.get("id");
   const initialStepParam = searchParams.get("step");
   const [step, setStep] = React.useState(initialStepParam ? Number(initialStepParam) : 1);
@@ -1539,12 +1540,70 @@ React.useEffect(() => {
   /* ========================================
      🔹 Render UI (Paso 1, 2, 3)
   ======================================== */
+  // 👉 Logs para depuración del tipo de licitación
+console.log("VALOR ACTUAL tipo_licitacion:", form.tipo_licitacion);
+console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
   return (
     <main className="max-w-5xl mx-auto p-6 space-y-6">
       <StepIndicator currentStep={step} />
 {/* Paso 1 */}
       {step === 1 && (
           <>
+          {/* 🔥 BOTÓN SUPERIOR DE SALIR (FUERA DEL CARD) */}
+<div className="flex justify-start mb-4">
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          onClick={() => setOpenSalirDialog(true)}
+          style={{ backgroundColor: "#db200b", color: "white" }}
+          className="cursor-pointer"
+          type="button"
+        >
+          ←
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        <p>Salir</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+
+  {/* --- DIALOG --- */}
+  <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+    <DialogContent className="max-w-sm">
+      <DialogTitle className="sr-only">Confirmación de salida</DialogTitle>
+
+      <DialogHeader>
+        <h2 className="text-lg font-bold">¿Deseas salir del proceso?</h2>
+        <p className="text-sm text-gray-600">
+          Si sales ahora, perderás cualquier información no guardada.
+        </p>
+      </DialogHeader>
+
+      <DialogFooter className="flex justify-end gap-3 pt-4">
+        <Button
+          onClick={() => setOpenSalirDialog(false)}
+          style={{ backgroundColor: "#db200b", color: "white" }}
+          type="button"
+        >
+          Cancelar
+        </Button>
+
+        <Button
+          onClick={() => {
+            const from = searchParams.get("from");
+            router.push(from === "dashboard" ? "/dashboard" : "/procesos");
+          }}
+          style={{ backgroundColor: "#34e004", color: "white" }}
+          type="button"
+        >
+          Sí
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+</div>
               <Card>
               <CardContent className="space-y-4">
                 
@@ -1554,23 +1613,6 @@ React.useEffect(() => {
           {/* IZQUIERDA → botón rojo + título */}
           <div className="flex items-center gap-3">
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    asChild
-                    style={{ backgroundColor: "#db200b", color: "white" }}
-                    className="cursor-pointer"
-                  >
-                    <Link href="/procesos">←</Link>
-                  </Button>
-                </TooltipTrigger>
-
-                <TooltipContent side="top">
-                  <p>Salir</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
 
             <h1 className="text-2xl font-bold">Paso 1: Oficio de invitación</h1>
           </div>
@@ -2036,409 +2078,528 @@ React.useEffect(() => {
           </>
       )}
 
-       {/* Paso 2 */}
-      {step === 2 && (
-        <Card>
-          <CardContent className="space-y-4">
-          <div className="flex items-center justify-between mb-6 w-full">
 
-            {/* IZQUIERDA → Botón rojo + Título */}
-            <div className="flex items-center gap-3">
+{/* Paso 2 */}
+{step === 2 && (
+  <>
+    {/* 🔥 BOTÓN SUPERIOR DE SALIR (FUERA DEL CARD) */}
+    <div className="flex justify-start mb-4">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              onClick={() => setOpenSalirDialog(true)}
+              style={{ backgroundColor: "#db200b", color: "white" }}
+              className="cursor-pointer"
+              type="button"
+            >
+              ←
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>Salir</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      asChild
-                      style={{ backgroundColor: "#db200b", color: "white" }}
-                      className="cursor-pointer"
-                    >
-                      <Link href="/procesos">←</Link>
-                    </Button>
-                  </TooltipTrigger>
+    {/* 🔥 DIALOG GLOBAL */}
+    <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+      <DialogContent className="max-w-sm">
+        <DialogTitle className="sr-only">Confirmación de salida</DialogTitle>
 
-                  <TooltipContent side="top">
-                    <p>Salir</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+        <DialogHeader>
+          <h2 className="text-lg font-bold">¿Deseas salir del proceso?</h2>
+          <p className="text-sm text-gray-600">
+            Si sales ahora, perderás cualquier información no guardada.
+          </p>
+        </DialogHeader>
 
-              <h1 className="text-2xl font-bold">Paso 2: Partidas</h1>
-            </div>
+        <DialogFooter className="flex justify-end gap-3 pt-4">
+          <Button
+            onClick={() => setOpenSalirDialog(false)}
+            style={{ backgroundColor: "#db200b", color: "white" }}
+          >
+            Cancelar
+          </Button>
 
-            {/* DERECHA → Navegación */}
-            <div className="flex items-center gap-2">
+          <Button
+            onClick={() => router.push("/procesos")}
+            style={{ backgroundColor: "#34e004", color: "white" }}
+          >
+            Sí
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
-              {step > 1 && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        onClick={() => setStep(step - 1)}
-                        className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2 cursor-pointer"
-                      >
-                        <span className="text-[#235391] font-bold">← {step - 1}</span>
-                      </Button>
-                    </TooltipTrigger>
+    {/* ============================= */}
+    {/*       🔽 AQUÍ VA TU CARD      */}
+    {/* ============================= */}
 
-                    <TooltipContent side="top">
-                      <p>Regresar al paso anterior</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+    <Card>
+      <CardContent className="space-y-4">
 
-              {/* Botón Siguiente SUPERIOR — usa la MISMA lógica que el botón inferior */}
-              {step < 4 && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                      onClick={handleNext}
-                      className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform flex items-center gap-1 rounded-full px-4 py-2"
-                    >
-                      <span className="font-bold">{step + 1} →</span>
-                    </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Avanza al siguiente paso</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
+        <div className="flex items-center justify-between mb-6 w-full">
+
+          {/* IZQUIERDA → Botón volver paso 1 + título */}
+          <div className="flex items-center gap-3">
+
+            {/* BOTÓN VOLVER (PASO 1) */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep(1)}
+                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+                  >
+                    <span className="text-[#235391] font-bold">← 1</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Regresar al paso anterior</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* TÍTULO */}
+            <h1 className="text-2xl font-bold ml-2">Paso 2: Partidas</h1>
 
           </div>
-            {/* Oficio de invitación bloqueado */}
-            <div>
-              <Label>Oficio de invitación</Label>
-              <Input
-                value={form.oficio_invitacion ?? ""}
-                disabled
-                className="bg-gray-100 text-gray-700 cursor-not-allowed w-full"
-              />
-            </div>
-            {/* Formulario superior */}
-           <form
+
+          {/* DERECHA → siguiente */}
+          <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    onClick={handleNext}
+                    className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+                  >
+                    <span className="font-bold">{step + 1} →</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Avanza al siguiente paso</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+        </div>
+
+        {/* Oficio de invitación bloqueado */}
+        <div>
+          <Label>Oficio de invitación</Label>
+          <Input
+            value={form.oficio_invitacion ?? ""}
+            disabled
+            className="bg-gray-100 text-gray-700 cursor-not-allowed w-full"
+          />
+        </div>
+
+        {/* Formulario superior */}
+        <form
           className="flex flex-col space-y-4 rounded-lg bg-white px-0 py-4"
-          onSubmit={e => {
+          onSubmit={(e) => {
             e.preventDefault();
             handleAddPartida();
           }}
         >
-              {/* No. Requisición */}
-              <div>
-                <Label>No. Requisición</Label>
-                <Input
-                  value={nuevaPartida.e_no_requisicion || ""}
-                  onChange={e => setNuevaPartida({ ...nuevaPartida, e_no_requisicion: e.target.value })}
-                  placeholder="Ej. 101"
-                  className={`w-full ${erroresForm.e_no_requisicion ? "border border-red-500 focus:ring-red-500" : ""}`}
-                />
-                {erroresForm.e_no_requisicion && (
-                  <p className="text-sm text-red-500 mt-1">Este campo es obligatorio</p>
-                )}
-              </div>
-              {/* Partida */}
-              <div>
-                <Label>Partida</Label>
-                <Command>
-                  <CommandInput
-                    placeholder="Buscar partida…"
-                    value={nuevaPartida.e_id_partida}
-                    onValueChange={val => setNuevaPartida(prev => ({ ...prev, e_id_partida: val }))}
-                    className={`w-full ${erroresForm.e_id_partida ? "border border-red-500 focus:ring-red-500" : ""}`}
-                  />
-                  {Boolean(nuevaPartida.e_id_partida.trim()) && (
-                    <CommandList>
-                      {catalogoPartidas
-                        .filter(row => {
-                          const q = (nuevaPartida.e_id_partida || "").toLowerCase();
-                          return (
-                            row.id?.toString().toLowerCase().includes(q) ||
-                            row.descripcion?.toLowerCase().includes(q)
-                          );
-                        })
-                        .map(row => (
-                          <CommandItem
-                            key={row.id}
-                            onSelect={() => {
-                              setNuevaPartida(prev => ({
-                                ...prev,
-                                e_id_partida: row.id,
-                                partida_descripcion: row.descripcion ?? "",
-                                clave_capitulo: row.id_capitulo ?? "",
-                                capitulo: row.capitulo ?? "",
-                              }));
-                            }}
-                          >
-                            {row.id} – {row.descripcion} – id capitulo: {row.id_capitulo} – capitulo: {row.capitulo}
-                          </CommandItem>
-                        ))}
-                      <CommandEmpty>No se encontraron partidas</CommandEmpty>
-                    </CommandList>
-                  )}
-                </Command>
-                {erroresForm.e_id_partida && (
-                  <p className="text-sm text-red-500 mt-1">Selecciona una partida</p>
-                )}
-              </div>
-              {/* Fuente de financiamiento */}
-              <div>
-                <Label>Fuente de financiamiento</Label>
-                <Command>
-                  <CommandInput
-                    placeholder="Buscar fuente…"
-                    value={nuevaPartida.e_id_fuente_financiamiento}
-                    onValueChange={val => setNuevaPartida(prev => ({ ...prev, e_id_fuente_financiamiento: val }))}
-                    className={`w-full ${erroresForm.e_id_fuente_financiamiento ? "border border-red-500 focus:ring-red-500" : ""}`}
-                  />
-                  {Boolean(nuevaPartida.e_id_fuente_financiamiento.trim()) && (
-                    <CommandList>
-                      {fuentes
-                        .filter(f => {
-                          const q = (nuevaPartida.e_id_fuente_financiamiento || "").toLowerCase();
-                          return (
-                            f.id?.toString().toLowerCase().includes(q) ||
-                            f.descripcion?.toLowerCase().includes(q) ||
-                            f.etiquetado?.toLowerCase().includes(q) ||
-                            f.fondo?.toLowerCase().includes(q)
-                          );
-                        })
-                        .map(f => (
-                          <CommandItem
-                            key={f.id}
-                            onSelect={() => {
-                              setNuevaPartida(prev => ({
-                                ...prev,
-                                e_id_fuente_financiamiento: f.id,
-                                fuente_descripcion: f.descripcion ?? "",
-                                fuente_etiquetado: f.etiquetado ?? "",
-                                fuente_fondo: f.fondo ?? "",
-                                id_ramo: f.id_ramo ?? "",
-                                ramo_descripcion: f.ramo ?? "",
-                              }));
-                            }}
-                          >
-                            {f.id} – Descripción: {f.descripcion} – Etiquetado: {f.etiquetado} – Fondo: {f.fondo}
-                          </CommandItem>
-                        ))}
-                      <CommandEmpty>No se encontraron fuentes</CommandEmpty>
-                    </CommandList>
-                  )}
-                </Command>
-                {erroresForm.e_id_fuente_financiamiento && (
-                  <p className="text-sm text-red-500 mt-1">Selecciona una fuente de financiamiento</p>
-                )}
-              </div>
-              {/* Botón añadir partida */}
-              <div className="flex justify-end mt-0">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="submit"
-                        style={{ backgroundColor: "#10c706", color: "white" }}
+
+          {/* No. Requisición */}
+          <div>
+            <Label>No. Requisición</Label>
+            <Input
+              value={nuevaPartida.e_no_requisicion || ""}
+              onChange={(e) =>
+                setNuevaPartida({
+                  ...nuevaPartida,
+                  e_no_requisicion: e.target.value,
+                })
+              }
+              placeholder="Ej. 101"
+              className={`w-full ${
+                erroresForm.e_no_requisicion
+                  ? "border border-red-500 focus:ring-red-500"
+                  : ""
+              }`}
+            />
+            {erroresForm.e_no_requisicion && (
+              <p className="text-sm text-red-500 mt-1">
+                Este campo es obligatorio
+              </p>
+            )}
+          </div>
+
+          {/* Partida */}
+          <div>
+            <Label>Partida</Label>
+            <Command>
+              <CommandInput
+                placeholder="Buscar partida…"
+                value={nuevaPartida.e_id_partida}
+                onValueChange={(val) =>
+                  setNuevaPartida((prev) => ({ ...prev, e_id_partida: val }))
+                }
+                className={`w-full ${
+                  erroresForm.e_id_partida
+                    ? "border border-red-500 focus:ring-red-500"
+                    : ""
+                }`}
+              />
+              {Boolean(nuevaPartida.e_id_partida.trim()) && (
+                <CommandList>
+                  {catalogoPartidas
+                    .filter((row) => {
+                      const q = (nuevaPartida.e_id_partida || "").toLowerCase();
+                      return (
+                        row.id?.toString().toLowerCase().includes(q) ||
+                        row.descripcion?.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((row) => (
+                      <CommandItem
+                        key={row.id}
+                        onSelect={() => {
+                          setNuevaPartida((prev) => ({
+                            ...prev,
+                            e_id_partida: row.id,
+                            partida_descripcion: row.descripcion ?? "",
+                            clave_capitulo: row.id_capitulo ?? "",
+                            capitulo: row.capitulo ?? "",
+                          }));
+                        }}
                       >
-                        Añadir partida
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Guarda la partida seleccionada</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </form>
-            {/* Tabla de partidas - DISEÑO MEJORADO */}
-            <h2 className="text-lg font-semibold text-[#235391]">Partidas registradas</h2>
-            <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
-                    <th className="px-3 py-2 font-semibold text-center">No. Requisición</th>
-                    <th className="px-3 py-2 font-semibold text-center">Partida</th>
-                    <th className="px-3 py-2 font-semibold text-center">Capítulo</th>
-                    <th className="px-3 py-2 font-semibold text-center">Fuente Financiamiento</th>
-                    <th className="px-3 py-2 font-semibold text-center">Ramo</th>
-                    <th className="px-3 py-2 font-semibold text-center">Fondo</th>
-                    <th className="px-3 py-2 font-semibold text-center"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {partidas.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="py-3 text-center text-gray-400">
-                        No hay partidas registradas.
-                      </td>
-                    </tr>
-                  ) : (
+                        {row.id} – {row.descripcion} – id capitulo:{" "}
+                        {row.id_capitulo} – capitulo: {row.capitulo}
+                      </CommandItem>
+                    ))}
+                  <CommandEmpty>No se encontraron partidas</CommandEmpty>
+                </CommandList>
+              )}
+            </Command>
+            {erroresForm.e_id_partida && (
+              <p className="text-sm text-red-500 mt-1">Selecciona una partida</p>
+            )}
+          </div>
+
+          {/* Fuente */}
+          <div>
+            <Label>Fuente de financiamiento</Label>
+            <Command>
+              <CommandInput
+                placeholder="Buscar fuente…"
+                value={nuevaPartida.e_id_fuente_financiamiento}
+                onValueChange={(val) =>
+                  setNuevaPartida((prev) => ({
+                    ...prev,
+                    e_id_fuente_financiamiento: val,
+                  }))
+                }
+                className={`w-full ${
+                  erroresForm.e_id_fuente_financiamiento
+                    ? "border border-red-500 focus:ring-red-500"
+                    : ""
+                }`}
+              />
+              {Boolean(nuevaPartida.e_id_fuente_financiamiento.trim()) && (
+                <CommandList>
+                  {fuentes
+                    .filter((f) => {
+                      const q = (
+                        nuevaPartida.e_id_fuente_financiamiento || ""
+                      ).toLowerCase();
+                      return (
+                        f.id?.toString().toLowerCase().includes(q) ||
+                        f.descripcion?.toLowerCase().includes(q) ||
+                        f.etiquetado?.toLowerCase().includes(q) ||
+                        f.fondo?.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((f) => (
+                      <CommandItem
+                        key={f.id}
+                        onSelect={() => {
+                          setNuevaPartida((prev) => ({
+                            ...prev,
+                            e_id_fuente_financiamiento: f.id,
+                            fuente_descripcion: f.descripcion ?? "",
+                            fuente_etiquetado: f.etiquetado ?? "",
+                            fuente_fondo: f.fondo ?? "",
+                            id_ramo: f.id_ramo ?? "",
+                            ramo_descripcion: f.ramo ?? "",
+                          }));
+                        }}
+                      >
+                        {f.id} – Descripción: {f.descripcion} – Etiquetado:{" "}
+                        {f.etiquetado} – Fondo: {f.fondo}
+                      </CommandItem>
+                    ))}
+                  <CommandEmpty>No se encontraron fuentes</CommandEmpty>
+                </CommandList>
+              )}
+            </Command>
+            {erroresForm.e_id_fuente_financiamiento && (
+              <p className="text-sm text-red-500 mt-1">
+                Selecciona una fuente de financiamiento
+              </p>
+            )}
+          </div>
+
+          {/* Botón añadir partida */}
+          <div className="flex justify-end mt-0">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="submit"
+                    style={{ backgroundColor: "#10c706", color: "white" }}
+                  >
+                    Añadir partida
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Guarda la partida seleccionada</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </form>
+
+        {/* TABLA */}
+        <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
+                <th className="px-3 py-2 text-center">No. Requisición</th>
+                <th className="px-3 py-2 text-center">Partida</th>
+                <th className="px-3 py-2 text-center">Capítulo</th>
+                <th className="px-3 py-2 text-center">Fuente Financiamiento</th>
+                <th className="px-3 py-2 text-center">Ramo</th>
+                <th className="px-3 py-2 text-center">Fondo</th>
+                <th className="px-3 py-2 text-center"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {partidas.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="py-3 text-center text-gray-400"
+                  >
+                    No hay partidas registradas.
+                  </td>
+                </tr>
+              ) : (
                 partidas
                   .filter(
                     (p) =>
                       p &&
-                      (p.e_id_partida !== null && p.e_id_partida !== "" && p.e_id_partida !== "-") &&
-                      (p.e_id_fuente_financiamiento !== null && p.e_id_fuente_financiamiento !== "")
+                      p.e_id_partida &&
+                      p.e_id_fuente_financiamiento
                   )
                   .map((p, index) => {
-                    console.log("📌 COLUMNAS DE LA PARTIDA:", p);
-                    // 1. Obtener rubros de esta partida por ID REAL (id de seguimiento)
                     const rubrosDeLaPartida = presupuestosRubro.filter(
                       (r) =>
-                        String(r.p_id_seguimiento_partida) === String(p.id) // ← ESTA ES LA RELACIÓN REAL
+                        String(r.p_id_seguimiento_partida) ===
+                        String(p.id)
                     );
 
-                    // 2. ¿Tiene algún rubro adjudicado?
                     const tieneRubroAdjudicado = rubrosDeLaPartida.some(
                       (r) => r.estatus === "ADJUDICADO"
                     );
 
-                    // 3. ¿Tiene algún proveedor adjudicado?
-                    const tieneProveedorAdjudicado = rubrosDeLaPartida.some((r) =>
-                      proveedores.some(
-                        (prov) =>
-                          prov.id_seguimiento_partida_rubro === r.id &&
-                          prov.estatus === "ADJUDICADO"
-                      )
+                    const tieneProveedorAdjudicado = rubrosDeLaPartida.some(
+                      (r) =>
+                        proveedores.some(
+                          (prov) =>
+                            prov.id_seguimiento_partida_rubro ===
+                              r.id &&
+                            prov.estatus === "ADJUDICADO"
+                        )
                     );
 
-                    // 4. Bloquear el botón si tiene adjudicaciones
-                    const bloquearEliminarPartida = tieneRubroAdjudicado || tieneProveedorAdjudicado;
-
+                    const bloquearEliminarPartida =
+                      tieneRubroAdjudicado ||
+                      tieneProveedorAdjudicado;
 
                     return (
                       <tr
                         key={index}
                         className={`border-b ${
-                          index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                          index % 2 === 0
+                            ? "bg-white"
+                            : "bg-gray-50"
                         } hover:bg-gray-100 transition-colors`}
                       >
-                        <td className="px-3 py-2 text-center">{p.no_requisicion}</td>
+                        <td className="px-3 py-2 text-center">
+                          {p.no_requisicion}
+                        </td>
                         <td className="px-3 py-2 text-center">
                           {`${p.e_id_partida} – ${p.partida_descripcion}`}
                         </td>
                         <td className="px-3 py-2 text-center">
-                          {`${p.id_capitulo}`}
+                          {p.id_capitulo}
                         </td>
                         <td className="px-3 py-2 text-center">
-                        {`${p.e_id_fuente_financiamiento} – ${p.fuente_financiamiento}`}
-                      </td>
-                        <td className="px-3 py-2 text-center">{p.ramo_descripcion}</td>
-                        <td className="px-3 py-2 text-center">{p.fondo}</td>
-                       <td className="px-3 py-2 text-right w-[1%]">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-block">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                disabled={bloquearEliminarPartida}
-                                className={
-                                  bloquearEliminarPartida
-                                    ? "text-gray-300 cursor-not-allowed"
-                                    : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                                }
-                                onClick={() => {
-                                  if (bloquearEliminarPartida) return;
-                                  handleEliminarPartida(index);
-                                }}
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </Button>
-                            </span>
-                          </TooltipTrigger>
+                          {`${p.e_id_fuente_financiamiento} – ${p.fuente_financiamiento}`}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {p.ramo_descripcion}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {p.fondo}
+                        </td>
 
-                          {bloquearEliminarPartida ? (
-                            <TooltipContent side="top">
-                              <p>No se puede eliminar porque tiene rubros o proveedores adjudicados.</p>
-                            </TooltipContent>
-                          ) : (
-                            <TooltipContent side="top">
-                              <p>Eliminar partida</p>
-                            </TooltipContent>
-                          )}
-                        </Tooltip>
-                      </TooltipProvider>
-                    </td>
+                        <td className="px-3 py-2 text-right w-[1%]">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-block">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={bloquearEliminarPartida}
+                                    className={
+                                      bloquearEliminarPartida
+                                        ? "text-gray-300 cursor-not-allowed"
+                                        : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                    }
+                                    onClick={() => {
+                                      if (bloquearEliminarPartida)
+                                        return;
+                                      handleEliminarPartida(index);
+                                    }}
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+
+                              {bloquearEliminarPartida ? (
+                                <TooltipContent side="top">
+                                  <p>
+                                    No se puede eliminar porque
+                                    tiene rubros o proveedores
+                                    adjudicados.
+                                  </p>
+                                </TooltipContent>
+                              ) : (
+                                <TooltipContent side="top">
+                                  <p>Eliminar partida</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        </td>
                       </tr>
                     );
                   })
-                  )}
-                </tbody>
-              </table>
-            </div>
+              )}
+            </tbody>
+          </table>
+        </div>
 
-              {/* Botones inferiores alineados */}
-              <div className="flex justify-between items-center mt-6 w-full">
+        {/* Botones inferiores */}
+        <div className="flex justify-between items-center mt-6 w-full">
 
-              {/* Botón regresar al dashboard */}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link href="/procesos">
-                      <Button
-                        variant="outline"
-                        style={{ backgroundColor: "#db200b", color: "white" }}
-                        className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-                      >
-                        ←
-                      </Button>
-                    </Link>
-                  </TooltipTrigger>
+          {/* VOLVER */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={() => setStep(1)}
+                  className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+                >
+                  <span className="text-[#235391] font-bold">← 1</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Regresar al paso anterior</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-                  <TooltipContent side="top">
-                    <p>Salir</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+          {/* SIGUIENTE */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  onClick={handleNext}
+                  className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+                >
+                  <span className="font-bold">3 →</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Avanza al siguiente paso</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-              {/* Botones de navegación */}
-              <div className="flex items-center gap-2">
-                <TooltipProvider>
+        </div>
 
-                  {/* Botón Volver (paso 1) */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        onClick={() => setStep(1)}
-                        className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
-                      >
-                        <span className="text-[#235391] font-bold">← 1</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Regresa al paso anterior</p>
-                    </TooltipContent>
-                  </Tooltip>
+      </CardContent>
+    </Card>
+    {/* 🔥 BOTÓN SUPERIOR DE SALIR (FUERA DEL CARD) */}
+    <div className="flex justify-start mb-4">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              onClick={() => setOpenSalirDialog(true)}
+              style={{ backgroundColor: "#db200b", color: "white" }}
+              className="cursor-pointer"
+              type="button"
+            >
+              ←
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>Salir</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
 
-                  {/* Botón Siguiente */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        onClick={handleNext}
-                        className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
-                      >
-                        <span className="font-bold">3 →</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Avanza al siguiente paso</p>
-                    </TooltipContent>
-                  </Tooltip>
+    {/* 🔥 DIALOG GLOBAL */}
+    <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+      <DialogContent className="max-w-sm">
+        <DialogTitle className="sr-only">Confirmación de salida</DialogTitle>
 
-                </TooltipProvider>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        <DialogHeader>
+          <h2 className="text-lg font-bold">¿Deseas salir del proceso?</h2>
+          <p className="text-sm text-gray-600">
+            Si sales ahora, perderás cualquier información no guardada.
+          </p>
+        </DialogHeader>
 
-      
-    
+        <DialogFooter className="flex justify-end gap-3 pt-4">
+          <Button
+            onClick={() => setOpenSalirDialog(false)}
+            style={{ backgroundColor: "#db200b", color: "white" }}
+          >
+            Cancelar
+          </Button>
+
+          <Button
+            onClick={() => router.push("/procesos")}
+            style={{ backgroundColor: "#34e004", color: "white" }}
+          >
+            Sí
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>
+)}
+
+
 {/* Paso 3 */}
 {(() => {
   const rubroInputRef = React.useRef<any>(null);
@@ -2509,74 +2670,55 @@ React.useEffect(() => {
   if (step !== 3) return null;
 
   return (
+    
     <Card>
       <CardContent className="space-y-6 mt-4">
 
-        {/* ========================================================= */}
-        {/* 🟦 ENCABEZADO — CON TOOLTIP */}
-        {/* ========================================================= */}
-        <div className="flex items-center justify-between w-full mb-6">
+       {/* Encabezado del Paso 3 */}
+<div className="flex items-center justify-between w-full mb-6">
 
-          {/* IZQUIERDA */}
-          <div className="flex items-center gap-3">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    asChild
-                    style={{ backgroundColor: "#db200b", color: "white" }}
-                    className="cursor-pointer hover:scale-105 transition-transform"
-                  >
-                    <Link href="/procesos">←</Link>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">Salir</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+  {/* IZQUIERDA: Botón regresar al paso anterior + Título */}
+  <div className="flex items-center gap-3">
 
-            <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
-          </div>
+    {/* Botón volver (← 2) */}
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            onClick={() => setStep(2)}
+            className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+          >
+            <span className="text-[#235391] font-bold">← 2</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Regresar al paso anterior</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
 
-          {/* DERECHA */}
-          <div className="flex items-center gap-2">
+    {/* Título */}
+    <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
+  </div>
 
-            {/* ← Paso anterior */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={() => setStep(2)}
-                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
-                  >
-                    <span className="text-[#235391] font-bold">← 2</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Regresar al paso anterior</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            {/* → Paso siguiente */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleGuardarRubros}
-                    className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
-                  >
-                    <span className="font-bold">4 →</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Avanza al siguiente paso</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-          </div>
-        </div>
+  {/* DERECHA → Botón avanzar */}
+  <div className="flex items-center gap-2">
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={handleGuardarRubros}
+            className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+          >
+            <span className="font-bold">4 →</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          Avanzar al siguiente paso
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  </div>
+</div>
 
         {/* ========================================================= */}
         {/* OFICIO INVITACIÓN */}
@@ -2967,69 +3109,110 @@ React.useEffect(() => {
           </table>
         </div>
 
-        {/* ========================================================= */}
-        {/* NAVEGACIÓN INFERIOR — Con Tooltips */}
-        {/* ========================================================= */}
-        <div className="flex items-center justify-between mt-6 gap-2 w-full">
+{/* ========================================================= */}
+{/* NAVEGACIÓN INFERIOR — Corregida */}
+{/* ========================================================= */}
+<div className="flex items-center justify-between mt-6 gap-2 w-full">
 
-          {/* Botón rojo salir */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link href="/procesos">
-                  <Button
-                    variant="outline"
-                    style={{ backgroundColor: "#db200b", color: "white" }}
-                    className="cursor-pointer transition-transform duration-150 hover:scale-105 hover:brightness-110"
-                  >
-                    ←
-                  </Button>
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="top">Salir</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+  {/* IZQUIERDA — Botón Salir + Botón ← 2 */}
+  <div className="flex items-center gap-2">
 
-          {/* Botones de pasos */}
-          <div className="flex items-center gap-2">
+    {/* Botón rojo SALIR */}
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={() => setOpenSalirDialog(true)}
+            style={{ backgroundColor: "#db200b", color: "white" }}
+            className="cursor-pointer"
+            type="button"
+          >
+            ←
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Salir</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
 
-            {/* Volver al paso 2 */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={() => setStep(2)}
-                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
-                  >
-                    <span className="text-[#235391] font-bold">← 2</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Regresar al paso anterior</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+    {/* DIALOG SALIR */}
+    <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+      <DialogContent className="max-w-sm">
+        <DialogTitle className="sr-only">Confirmación de salida</DialogTitle>
 
-            {/* Siguiente */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleGuardarRubros}
-                    className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
-                  >
-                    <span className="font-bold">4 →</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Avanza al siguiente paso</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+        <DialogHeader>
+          <h2 className="text-lg font-bold">¿Deseas salir del proceso?</h2>
+          <p className="text-sm text-gray-600">
+            Si sales ahora, perderás cualquier información no guardada.
+          </p>
+        </DialogHeader>
 
-          </div>
-        </div>
+        <DialogFooter className="flex justify-end gap-3 pt-4">
+          <Button
+            onClick={() => setOpenSalirDialog(false)}
+            style={{ backgroundColor: "#db200b", color: "white" }}
+            className="hover:brightness-110"
+            type="button"
+          >
+            Cancelar
+          </Button>
+
+          <Button
+            onClick={() => {
+              const from = searchParams.get("from");
+              router.push(from === "dashboard" ? "/dashboard" : "/procesos");
+            }}
+            style={{ backgroundColor: "#34e004", color: "white" }}
+            className="hover:brightness-110"
+            type="button"
+          >
+            Sí
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* 🔵 BOTÓN VOLVER ← 2 (MOVIDO AQUÍ) */}
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            onClick={() => setStep(2)}
+            className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+          >
+            <span className="text-[#235391] font-bold">← 2</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Regresar al paso anterior</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+
+  </div>
+
+  {/* DERECHA — Botón avanzar */}
+  <div className="flex items-center gap-2">
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={handleGuardarRubros}
+            className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+          >
+            <span className="font-bold">4 →</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Avanza al siguiente paso</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  </div>
+
+</div>
 
       </CardContent>
     </Card>
@@ -3049,22 +3232,75 @@ React.useEffect(() => {
           <div className="flex items-center gap-3">
 
             {/* Botón rojo salir */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    asChild
-                    style={{ backgroundColor: "#db200b", color: "white" }}
-                    className="cursor-pointer hover:scale-105 transition-transform"
-                  >
-                    <Link href="/procesos">←</Link>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Salir</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+{/* ================== */}
+{/* BOTÓN SALIR + DIALOG */}
+{/* ================== */}
+
+<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button
+        onClick={() => setOpenSalirDialog(true)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="cursor-pointer"
+        type="button"
+      >
+        ←
+      </Button>
+    </TooltipTrigger>
+
+    <TooltipContent side="top">
+      <p>Salir</p>
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+
+{/* DIALOG DE CONFIRMACIÓN */}
+<Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+  <DialogContent className="max-w-sm">
+
+    {/* 🔹 Título requerido por Radix (oculto visualmente) */}
+    <DialogTitle className="sr-only">
+      Confirmación de salida del proceso
+    </DialogTitle>
+
+    <DialogHeader>
+      <h2 className="text-lg font-bold">¿Deseas salir del proceso?</h2>
+      <p className="text-sm text-gray-600">
+        Si sales ahora, perderás cualquier información no guardada.
+      </p>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 pt-4">
+      {/* CANCELAR */}
+      <Button
+        onClick={() => setOpenSalirDialog(false)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="hover:brightness-110"
+        type="button"
+      >
+        Cancelar
+      </Button>
+
+      {/* SÍ */}
+      <Button
+        onClick={() => {
+          const from = searchParams.get("from");
+          if (from === "dashboard") {
+            router.push("/dashboard");
+          } else {
+            router.push("/procesos");
+          }
+        }}
+        style={{ backgroundColor: "#34e004", color: "white" }}
+        className="hover:brightness-110"
+        type="button"
+      >
+        Sí
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
             <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
           </div>
@@ -3384,7 +3620,6 @@ React.useEffect(() => {
         </div>
 
         {/* ---------------- TABLA DE PROVEEDORES ---------------- */}
-        <h2 className="text-lg font-semibold text-[#235391] mb-2">Proveedores añadidos</h2>
 
         <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
           <table className="min-w-full text-sm">
@@ -3493,24 +3728,75 @@ React.useEffect(() => {
         <div className="flex justify-between items-center w-full mt-6">
 
           {/* Volver al dashboard */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link href="/procesos">
-                  <Button
-                    variant="outline"
-                    style={{ backgroundColor: "#db200b", color: "white" }}
-                    className="cursor-pointer transition-transform hover:scale-105 hover:brightness-110"
-                  >
-                    ←
-                  </Button>
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Salir</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+{/* ================== */}
+{/* BOTÓN SALIR + DIALOG */}
+{/* ================== */}
+
+<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button
+        onClick={() => setOpenSalirDialog(true)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="cursor-pointer"
+        type="button"
+      >
+        ←
+      </Button>
+    </TooltipTrigger>
+
+    <TooltipContent side="top">
+      <p>Salir</p>
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+
+{/* DIALOG DE CONFIRMACIÓN */}
+<Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+  <DialogContent className="max-w-sm">
+
+    {/* 🔹 Título requerido por Radix (oculto visualmente) */}
+    <DialogTitle className="sr-only">
+      Confirmación de salida del proceso
+    </DialogTitle>
+
+    <DialogHeader>
+      <h2 className="text-lg font-bold">¿Deseas salir del proceso?</h2>
+      <p className="text-sm text-gray-600">
+        Si sales ahora, perderás cualquier información no guardada.
+      </p>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 pt-4">
+      {/* CANCELAR */}
+      <Button
+        onClick={() => setOpenSalirDialog(false)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="hover:brightness-110"
+        type="button"
+      >
+        Cancelar
+      </Button>
+
+      {/* SÍ */}
+      <Button
+        onClick={() => {
+          const from = searchParams.get("from");
+          if (from === "dashboard") {
+            router.push("/dashboard");
+          } else {
+            router.push("/procesos");
+          }
+        }}
+        style={{ backgroundColor: "#34e004", color: "white" }}
+        className="hover:brightness-110"
+        type="button"
+      >
+        Sí
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
           {/* Botones derecha */}
           <div className="flex items-center gap-2">

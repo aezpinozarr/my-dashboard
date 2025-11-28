@@ -380,6 +380,24 @@ export default function UsuariosPage() {
 
   // TanStack Table columns
   const columns = React.useMemo<ColumnDef<Usuario>[]>(() => [
+{
+  id: "acciones",
+  header: "", // 👈 sin encabezado
+  enableSorting: false,
+  enableHiding: false,
+  size: 70,
+  cell: ({ row }) => (
+    <div className="flex items-center gap-1 pl-1">
+      <RowActionButtons
+        id={String(row.original.id)}
+        editPath={`/seguridad/usuarios/edit/${row.original.id}`}
+        onEdit={() => handleEditUser(row.original.id)}
+        onDelete={() => eliminarUsuario(row.original.id)}
+      />
+    </div>
+  ),
+},
+
   {
     accessorKey: "id",
     header: () => <div className="text-center w-full">ID</div>,
@@ -419,24 +437,6 @@ export default function UsuariosPage() {
       </div>
     ),
     size: 140,
-  },
-  {
-    id: "acciones",
-    header: () => <div className="text-center w-full">Acciones</div>,
-    enableSorting: false,
-    size: 120,
-    cell: ({ row }) => (
-      <div className="text-center w-full">
-        <div className="flex justify-center">
-          <RowActionButtons
-            id={String(row.original.id)}
-            editPath={`/seguridad/usuarios/edit/${row.original.id}`}
-            onEdit={() => handleEditUser(row.original.id)}
-            onDelete={() => eliminarUsuario(row.original.id)}
-          />
-        </div>
-      </div>
-    ),
   },
 ], []);
 

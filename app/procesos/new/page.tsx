@@ -1,9 +1,9 @@
 "use client";
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -190,6 +190,9 @@ interface ServidorPublico {
 }
 export default function NuevoProcesoPage() {
   const { user } = useUser();
+  const [openSalirDialog, setOpenSalirDialog] = useState(false);
+  const params = useSearchParams();   // ← AQUÍ SE DEFINE params ✔
+  const from = params.get("from"); // "dashboard" o null
   const router = useRouter();
   const [step, setStep] = React.useState<number>(1);
   const [loading, setLoading] = React.useState(false);
@@ -1200,7 +1203,67 @@ const handleNext = async () => {
 
       {/* Paso 1 */}
       {step === 1 && (
-          <>
+  <>
+
+    {/* 🔥 BOTÓN DE SALIR — FUERA DEL CARD */}
+    <div className="flex justify-start mb-4">
+      <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => setOpenSalirDialog(true)}
+                style={{ backgroundColor: "#db200b", color: "white" }}
+                className="cursor-pointer rounded-md"
+              >
+                ←
+              </Button>
+            </TooltipTrigger>
+
+            <TooltipContent side="top">
+              <p>Salir</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+            <DialogDescription>
+              Si sales ahora, perderás cualquier información no guardada.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex justify-end gap-3 mt-4">
+
+            <Button
+              onClick={() => setOpenSalirDialog(false)}
+              style={{ backgroundColor: "#db200b", color: "white" }}
+              className="hover:brightness-110"
+            >
+              Cancelar
+            </Button>
+
+            <Button
+              onClick={() => {
+                const from = params.get("from");
+                if (from === "dashboard") {
+                  router.push("/dashboard");
+                } else {
+                  router.push("/procesos");
+                }
+              }}
+              style={{ backgroundColor: "#34e004", color: "white" }}
+              className="hover:brightness-110"
+            >
+              Sí
+            </Button>
+
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+
               <Card>
               <CardContent className="space-y-4">
                 
@@ -1210,23 +1273,6 @@ const handleNext = async () => {
           {/* IZQUIERDA → botón rojo + título */}
           <div className="flex items-center gap-3">
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    asChild
-                    style={{ backgroundColor: "#db200b", color: "white" }}
-                    className="cursor-pointer"
-                  >
-                    <Link href="/procesos">←</Link>
-                  </Button>
-                </TooltipTrigger>
-
-                <TooltipContent side="top">
-                  <p>Salir</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
 
             <h1 className="text-2xl font-bold">Paso 1: Oficio de invitación</h1>
           </div>
@@ -1689,83 +1735,183 @@ const handleNext = async () => {
                 </div>
               </CardContent>
             </Card>
+            {/* 🔥 BOTÓN DE SALIR INFERIOR — FUERA DEL CARD */}
+<div className="flex justify-start mt-4">
+  <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={() => setOpenSalirDialog(true)}
+            style={{ backgroundColor: "#db200b", color: "white" }}
+            className="cursor-pointer rounded-md"
+          >
+            ←
+          </Button>
+        </TooltipTrigger>
+
+        <TooltipContent side="top">
+          <p>Salir</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+
+    <DialogContent className="max-w-sm">
+      <DialogHeader>
+        <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+        <DialogDescription>
+          Si sales ahora, perderás cualquier información no guardada.
+        </DialogDescription>
+      </DialogHeader>
+
+      <DialogFooter className="flex justify-end gap-3 mt-4">
+        <Button
+          onClick={() => setOpenSalirDialog(false)}
+          style={{ backgroundColor: "#db200b", color: "white" }}
+          className="hover:brightness-110"
+        >
+          Cancelar
+        </Button>
+
+        <Button
+          onClick={() => {
+            const from = params.get("from");
+            if (from === "dashboard") {
+              router.push("/dashboard");
+            } else {
+              router.push("/procesos");
+            }
+          }}
+          style={{ backgroundColor: "#34e004", color: "white" }}
+          className="hover:brightness-110"
+        >
+          Sí
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+</div>
           </>
       )}
 
-     {/* Paso 2 */}
-      {step === 2 && (
-        <Card>
-          <CardContent className="space-y-4">
-          <div className="flex items-center justify-between mb-6 w-full">
+{/* Paso 2 */}
+{step === 2 && (
+  <>
+    {/* 🔥 BOTÓN SALIR ARRIBA (FUERA DEL CARD) */}
+<div className="flex justify-start mb-4">
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          onClick={() => setOpenSalirDialog(true)}
+          variant="default"
+          className="bg-[#db200b] text-white hover:bg-[#db200b]"
+          type="button"
+        >
+          ←
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">Salir</TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+</div>
 
-            {/* IZQUIERDA → Botón rojo + Título */}
-            <div className="flex items-center gap-3">
+{/* 🔥 DIALOG GLOBAL */}
+<Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+  <DialogContent className="max-w-sm">
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      asChild
-                      style={{ backgroundColor: "#db200b", color: "white" }}
-                      className="cursor-pointer"
-                    >
-                      <Link href="/procesos">←</Link>
-                    </Button>
-                  </TooltipTrigger>
+    <DialogHeader>
+      <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+      <DialogDescription>
+        Si sales ahora, perderás cualquier información no guardada.
+      </DialogDescription>
+    </DialogHeader>
 
-                  <TooltipContent side="top">
-                    <p>Salir</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+    <DialogFooter className="flex justify-end gap-3 mt-4">
 
-              <h1 className="text-2xl font-bold">Paso 2: Partidas</h1>
-            </div>
+      <Button
+        onClick={() => setOpenSalirDialog(false)}
+        variant="default"
+        className="bg-[#db200b] text-white hover:bg-[#db200b]"
+        type="button"
+      >
+        Cancelar
+      </Button>
 
-            {/* DERECHA → Navegación */}
-            <div className="flex items-center gap-2">
+      <Button
+        onClick={() => {
+          const from = params.get("from");
+          router.push(from === "dashboard" ? "/dashboard" : "/procesos");
+        }}
+        variant="default"
+        className="bg-[#34e004] text-white hover:bg-[#34e004]"
+        type="button"
+      >
+        Sí
+      </Button>
 
-              {step > 1 && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        onClick={() => setStep(step - 1)}
-                        className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2 cursor-pointer"
-                      >
-                        <span className="text-[#235391] font-bold">← {step - 1}</span>
-                      </Button>
-                    </TooltipTrigger>
+    </DialogFooter>
 
-                    <TooltipContent side="top">
-                      <p>Regresar al paso anterior</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+  </DialogContent>
+</Dialog>
+  
+  <Card>
+    <CardContent className="space-y-4">
 
-              {/* Botón Siguiente SUPERIOR — usa la MISMA lógica que el botón inferior */}
-              {step < 4 && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                      onClick={handleNext}
-                      className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform flex items-center gap-1 rounded-full px-4 py-2"
-                    >
-                      <span className="font-bold">{step + 1} →</span>
-                    </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Avanza al siguiente paso</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
+      <div className="flex items-center justify-between mb-6 w-full">
 
-          </div>
+        {/* IZQUIERDA → Botón salir + volver paso anterior + título */}
+        <div className="flex items-center gap-3">
+
+          
+
+          {/* BOTÓN VOLVER PASO ANTERIOR  — AHORA AQUÍ A LA IZQUIERDA */}
+          {step > 1 && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep(step - 1)}
+                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2 cursor-pointer"
+                  >
+                    <span className="text-[#235391] font-bold">← {step - 1}</span>
+                  </Button>
+                </TooltipTrigger>
+
+                <TooltipContent side="top">
+                  <p>Regresar al paso anterior</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
+          {/* TÍTULO */}
+          <h1 className="text-2xl font-bold">Paso 2: Partidas</h1>
+        </div>
+
+        {/* DERECHA → Botón siguiente (se queda donde está) */}
+        <div className="flex items-center gap-2">
+          {step < 4 && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleNext}
+                    className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform flex items-center gap-1 rounded-full px-4 py-2"
+                  >
+                    <span className="font-bold">{step + 1} →</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Avanza al siguiente paso</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+
+      </div>
             {/* Oficio de invitación bloqueado */}
             <div>
               <Label>Oficio de invitación</Label>
@@ -1908,7 +2054,6 @@ const handleNext = async () => {
               </div>
             </form>
             {/* Tabla de partidas - DISEÑO MEJORADO */}
-            <h2 className="text-lg font-semibold text-[#235391]">Partidas registradas</h2>
             <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
               <table className="min-w-full text-sm">
                 <thead>
@@ -1977,71 +2122,121 @@ const handleNext = async () => {
             </div>
 
               {/* Botones inferiores alineados */}
-              <div className="flex justify-between items-center mt-6 w-full">
+<div className="flex justify-between items-center mt-6 w-full">
 
-              {/* Botón regresar al dashboard */}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link href="/procesos">
-                      <Button
-                        variant="outline"
-                        style={{ backgroundColor: "#db200b", color: "white" }}
-                        className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-                      >
-                        ←
-                      </Button>
-                    </Link>
-                  </TooltipTrigger>
+  {/* ================================ */}
+  {/* IZQUIERDA → SALIR + VOLVER */}
+  {/* ================================ */}
+  <div className="flex items-center gap-2">
 
-                  <TooltipContent side="top">
-                    <p>Salir</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
 
-              {/* Botones de navegación */}
-              <div className="flex items-center gap-2">
-                <TooltipProvider>
+    {/* Botón Volver (paso 1) */}
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            onClick={() => setStep(1)}
+            className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+          >
+            <span className="text-[#235391] font-bold">← 1</span>
+          </Button>
+        </TooltipTrigger>
 
-                  {/* Botón Volver (paso 1) */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        onClick={() => setStep(1)}
-                        className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
-                      >
-                        <span className="text-[#235391] font-bold">← 1</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Regresa al paso anterior</p>
-                    </TooltipContent>
-                  </Tooltip>
+        <TooltipContent side="top">
+          <p>Regresa al paso anterior</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
 
-                  {/* Botón Siguiente */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        onClick={handleNext}
-                        className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
-                      >
-                        <span className="font-bold">3 →</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Avanza al siguiente paso</p>
-                    </TooltipContent>
-                  </Tooltip>
+  </div>
 
-                </TooltipProvider>
-              </div>
-            </div>
+  {/* ================================ */}
+  {/* DERECHA → SIGUIENTE */}
+  {/* ================================ */}
+  <div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            onClick={handleNext}
+            className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+          >
+            <span className="font-bold">3 →</span>
+          </Button>
+        </TooltipTrigger>
+
+        <TooltipContent side="top">
+          <p>Avanza al siguiente paso</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  </div>
+
+</div>
           </CardContent>
         </Card>
-      )}
+       {/* 🔥 BOTÓN SALIR ARRIBA (FUERA DEL CARD) */}
+<div className="flex justify-start mb-4">
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          onClick={() => setOpenSalirDialog(true)}
+          variant="default"
+          className="bg-[#db200b] text-white hover:bg-[#db200b]"
+          type="button"
+        >
+          ←
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">Salir</TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+</div>
+
+{/* 🔥 DIALOG GLOBAL */}
+<Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+  <DialogContent className="max-w-sm">
+
+    <DialogHeader>
+      <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+      <DialogDescription>
+        Si sales ahora, perderás cualquier información no guardada.
+      </DialogDescription>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 mt-4">
+
+      <Button
+        onClick={() => setOpenSalirDialog(false)}
+        variant="default"
+        className="bg-[#db200b] text-white hover:bg-[#db200b]"
+        type="button"
+      >
+        Cancelar
+      </Button>
+
+      <Button
+        onClick={() => {
+          const from = params.get("from");
+          router.push(from === "dashboard" ? "/dashboard" : "/procesos");
+        }}
+        variant="default"
+        className="bg-[#34e004] text-white hover:bg-[#34e004]"
+        type="button"
+      >
+        Sí
+      </Button>
+
+    </DialogFooter>
+
+  </DialogContent>
+</Dialog>
+
+  </>
+)}
 
    {/* Paso 3 */}
 {(() => {
@@ -2063,80 +2258,114 @@ const handleNext = async () => {
 
   return (
     <Card>
-      <CardContent className="space-y-4">
-        
-        {/* Encabezado del Paso 3 */}
-<div className="flex items-center justify-between w-full mb-6">
+  <CardContent className="space-y-4">
 
-  {/* IZQUIERDA → Botón regresar + Título */}
-<div className="flex items-center gap-3">
+    {/* Encabezado del Paso 3 */}
+    <div className="flex items-center justify-between w-full mb-6">
 
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          asChild
-          style={{ backgroundColor: "#db200b", color: "white" }}
-          className="cursor-pointer hover:scale-105 transition-transform"
-        >
-          <Link href="/procesos">←</Link>
-        </Button>
-      </TooltipTrigger>
+      {/* IZQUIERDA → Botón regresar + botón salir + título */}
+      <div className="flex items-center gap-3">
 
-      <TooltipContent side="top">
-        <p>Salir</p>
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
+        {/* BOTÓN SALIR (SE MANTIENE) */}
+        <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => setOpenSalirDialog(true)}
+                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  className="cursor-pointer"
+                >
+                  ←
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Salir</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-  <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
-</div>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+              <DialogDescription>
+                Si sales ahora, perderás cualquier información no guardada.
+              </DialogDescription>
+            </DialogHeader>
 
-{/* DERECHA → Botones de navegación */}
-<div className="flex items-center gap-2">
+            <DialogFooter className="flex justify-end gap-3 mt-4">
+              {/* CANCELAR */}
+              <Button
+                onClick={() => setOpenSalirDialog(false)}
+                style={{ backgroundColor: "#db200b", color: "white" }}
+                className="hover:brightness-110"
+              >
+                Cancelar
+              </Button>
 
-  {/* Botón regresar al paso anterior */}
-  {step > 1 && (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            onClick={() => setStep(step - 1)}
-            className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
-          >
-            <span className="text-[#235391] font-bold">← {step - 1}</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Regresar al paso anterior</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )}
+              {/* SÍ */}
+              <Button
+                onClick={() => {
+                  const from = params.get("from");
+                  if (from === "dashboard") {
+                    router.push("/dashboard");
+                  } else {
+                    router.push("/procesos");
+                  }
+                }}
+                style={{ backgroundColor: "#34e004", color: "white" }}
+                className="hover:brightness-110"
+              >
+                Sí
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-  {/* Botón avanzar */}
-  {step < 4 && (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            onClick={handleGuardarRubros}
-            className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
-          >
-            <span className="font-bold">{step + 1} →</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Avanzar al siguiente paso</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )}
+        {/* 🔵 BOTÓN VOLVER AL PASO 2 → AHORA A LA IZQUIERDA */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={() => setStep(2)}
+                className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+              >
+                <span className="text-[#235391] font-bold">← 2</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Regresar al paso anterior</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
-</div>
+        {/* TÍTULO */}
+        <h1 className="text-2xl font-bold">Paso 3: Rubros</h1>
+      </div>
 
-</div>
+      {/* DERECHA → SOLO BOTÓN AVANZAR */}
+      <div className="flex items-center gap-2">
+        {step < 4 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleGuardarRubros}
+                  className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 transition-transform rounded-full px-4 py-2 flex items-center gap-2"
+                >
+                  <span className="font-bold">{step + 1} →</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Avanzar al siguiente paso</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+
+    </div>
 
         {/* Oficio invitación */}
         <div>
@@ -2433,26 +2662,61 @@ const handleNext = async () => {
 
           {/* Botón rojo */}
           <div className="flex justify-start">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex justify-start">
-                  <Link href="/procesos">
-                    <Button
-                      variant="outline"
-                      style={{ backgroundColor: "#db200b", color: "white" }}
-                      className="cursor-pointer transition-transform duration-150 hover:scale-105 hover:brightness-110"
-                    >
-                      ←
-                    </Button>
-                  </Link>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Salir</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+<Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          onClick={() => setOpenSalirDialog(true)}
+          style={{ backgroundColor: "#db200b", color: "white" }}
+          className="cursor-pointer"
+        >
+          ←
+        </Button>
+      </TooltipTrigger>
+
+      <TooltipContent side="top">
+        <p>Salir</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+
+  <DialogContent className="max-w-sm">
+    <DialogHeader>
+      <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+      <DialogDescription>
+        Si sales ahora, perderás cualquier información no guardada.
+      </DialogDescription>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 mt-4">
+      {/* CANCELAR */}
+      <Button
+        onClick={() => setOpenSalirDialog(false)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Cancelar
+      </Button>
+
+      {/* SÍ */}
+      <Button
+        onClick={() => {
+          const from = params.get("from");
+          if (from === "dashboard") {
+            router.push("/dashboard");
+          } else {
+            router.push("/procesos");
+          }
+        }}
+        style={{ backgroundColor: "#34e004", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Sí
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
           </div>
 
           {/* Derecha: botones de paso — MISMO DISEÑO QUE LOS SUPERIORES */}
@@ -2515,23 +2779,61 @@ const handleNext = async () => {
                {/* IZQUIERDA → botón rojo + título */}
                 <div className="flex items-center gap-3">
 
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          asChild
-                          style={{ backgroundColor: "#db200b", color: "white" }}
-                          className="cursor-pointer hover:scale-105 transition-transform"
-                        >
-                          <Link href="/procesos">←</Link>
-                        </Button>
-                      </TooltipTrigger>
+<Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          onClick={() => setOpenSalirDialog(true)}
+          style={{ backgroundColor: "#db200b", color: "white" }}
+          className="cursor-pointer"
+        >
+          ←
+        </Button>
+      </TooltipTrigger>
 
-                      <TooltipContent side="top">
-                        <p>Salir</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+      <TooltipContent side="top">
+        <p>Salir</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+
+  <DialogContent className="max-w-sm">
+    <DialogHeader>
+      <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+      <DialogDescription>
+        Si sales ahora, perderás cualquier información no guardada.
+      </DialogDescription>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 mt-4">
+      {/* CANCELAR */}
+      <Button
+        onClick={() => setOpenSalirDialog(false)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Cancelar
+      </Button>
+
+      {/* SÍ */}
+      <Button
+        onClick={() => {
+          const from = params.get("from");
+          if (from === "dashboard") {
+            router.push("/dashboard");
+          } else {
+            router.push("/procesos");
+          }
+        }}
+        style={{ backgroundColor: "#34e004", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Sí
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
                   <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
                 </div>
@@ -3022,7 +3324,6 @@ const handleNext = async () => {
 
         {/* Tabla de proveedores */}
 {/* Tabla de proveedores añadidos */}
-<h2 className="text-lg font-semibold text-[#235391] mb-2">Proveedores añadidos</h2>
 <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
   <table className="min-w-full text-sm">
     <thead>
@@ -3076,25 +3377,61 @@ const handleNext = async () => {
 <div className="flex justify-between items-center w-full mt-6">
 
 {/* Botón rojo – VOLVER AL DASHBOARD */}
-<TooltipProvider>
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <Link href="/procesos">
+<Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
         <Button
-          variant="outline"
+          onClick={() => setOpenSalirDialog(true)}
           style={{ backgroundColor: "#db200b", color: "white" }}
-          className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+          className="cursor-pointer"
         >
           ←
         </Button>
-      </Link>
-    </TooltipTrigger>
+      </TooltipTrigger>
 
-    <TooltipContent side="top">
-      <p>Salir</p>
-    </TooltipContent>
-  </Tooltip>
-</TooltipProvider>
+      <TooltipContent side="top">
+        <p>Salir</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+
+  <DialogContent className="max-w-sm">
+    <DialogHeader>
+      <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+      <DialogDescription>
+        Si sales ahora, perderás cualquier información no guardada.
+      </DialogDescription>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 mt-4">
+      {/* CANCELAR */}
+      <Button
+        onClick={() => setOpenSalirDialog(false)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Cancelar
+      </Button>
+
+      {/* SÍ */}
+      <Button
+        onClick={() => {
+          const from = params.get("from");
+          if (from === "dashboard") {
+            router.push("/dashboard");
+          } else {
+            router.push("/procesos");
+          }
+        }}
+        style={{ backgroundColor: "#34e004", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Sí
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
   {/* Botones DERECHA – IGUALITOS A LOS SUPERIORES */}
   <div className="flex items-center gap-2">

@@ -91,7 +91,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       isActive: openMenus.includes("Procesos"),
       items: [
         { title: "Seguimiento de procesos", url: "/procesos" },
-        { title: "Nuevo seguimiento", url: "/procesos/new" },
+        { title: "Nuevo seguimiento", url: "/procesos/new?from=dashboard" },
       ],
     },
 

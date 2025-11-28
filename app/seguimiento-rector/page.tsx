@@ -71,7 +71,7 @@ type Preregistro = {
   r_fecha_emision: string | null;
   r_asunto: string | null;
   r_fecha_y_hora_reunion: string | null;
-  r_estatus: string;
+  estatus: string;
   servidor_publico_emite: string;
   e_servidor_publico_cargo: string;
   e_tipo_evento?: string | null;
@@ -298,7 +298,7 @@ export default function SeguimientoRectorPage() {
           r.e_tipo_licitacion,
           r.tipo_licitacion_no_veces_descripcion,
           r.servidor_publico_emite,
-          r.r_estatus,
+          r.estatus,
         ]
           .map((v) =>
             typeof v === "number"
@@ -634,12 +634,12 @@ const cargarRegistros = async () => {
                   <strong>Estatus:</strong>{" "}
                   <span
                     className={`px-2 py-1 rounded text-xs font-semibold ${
-                      r.r_estatus === "PREREGISTRADO"
+                      r.estatus === "PREREGISTRADO"
                         ? "bg-yellow-100 text-yellow-700"
                         : "bg-green-100 text-green-700"
                     }`}
                   >
-                    {r.r_estatus}
+                    {r.estatus}
                   </span>
                 </p>
 
@@ -667,71 +667,75 @@ const cargarRegistros = async () => {
                         <div className="mt-6 border-t pt-4 space-y-6">
                           <h3 className="font-semibold text-gray-700">Partidas y Rubros registrados</h3>
                           {detalle.length > 0 ? (
-                            <Accordion type="single" collapsible className="space-y-4">
-                              {Object.values(detalleAgrupado).map(({ e_id_partida, partida, items }: any) => {
-                                // Agrupar items por e_id_rubro
-                                const rubrosAgrupados = items.reduce((acc: Record<string, any>, item: any) => {
-                                  const key = item.e_id_rubro || "sin_rubro";
-                                  if (!acc[key]) {
-                                    acc[key] = {
-                                      e_id_rubro: item.e_id_rubro,
-                                      rubro: item.rubro,
-                                      proveedores: [],
-                                    };
-                                  }
-                                  acc[key].proveedores.push(item);
-                                  return acc;
-                                }, {});
+                          <Accordion type="single" collapsible className="space-y-4">
 
-                                return (
-                                  <AccordionItem key={e_id_partida || "sin_partida"} value={String(e_id_partida) || "sin_partida"} className="border border-gray-200 rounded-md">
-                                    <AccordionTrigger className="px-4 py-2 font-semibold text-gray-800">
-                                      {e_id_partida ? `${e_id_partida} — ${partida || "Sin descripción"}` : "Sin partida"}
-                                    </AccordionTrigger>
-                                    <AccordionContent className="px-4 py-2 space-y-4 bg-gray-50">
-                                      {Object.values(rubrosAgrupados).map(({ e_id_rubro, rubro, proveedores }: any) => (
-                                        <div key={e_id_rubro || "sin_rubro"} className="border border-gray-300 rounded-md p-3 bg-white space-y-3">
-                                          <p className="font-semibold text-gray-800 border-b border-gray-200 pb-1">
-                                            {e_id_rubro ? `${e_id_rubro} — ${rubro || "Sin nombre"}` : "Sin rubro"}
-                                          </p>
-                                          <div className="space-y-2">
-                                            {proveedores.map((prov: any, i: number) => (
-                                              <div key={i} className="border border-gray-200 rounded-md p-2 flex flex-col bg-gray-50">
-                                                {/* Proveedores participantes */}
-                                                {prov.e_rfc_proveedor && (
-                                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-gray-200 pb-2 mb-2">
-                                                    <p className="text-sm font-medium text-gray-700">
-                                                      Proveedor participante: <span className="font-semibold">{prov.e_rfc_proveedor}</span>
-                                                    </p>
-                                                    <div className="flex gap-4 text-sm text-gray-600 mt-1 sm:mt-0">
-                                                      <p><strong>Monto sin IVA:</strong> {formatMXN(prov.e_importe_sin_iva)}</p>
-                                                      <p><strong>Monto Total:</strong> {formatMXN(prov.e_importe_total)}</p>
-                                                    </div>
-                                                  </div>
-                                                )}
+  {Object.values(detalleAgrupado).flatMap(({ e_id_partida, partida, items }: any) => {
 
-                                                {/* Proveedor adjudicado */}
-                                                {prov.r_rfc_proveedor_adjudicado && (
-                                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-green-50 p-2 rounded-md">
-                                                    <p className="text-sm font-medium text-green-700">
-                                                      ✅ Adjudicado: <span className="font-semibold">{prov.r_rfc_proveedor_adjudicado}</span>
-                                                    </p>
-                                                    <div className="flex gap-4 text-sm text-green-700 mt-1 sm:mt-0">
-                                                      <p><strong>Monto sin IVA:</strong> {formatMXN(prov.r_importe_ajustado_sin_iva)}</p>
-                                                      <p><strong>Monto Total:</strong> {formatMXN(prov.r_importe_ajustado_total)}</p>
-                                                    </div>
-                                                  </div>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </AccordionContent>
-                                  </AccordionItem>
-                                );
-                              })}
-                            </Accordion>
+    // AGRUPAR POR RUBRO
+    const rubrosAgrupados = items.reduce((acc: Record<string, any>, item: any) => {
+      const key = item.e_id_rubro || "sin_rubro";
+      if (!acc[key]) {
+        acc[key] = {
+          e_id_rubro: item.e_id_rubro,
+          rubro: item.rubro,
+          proveedores: [],
+        };
+      }
+      acc[key].proveedores.push(item);
+      return acc;
+    }, {});
+
+    // GENERAR UN ACCORDION POR CADA RUBRO
+    return Object.values(rubrosAgrupados).map(({ e_id_rubro, rubro, proveedores }: any) => (
+      <AccordionItem
+        key={`${e_id_partida}_${e_id_rubro}`}
+        value={`${e_id_partida}_${e_id_rubro}`}
+        className="border border-gray-200 rounded-md"
+      >
+        {/* TÍTULO: PARTIDA + RUBRO */}
+        <AccordionTrigger className="px-4 py-2 font-semibold text-gray-800">
+          {e_id_partida} | Rubro #{e_id_rubro} — {rubro || "Sin descripción"}
+        </AccordionTrigger>
+
+        {/* CONTENIDO */}
+        <AccordionContent className="px-4 py-2 space-y-4 bg-gray-50">
+          {proveedores.map((prov: any, i: number) => (
+            <div key={i} className="border border-gray-200 rounded-md p-2 flex flex-col bg-gray-50">
+
+              {/* Proveedor participante */}
+              {prov.e_rfc_proveedor && (
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-gray-200 pb-2 mb-2">
+                  <p className="text-sm font-medium text-gray-700">
+                    Proveedor participante: <span className="font-semibold">{prov.e_rfc_proveedor}</span>
+                  </p>
+                  <div className="flex gap-4 text-sm text-gray-600 mt-1 sm:mt-0">
+                    <p><strong>Monto sin IVA:</strong> {formatMXN(prov.e_importe_sin_iva)}</p>
+                    <p><strong>Monto Total:</strong> {formatMXN(prov.e_importe_total)}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Adjudicado */}
+              {prov.r_rfc_proveedor_adjudicado && (
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-green-50 p-2 rounded-md">
+                  <p className="text-sm font-medium text-green-700">
+                    ✅ Adjudicado: <span className="font-semibold">{prov.r_rfc_proveedor_adjudicado}</span>
+                  </p>
+                  <div className="flex gap-4 text-sm text-green-700 mt-1 sm:mt-0">
+                    <p><strong>Monto sin IVA:</strong> {formatMXN(prov.r_importe_ajustado_sin_iva)}</p>
+                    <p><strong>Monto Total:</strong> {formatMXN(prov.r_importe_ajustado_total)}</p>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          ))}
+        </AccordionContent>
+      </AccordionItem>
+    ));
+  })}
+
+</Accordion>
                           ) : (
                             <p className="text-gray-500 mt-2">No hay partidas registradas.</p>
                           )}
@@ -769,70 +773,68 @@ const cargarRegistros = async () => {
                 <h3 className="font-semibold text-gray-700">Partidas y Rubros registrados</h3>
                 {detalle.length > 0 ? (
                   <Accordion type="single" collapsible className="space-y-4">
-                    {Object.values(detalleAgrupado).map(({ e_id_partida, partida, items }: any) => {
-                      // Agrupar items por e_id_rubro
-                      const rubrosAgrupados = items.reduce((acc: Record<string, any>, item: any) => {
-                        const key = item.e_id_rubro || "sin_rubro";
-                        if (!acc[key]) {
-                          acc[key] = {
-                            e_id_rubro: item.e_id_rubro,
-                            rubro: item.rubro,
-                            proveedores: [],
-                          };
-                        }
-                        acc[key].proveedores.push(item);
-                        return acc;
-                      }, {});
 
-                      return (
-                        <AccordionItem key={e_id_partida || "sin_partida"} value={String(e_id_partida) || "sin_partida"} className="border border-gray-200 rounded-md">
-                          <AccordionTrigger className="px-4 py-2 font-semibold text-gray-800">
-                            {e_id_partida ? `${e_id_partida} — ${partida || "Sin descripción"}` : "Sin partida"}
-                          </AccordionTrigger>
-                          <AccordionContent className="px-4 py-2 space-y-4 bg-gray-50">
-                            {Object.values(rubrosAgrupados).map(({ e_id_rubro, rubro, proveedores }: any) => (
-                              <div key={e_id_rubro || "sin_rubro"} className="border border-gray-300 rounded-md p-3 bg-white space-y-3">
-                                <p className="font-semibold text-gray-800 border-b border-gray-200 pb-1">
-                                  {e_id_rubro ? `${e_id_rubro} — ${rubro || "Sin nombre"}` : "Sin rubro"}
-                                </p>
-                                <div className="space-y-2">
-                                  {proveedores.map((prov: any, i: number) => (
-                                    <div key={i} className="border border-gray-200 rounded-md p-2 flex flex-col bg-gray-50">
-                                      {/* Proveedores participantes */}
-                                      {prov.e_rfc_proveedor && (
-                                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-gray-200 pb-2 mb-2">
-                                          <p className="text-sm font-medium text-gray-700">
-                                            Proveedor participante: <span className="font-semibold">{prov.e_rfc_proveedor}</span>
-                                          </p>
-                                          <div className="flex gap-4 text-sm text-gray-600 mt-1 sm:mt-0">
-                                            <p><strong>Monto sin IVA:</strong> {formatMXN(prov.e_importe_sin_iva)}</p>
-                                            <p><strong>Monto Total:</strong> {formatMXN(prov.e_importe_total)}</p>
-                                          </div>
-                                        </div>
-                                      )}
+  {Object.values(detalleAgrupado).flatMap(({ e_id_partida, partida, items }: any) => {
 
-                                      {/* Proveedor adjudicado */}
-                                      {prov.r_rfc_proveedor_adjudicado && (
-                                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-green-50 p-2 rounded-md">
-                                          <p className="text-sm font-medium text-green-700">
-                                            ✅ Adjudicado: <span className="font-semibold">{prov.r_rfc_proveedor_adjudicado}</span>
-                                          </p>
-                                          <div className="flex gap-4 text-sm text-green-700 mt-1 sm:mt-0">
-                                            <p><strong>Monto sin IVA:</strong> {formatMXN(prov.r_importe_ajustado_sin_iva)}</p>
-                                            <p><strong>Monto Total:</strong> {formatMXN(prov.r_importe_ajustado_total)}</p>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
-                  </Accordion>
+    const rubrosAgrupados = items.reduce((acc: Record<string, any>, item: any) => {
+      const key = item.e_id_rubro || "sin_rubro";
+      if (!acc[key]) {
+        acc[key] = {
+          e_id_rubro: item.e_id_rubro,
+          rubro: item.rubro,
+          proveedores: [],
+        };
+      }
+      acc[key].proveedores.push(item);
+      return acc;
+    }, {});
+
+    return Object.values(rubrosAgrupados).map(({ e_id_rubro, rubro, proveedores }: any) => (
+      <AccordionItem
+        key={`${e_id_partida}_${e_id_rubro}`}
+        value={`${e_id_partida}_${e_id_rubro}`}
+        className="border border-gray-200 rounded-md"
+      >
+        <AccordionTrigger className="px-4 py-2 font-semibold text-gray-800">
+          {e_id_partida} | Rubro #{e_id_rubro} — {rubro || "Sin descripción"}
+        </AccordionTrigger>
+
+        <AccordionContent className="px-4 py-2 space-y-4 bg-gray-50">
+          {proveedores.map((prov: any, i: number) => (
+            <div key={i} className="border border-gray-200 rounded-md p-2 flex flex-col bg-gray-50">
+
+              {prov.e_rfc_proveedor && (
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-gray-200 pb-2 mb-2">
+                  <p className="text-sm font-medium text-gray-700">
+                    Proveedor participante: <span className="font-semibold">{prov.e_rfc_proveedor}</span>
+                  </p>
+                  <div className="flex gap-4 text-sm text-gray-600 mt-1 sm:mt-0">
+                    <p><strong>Monto sin IVA:</strong> {formatMXN(prov.e_importe_sin_iva)}</p>
+                    <p><strong>Monto Total:</strong> {formatMXN(prov.e_importe_total)}</p>
+                  </div>
+                </div>
+              )}
+
+              {prov.r_rfc_proveedor_adjudicado && (
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-green-50 p-2 rounded-md">
+                  <p className="text-sm font-medium text-green-700">
+                    ✅ Adjudicado: <span className="font-semibold">{prov.r_rfc_proveedor_adjudicado}</span>
+                  </p>
+                  <div className="flex gap-4 text-sm text-green-700 mt-1 sm:mt-0">
+                    <p><strong>Monto sin IVA:</strong> {formatMXN(prov.r_importe_ajustado_sin_iva)}</p>
+                    <p><strong>Monto Total:</strong> {formatMXN(prov.r_importe_ajustado_total)}</p>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          ))}
+        </AccordionContent>
+      </AccordionItem>
+    ));
+  })}
+
+</Accordion>
                 ) : (
                   <p className="text-gray-500 mt-2">No hay partidas registradas.</p>
                 )}

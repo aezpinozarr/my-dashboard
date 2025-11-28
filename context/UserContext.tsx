@@ -13,6 +13,7 @@ type User = {
 
 type UserContextType = {
   user: User | null;
+  loading: boolean;
   setUser: (user: User | null) => void;
   logout: () => void;
 };
@@ -21,10 +22,11 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true); // ⬅️ NUEVO
 
-  // Guarda/borra en localStorage cuando cambia
   const setUser = (userData: User | null) => {
     setUserState(userData);
+
     if (userData) {
       localStorage.setItem("user", JSON.stringify(userData));
     } else {
@@ -32,21 +34,24 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Restaura desde localStorage al montar
   useEffect(() => {
     try {
       const stored = localStorage.getItem("user");
-      if (stored) setUserState(JSON.parse(stored));
+
+      if (stored) {
+        setUserState(JSON.parse(stored));
+      }
     } catch {
-      // si hay algo corrupto, lo limpiamos
       localStorage.removeItem("user");
+    } finally {
+      setLoading(false); // ⬅️ IMPORTANTE
     }
   }, []);
 
   const logout = () => setUser(null);
 
   return (
-    <UserContext.Provider value={{ user, setUser, logout }}>
+    <UserContext.Provider value={{ user, loading, setUser, logout }}>
       {children}
     </UserContext.Provider>
   );

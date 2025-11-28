@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useUser } from "@/context/UserContext";
 import Link from "next/link";
 import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,7 @@ interface Seguimiento {
   r_fecha_emision: string | null;
   r_asunto: string | null;
   r_fecha_y_hora_reunion: string | null;
-  r_estatus: string | null;
+  seguimiento_estatus: string | null;
   partida: string | null;
   capitulo: string | null;
   clasificacion: string | null;
@@ -83,12 +84,22 @@ interface Seguimiento {
     fondo: string | null;
     ramo: string | null;
     rubro: string | null;
+    estatus: string | null; 
     e_monto_presupuesto_suficiencia: string | null;
     proveedores: string | null;
   }[];
 }
 
 export default function ProcesosPage() {
+  const { user } = useUser();
+const [userLoaded, setUserLoaded] = useState(false);
+useEffect(() => {
+  if (user !== null) {
+    setUserLoaded(true);
+  }
+}, [user]);
+
+
   const [data, setData] = useState<Seguimiento[]>([]);
   const [loading, setLoading] = useState(true);
   const [originalData, setOriginalData] = useState<Seguimiento[]>([]);
@@ -126,7 +137,7 @@ export default function ProcesosPage() {
     { id: "r_fecha_emision", header: "Fecha de emisión" },
     { id: "r_asunto", header: "Asunto" },
     { id: "r_fecha_y_hora_reunion", header: "Fecha reunión" },
-    { id: "r_estatus", header: "Estatus" },
+    { id: "estatus", header: "Estatus" },
   ];
 
   // Column definitions for Presupuesto subtable
@@ -143,145 +154,97 @@ export default function ProcesosPage() {
   ];
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [resEnte, resRector] = await Promise.all([
-          fetch(`${API_BASE}/procesos/ente-seguimiento/`),
-          fetch(`${API_BASE}/procesos/rector-seguimiento-detallev1/`)
-        ]);
+  // Espera a que el user esté completamente cargado
+  if (!userLoaded) return;
+  if (!user) return;
 
-        const jsonEnte = await resEnte.json();
-        const jsonRector = await resRector.json();
+  const fetchData = async () => {
+    try {
+      let url = "";
 
-        // 🔹 Extraemos el array correcto (puede venir en data o directamente)
-        const enteData = Array.isArray(jsonEnte)
-          ? jsonEnte
-          : jsonEnte.data || [];
-
-        const rectorData = Array.isArray(jsonRector)
-          ? jsonRector
-          : jsonRector.data || [];
-
-        // 🧩 Logs de depuración para verificar los nombres reales de los campos
-        console.log("🧩 Ejemplo de objeto enteData:", enteData[0]);
-        console.log("🧩 Ejemplo de objeto rectorData:", rectorData[0]);
-
-        // 🔹 Creamos un mapa con los datos del ente
-        const enteMap = new Map<number, any>();
-        for (const item of enteData) {
-          if (item.id !== undefined && item.id !== null) {
-            enteMap.set(item.id, item);
-          }
-        }
-
-        // 🔹 Hacemos merge: el del rector sobrescribe los del ente
-        const merged: any[] = rectorData.map((rectorItem: any) => {
-          const id = rectorItem.id;
-          const enteItem = enteMap.get(id) || {};
-          return { ...enteItem, ...rectorItem };
-        });
-        console.log("🧾 Ejemplo de objeto combinado:", merged[0]);
-
-        // 🔹 Agregamos los del ente que no tienen datos del rector
-        for (const [id, enteItem] of enteMap.entries()) {
-          if (!merged.find((item: any) => item.id === id)) {
-            merged.push(enteItem);
-          }
-        }
-
-        // 🔹 Ordenamos de más reciente a más antiguo
-        merged.sort((a, b) => (b.id || 0) - (a.id || 0));
-
-        // 🔹 Agrupamos por ID para consolidar los registros duplicados
-        const groupedMap = new Map<number, any>();
-
-        for (const item of merged) {
-          const existing = groupedMap.get(item.id);
-
-          if (existing) {
-            // Busca si ya existe el mismo rubro dentro de los presupuestos del seguimiento
-            const sameRubro = existing.presupuestos.find(
-              (p: any) => p.rubro === item.rubro && p.partida === item.partida
-            );
-
-            if (sameRubro) {
-              // 🔹 Fusiona proveedores únicos
-              const newProviders = item.proveedores
-                ? item.proveedores.split(";").map((prov: string) => prov.trim())
-                : [];
-
-              const existingProviders = sameRubro.proveedores
-                ? sameRubro.proveedores.split(";").map((prov: string) => prov.trim())
-                : [];
-
-              const mergedProviders = Array.from(
-                new Set([...existingProviders, ...newProviders])
-              ).filter(Boolean);
-
-              sameRubro.proveedores = mergedProviders.join("; ");
-            } else {
-              // 🧠 Item original antes del push:
-              console.log("🧠 Item original antes del push:", item);
-              // Si no existe ese rubro aún, agrégalo como nuevo
-              existing.presupuestos.push({
-                e_id_partida: item.e_id_partida ?? null,
-                e_id_rubro: item.e_id_rubro ?? null,
-                partida: item.partida,
-                capitulo: item.capitulo,
-                clasificacion: item.clasificacion,
-                tipo_gasto: item.tipo_gasto,
-                f_financiamiento: item.f_financiamiento,
-                etiquetado: item.etiquetado,
-                fondo: item.fondo,
-                ramo: item.ramo,
-                rubro: item.rubro,
-                e_monto_presupuesto_suficiencia: item.e_monto_presupuesto_suficiencia,
-                proveedores: item.proveedores,
-              });
-            }
-          } else {
-            // 🔹 Nuevo seguimiento con su primer rubro
-            groupedMap.set(item.id, {
-              ...item,
-              presupuestos: [
-                {
-                  e_id_partida: item.e_id_partida ?? null,
-                  e_id_rubro: item.e_id_rubro ?? null,
-                  partida: item.partida,
-                  capitulo: item.capitulo,
-                  clasificacion: item.clasificacion,
-                  tipo_gasto: item.tipo_gasto,
-                  f_financiamiento: item.f_financiamiento,
-                  etiquetado: item.etiquetado,
-                  fondo: item.fondo,
-                  ramo: item.ramo,
-                  rubro: item.rubro,
-                  e_monto_presupuesto_suficiencia: item.e_monto_presupuesto_suficiencia,
-                  proveedores: item.proveedores,
-                },
-              ],
-            });
-          }
-        }
-
-        // 🔹 Convertimos el mapa en un array consolidado
-        // 🔹 Convertimos el mapa en un array consolidado
-        const groupedData = Array.from(groupedMap.values());
-        console.log("✅ Resultado final de groupedData:", groupedData);
-
-        setData(groupedData);
-        setOriginalData(groupedData); 
-        
-        // setData(merged);
-      } catch (err) {
-        console.error("❌ Error al cargar datos:", err);
-      } finally {
-        setLoading(false);
+      // 🟦 RECTOR → trae TODO
+      if (user.tipo === "RECTOR") {
+        url = `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente/all`;
+        console.log("👑 Usuario RECTOR → cargando todos los entes");
       }
-    };
 
-    fetchData();
-  }, []);
+      // 🟪 ENTE → solo trae su ente
+      else if (user.tipo === "ENTE") {
+        if (!user.id_ente) {
+          console.error("❌ ENTE sin id_ente");
+          setLoading(false);
+          return;
+        }
+
+        url = `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente/by-ente?p_id_ente=${user.id_ente}`;
+        console.log(`🏛 Usuario ENTE → cargando datos del ente ${user.id_ente}`);
+      }
+
+      // Tipo desconocido
+      else {
+        console.error("❌ Tipo de usuario desconocido:", user.tipo);
+        setLoading(false);
+        return;
+      }
+
+      // 🔥 Fetch
+      const res = await fetch(url);
+      const json = await res.json();
+      const rows = json.resultado || [];
+
+      // 🔄 Consolidación
+      const map = new Map();
+
+      for (const row of rows) {
+        const id = row.id;
+
+      if (!map.has(id)) {
+        map.set(id, {
+          ...row,
+          seguimiento_estatus: row.estatus, // el correcto (viene de v_seguimiento)
+          presupuestos: []
+        });
+      } else {
+        // Si ya existe, NO volver a asignar estatus (porque las filas del rubro traen PREINGRESO)
+        const item = map.get(id);
+        item.presupuestos = item.presupuestos ?? [];
+      }
+
+        const item = map.get(id);
+
+        if (row.partida || row.rubro) {
+          item.presupuestos.push({
+            e_id_partida: row.e_id_partida ?? null,
+            e_id_rubro: row.e_id_rubro ?? null,
+            partida: row.partida,
+            capitulo: row.capitulo,
+            clasificacion: row.clasificacion,
+            tipo_gasto: row.tipo_gasto,
+            f_financiamiento: row.f_financiamiento,
+            etiquetado: row.etiquetado,
+            fondo: row.fondo,
+            ramo: row.ramo,
+            rubro: row.rubro,
+            estatus: row.rubro_estatus,
+            e_monto_presupuesto_suficiencia: row.e_monto_presupuesto_suficiencia,
+            proveedores: row.razon_social,
+          });
+        }
+      }
+
+      const final = Array.from(map.values());
+      setData(final);
+      setOriginalData(final);
+
+    } catch (error) {
+      console.error("❌ Error cargando datos:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, [userLoaded]);
 
   useEffect(() => {
     let filtered = originalData;
@@ -334,21 +297,9 @@ export default function ProcesosPage() {
 
   // Contextual menu component for actions
   function RowActionsMenu({ id, estatus }: { id: number; estatus?: string | null }) {
-    if (!['',].includes(estatus ?? '')) return null;
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 p-0 -mt-1"
-        >
-          <EllipsisVertical
-            size={18}
-            className="text-blue-600 hover:text-blue-700 transition-colors"
-          />
-          <span className="sr-only">Más acciones</span>
-        </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => router.push(`/procesos/edit?id=${id}&step=1`)}>
@@ -375,7 +326,7 @@ export default function ProcesosPage() {
         header: "",
         cell: ({ row }) => {
           // Estatus color
-          const value = row.original.r_estatus;
+          const value = row.original.seguimiento_estatus
           let color = "bg-gray-300";
           if (value === "PREREGISTRADO") color = "bg-yellow-400";
           else if (value === "REVISADO") color = "bg-green-500";
@@ -419,7 +370,7 @@ export default function ProcesosPage() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              <RowActionsMenu id={row.original.id} estatus={row.original.r_estatus} />
+              <RowActionsMenu id={row.original.id} estatus={row.original.seguimiento_estatus} />
             </div>
           );
         },
@@ -568,9 +519,6 @@ export default function ProcesosPage() {
             <h1 className="text-2xl font-bold">
               Seguimientos
             </h1>
-            <p className="text-gray-600 text-sm">
-              Seguimientos elaborados por tu ente.
-            </p>
             {data.length > 0 && (
             <p className="text-muted-foreground text-sm">
               {search.trim() === "" ? (
@@ -889,7 +837,7 @@ export default function ProcesosPage() {
                                           console.log("🔍 Presupuestos del seguimiento:", row.original.presupuestos);
                                           return row.original.presupuestos && row.original.presupuestos.length > 0 ? (
                                             row.original.presupuestos.map((pres, idx) => (
-<TableRow key={idx}>
+                                              <TableRow key={idx}>
                                               {columnsPresupuesto
                                                 .filter(col => columnVisibilityPresupuesto[col.id] ?? true)
                                                 .map(col => (
@@ -897,7 +845,7 @@ export default function ProcesosPage() {
                                                     {col.id === "estatus" ? (
                                                       // ⭐ Indicador de estatus con tooltip (sin texto)
                                                       (() => {
-                                                        const estatus = (row.original as any).estatus || "—";
+                                                        const estatus = pres.estatus || "—";
 
                                                         let color = "#939596"; // gris default
                                                         if (estatus === "ADJUDICADO") color = "#22c55e";
@@ -994,7 +942,7 @@ export default function ProcesosPage() {
               >
                 {/* Menú contextual fuera del AccordionTrigger */}
                 <div className="flex justify-end p-2">
-                  <RowActionsMenu id={item.id} estatus={item.r_estatus} />
+                  <RowActionsMenu id={item.id} estatus={item.seguimiento_estatus} />
                 </div>
                 <AccordionTrigger className="p-0 focus-visible:ring-0">
                   <div className="relative">
@@ -1005,22 +953,22 @@ export default function ProcesosPage() {
                             <TooltipTrigger asChild>
                               <span
                                 className={`w-3 h-3 rounded-full cursor-pointer ${
-                                  item.r_estatus === "PREREGISTRADO"
+                                  item.seguimiento_estatus === "PREREGISTRADO"
                                     ? "bg-yellow-400"
-                                    : item.r_estatus === "REVISADO"
+                                    : item.seguimiento_estatus === "REVISADO"
                                     ? "bg-green-500"
-                                    : item.r_estatus === "CANCELADO"
+                                    : item.seguimiento_estatus === "CANCELADO"
                                     ? "bg-red-500"
                                     : "bg-gray-300"
                                 }`}
                               />
                             </TooltipTrigger>
                             <TooltipContent side="top" className="text-xs">
-                              {item.r_estatus === "PREREGISTRADO"
+                              {item.seguimiento_estatus === "PREREGISTRADO"
                                 ? "PREREGISTRADO"
-                                : item.r_estatus === "REVISADO"
+                                : item.seguimiento_estatus === "REVISADO"
                                 ? "REVISADO"
-                                : item.r_estatus === "CANCELADO"
+                                : item.seguimiento_estatus === "CANCELADO"
                                 ? "CANCELADO"
                                 : "Sin estatus"}
                             </TooltipContent>
@@ -1058,7 +1006,7 @@ export default function ProcesosPage() {
                       <p><strong>Fecha de emisión:</strong> {item.r_fecha_emision || "—"} <StatusBadge value={item.r_fecha_emision} /></p>
                       <p><strong>Asunto:</strong> {item.r_asunto || "—"} <StatusBadge value={item.r_asunto} /></p>
                       <p><strong>Fecha reunión:</strong> {item.r_fecha_y_hora_reunion || "—"} <StatusBadge value={item.r_fecha_y_hora_reunion} /></p>
-                      <p><strong>Estatus:</strong> {item.r_estatus || "—"} <StatusBadge value={item.r_estatus} /></p>
+                      <p><strong>Estatus:</strong> {item.seguimiento_estatus || "—"} <StatusBadge value={item.seguimiento_estatus} /></p>
                     </div>
                   </div>
 
