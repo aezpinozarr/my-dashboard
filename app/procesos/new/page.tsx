@@ -1043,47 +1043,74 @@ const handleGuardarRubros = async () => {
   };
 
   // Handler eliminar partida
-  const handleEliminarPartida = async (idx: number) => {
-    console.log("🗑️ Eliminando partida con índice:", idx, partidas[idx]);
-    const partidaId = partidas[idx]?.id;
+  // Handler eliminar partida
+const handleEliminarPartida = async (idx: number) => {
+  console.log("🗑️ Eliminando partida con índice:", idx, partidas[idx]);
 
-    try {
-      // ✅ Verificamos si tiene ID válido
-      if (partidaId) {
-        const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            p_accion: "ELIMINAR",
-            p_id: partidaId,
-            p_id_seguimiento: folioSeguimiento || folio,
-            p_e_id_partida: partidas[idx].e_id_partida,
-            p_e_no_requisicion: partidas[idx].e_no_requisicion,
-            p_e_id_fuente_financiamiento: partidas[idx].e_id_fuente_financiamiento,
-          }),
-        });
+  const partida = partidas[idx];
+  const partidaId = partida?.id;
+  const partidaClave = partida?.e_id_partida;
 
-        const data = await resp.json();
+  try {
+    // ================================
+    // 1️⃣ ELIMINAR EN BACKEND SI TIENE ID
+    // ================================
+    if (partidaId) {
+      const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          p_accion: "ELIMINAR",
+          p_id: partidaId,
+          p_id_seguimiento: folioSeguimiento || folio,
+          p_e_id_partida: partida.e_id_partida,
+          p_e_no_requisicion: partida.e_no_requisicion,
+          p_e_id_fuente_financiamiento: partida.e_id_fuente_financiamiento,
+        }),
+      });
 
-        if (!resp.ok) {
-          console.error("❌ Error al eliminar partida:", data);
-          toast.error("No se pudo eliminar la partida del servidor.");
-          return;
-        }
+      const data = await resp.json();
 
-        toast.success(`Partida eliminada correctamente.`);
-      } else {
-        // ⚠️ Si no tiene ID válido, solo la eliminamos del frontend
-        toast.info("Partida eliminada localmente (sin ID en base de datos).");
+      if (!resp.ok) {
+        console.error("❌ Error al eliminar partida:", data);
+        toast.error("No se pudo eliminar la partida del servidor.");
+        return;
       }
 
-      // 🧹 En ambos casos, eliminar del estado local
-      setPartidas((prev) => prev.filter((_, i) => i !== idx));
-    } catch (err) {
-      console.error("❌ Error al eliminar partida:", err);
-      toast.error("Error de conexión al eliminar la partida.");
+      toast.success(`Partida eliminada correctamente.`);
+    } else {
+      toast.info("Partida eliminada localmente (sin ID en base de datos).");
     }
-  };
+
+    // ================================
+    // 2️⃣ ELIMINAR DEL FRONTEND: PARTIDA
+    // ================================
+    setPartidas(prev => prev.filter((_, i) => i !== idx));
+
+    // 3️⃣ ELIMINAR RUBROS ASOCIADOS A ESTA PARTIDA
+const rubrosAsociados = presupuestosRubro.filter(
+  r => String(r.p_id_partida_asociada) === String(partidaClave)
+);
+
+// Los rubros usan p_e_id_rubro, NO id
+const idsRubros = rubrosAsociados.map(r => String(r.p_e_id_rubro));
+
+setPresupuestosRubro(prev =>
+  prev.filter(r => String(r.p_id_partida_asociada) !== String(partidaClave))
+);
+
+// 4️⃣ ELIMINAR PROVEEDORES ASOCIADOS A LOS RUBROS
+setProveedores(prev =>
+  prev.filter(
+    p => !idsRubros.includes(String(p.p_e_id_rubro_partida))
+  )
+);
+
+  } catch (err) {
+    console.error("❌ Error al eliminar partida:", err);
+    toast.error("Error de conexión al eliminar la partida.");
+  }
+};
 
   // Handler avanzar al siguiente paso (nuevo bloque)
 const handleNext = async () => {
@@ -2615,50 +2642,66 @@ const handleNext = async () => {
                       {r.p_e_monto_presupuesto_suficiencia}
                     </td>
                     <td className="px-3 py-2 text-center" style={{ width: "40px" }}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        onClick={async () => {
-                          const rubro = presupuestosRubro[i];
-                          if (!rubro || !rubro.id) {
-                            toast.warning("Este rubro no tiene ID.");
-                            setPresupuestosRubro((prev) => prev.filter((_, idx) => idx !== i));
-                            return;
-                          }
-                          if (!confirm("¿Seguro que deseas eliminar este rubro?")) return;
-                          try {
-                            const partidaAsociada = partidas.find(
-                              (p) => String(p.e_id_partida) === String(rubro.p_id_partida_asociada)
-                            );
-                            if (!partidaAsociada || !partidaAsociada.id) {
-                              toast.warning("Partida asociada inválida.");
-                              return;
-                            }
-                            const payload = {
-                              p_accion: "ELIMINAR",
-                              p_id_seguimiento_partida: Number(partidaAsociada.id),
-                              p_id: Number(rubro.id),
-                            };
-                            const resp = await fetch(
-                              `${API_BASE}/procesos/seguimiento/partida-rubro-ente-v2/`,
-                              {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify(payload),
-                              }
-                            );
-                            const data = await resp.json();
-                            if (!resp.ok) throw new Error(JSON.stringify(data));
-                            toast.success("Rubro eliminado correctamente.");
-                            setPresupuestosRubro((prev) => prev.filter((_, idx) => idx !== i));
-                          } catch (err) {
-                            toast.error("Error al eliminar rubro");
-                          }
-                        }}
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </Button>
+                   <Button
+  variant="ghost"
+  size="icon"
+  className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+  onClick={async () => {
+    const rubro = presupuestosRubro[i];
+
+    if (!rubro) return;
+
+    if (!confirm("¿Seguro que deseas eliminar este rubro?")) return;
+
+    try {
+      // 1) Eliminar en BD si tiene ID
+      if (rubro.id) {
+        const payload = {
+          p_accion: "ELIMINAR",
+          p_id_seguimiento_partida: rubro.p_id_partida_asociada,
+          p_id: rubro.id,
+        };
+
+        const resp = await fetch(
+          `${API_BASE}/procesos/seguimiento/partida-rubro-ente-v2/`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }
+        );
+
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(JSON.stringify(data));
+      }
+
+      // 2) BORRAR TODOS LOS PROVEEDORES ASOCIADOS A ESTE RUBRO
+      setProveedores((prev) => {
+        const filtrados = prev.filter(
+          (p) => String(p.p_e_id_rubro_partida) !== String(rubro.id)
+        );
+
+        console.log("🔥 PROVEEDORES ELIMINADOS POR RUBRO:", {
+          rubroEliminado: rubro.id,
+          antes: prev.length,
+          despues: filtrados.length,
+        });
+
+        return filtrados;
+      });
+
+      // 3) Quitar rubro del estado local
+      setPresupuestosRubro((prev) => prev.filter((_, idx) => idx !== i));
+
+      toast.success("Rubro eliminado correctamente.");
+    } catch (err) {
+      console.error("❌ Error al eliminar rubro:", err);
+      toast.error("Error al eliminar rubro.");
+    }
+  }}
+>
+  <Trash2 className="w-5 h-5" />
+</Button>
                     </td>
                   </tr>
                 ))
@@ -2952,20 +2995,34 @@ const handleNext = async () => {
                 if (!resp.ok) throw new Error(JSON.stringify(data));
 
                 toast.success("Proveedor añadido correctamente.");
-                setProveedores(prev => [
-                  ...prev,
-                  {
-                    e_rfc_proveedor: form.e_rfc_proveedor,
-                    razon_social: form.razon_social,
-                    nombre_comercial: form.nombre_comercial,
-                    e_importe_sin_iva: form.e_importe_sin_iva,
-                    e_importe_total: form.e_importe_total,
-                    p_e_id_rubro_partida: form.p_e_id_rubro_partida,
-                    rubro_partida: form.rubro_partida_texto || "", // ✅ muestra el texto del select
 
-                    id: data.resultado,
-                  },
-                ]);
+              setProveedores(prev => [
+                ...prev,
+                {
+                  e_rfc_proveedor: form.e_rfc_proveedor,
+                  razon_social: form.razon_social,
+                  nombre_comercial: form.nombre_comercial,
+                  e_importe_sin_iva: form.e_importe_sin_iva,
+                  e_importe_total: form.e_importe_total,
+                  p_e_id_rubro_partida: form.p_e_id_rubro_partida,
+                  rubro_partida: form.rubro_partida_texto || "",
+                  id: data.resultado,
+                },
+              ]);
+
+              console.log("🔥 PROVEEDOR AGREGADO:", {
+                idDevueltoSP: data,
+                proveedorEstado: {
+                  e_rfc_proveedor: form.e_rfc_proveedor,
+                  razon_social: form.razon_social,
+                  nombre_comercial: form.nombre_comercial,
+                  e_importe_sin_iva: form.e_importe_sin_iva,
+                  e_importe_total: form.e_importe_total,
+                  p_e_id_rubro_partida: form.p_e_id_rubro_partida,
+                  rubro_partida: form.rubro_partida_texto || "",
+                  id: data.resultado,
+                },
+              });
 
                 setForm(prev => ({
                   ...prev,
