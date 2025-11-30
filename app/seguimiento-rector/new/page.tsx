@@ -2254,19 +2254,55 @@ useEffect(() => {
             Number(selectedRubroId),
             Number(p.id_partida)
           );
-        } else {
-          // 🔥 Para CANCELADO o DESIERTO — solo guardamos estatus
-          setRubroProveedorRows((prev) => [
-            ...prev,
-            {
-              rubro: selectedRubroId,
-              proveedor: selectedProveedorLocal,
-              estatus: estatusLocal,
-            },
-          ]);
+       } else {
+  // 🔍 OBTENER EL ID REAL del seguimiento-partida-rubro
+  const partidaObj = detalle.find((pp) => pp.id_partida === p.id_partida);
+  const rubroObj = partidaObj?.rubros.find((rr) => Number(rr.id_rubro) === Number(selectedRubroId));
 
-          toast.success("Estatus guardado.");
-        }
+  const idRealSegPR = rubroObj?.id_seguimiento_partida_rubro;
+
+  if (!idRealSegPR) {
+    toast.error("❌ No se encontró id_seguimiento_partida_rubro");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/rector/seguimiento-gestion-proveedor-adjudicado/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        p_estatus: estatusLocal,
+        p_id_seguimiento_partida_rubro: idRealSegPR,    // <-- 🔥 CORRECTO 🔥
+        p_id_seguimiento_partida_rubro_proveedor: 0,
+        p_id: 0,
+        p_importe_ajustado_sin_iva: 0,
+        p_importe_ajustado_total: 0,
+        p_id_fundamento: 0
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.detail);
+
+    // Actualiza tabla local
+    setRubroProveedorRows((prev) => [
+      ...prev,
+      {
+        partida: p.id_partida,
+        rubro: selectedRubroId,
+        proveedor: null,
+        estatus: estatusLocal,
+      },
+    ]);
+
+    toast.success("Estatus guardado correctamente en la base de datos.");
+  } catch (err) {
+    console.error("❌ Error guardando estatus:", err);
+    toast.error("Error al guardar estatus.");
+  }
+}
       }}
     >
 {yaAdjudicado
