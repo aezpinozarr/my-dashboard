@@ -1,9 +1,21 @@
 import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "@/context/UserContext";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import ClientLayoutWrapper from "./ClientLayoutWrapper";
 import { Toaster } from "sonner";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { MainNavigation } from "@/components/layout/MainNavigation";
+import { UrlMaskProvider } from "./UrlMaskProvider"; // ⬅️ Importante
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
   title: "Gobierno De Tabasco",
@@ -17,16 +29,26 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body>
-        <UserProvider>
-          <SidebarProvider>
-            <ClientLayoutWrapper>
-              {children}
-            </ClientLayoutWrapper>
-          </SidebarProvider>
-        </UserProvider>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
 
-        <Toaster richColors position="top-right" />
+        {/* 🔥 Importante: SOLO el contenido va dentro del URL mask */}
+        <UrlMaskProvider>
+          <UserProvider>
+            <SidebarProvider>
+              <div className="flex min-h-screen flex-col w-full overflow-x-hidden">
+                <MainNavigation />
+                <main className="flex-1 p-4 bg-[#fafafa] overflow-y-auto w-full overflow-x-hidden mx-auto">
+                  {children}
+                </main>
+              </div>
+            </SidebarProvider>
+          </UserProvider>
+
+          <Toaster richColors position="top-right" />
+        </UrlMaskProvider>
+
       </body>
     </html>
   );

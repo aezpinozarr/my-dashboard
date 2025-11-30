@@ -1,13 +1,18 @@
 import { NextResponse, NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const url = req.nextUrl.clone();
+  const pathname = url.pathname;
 
-  // ✅ 1. Rutas públicas (NO se bloquean)
+  // 1. Permitir login
+  if (pathname === "/") {
+    return NextResponse.next();
+  }
+
+  // 2. Rutas públicas
   if (
-    pathname === "/" || // página de login
     pathname.startsWith("/api") ||
-    pathname.startsWith("/seguridad") || // <-- necesario para tu backend
+    pathname.startsWith("/seguridad") ||
     pathname.startsWith("/public") ||
     pathname.startsWith("/images") ||
     pathname.startsWith("/favicon.ico") ||
@@ -16,20 +21,17 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // ✅ 2. Verificar token de sesión
+  // 3. Verificar token
   const token = req.cookies.get("session_token")?.value;
 
-  // Si no hay sesión, redirige al login
   if (!token || token === "undefined" || token === "null" || token.trim() === "") {
-    const loginUrl = new URL("/", req.url);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL("/", req.url));
   }
 
-  // ✅ 3. Deja pasar si hay sesión
+  // 4. Hay sesión → permitir
   return NextResponse.next();
 }
 
-// ✅ 4. Configuración: protege TODO menos archivos estáticos
 export const config = {
   matcher: [
     '/((?!api|_next/static|_next/image|favicon.ico|images|public|seguridad|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt)).*)',
