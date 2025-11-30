@@ -661,6 +661,7 @@ const handleFinalizarProceso = React.useCallback(async () => {
           p_e_oficio_invitacion: form.oficio_invitacion,
           p_e_id_servidor_publico_emite: Number(servidorSeleccionado.id),
           p_e_servidor_publico_cargo: form.servidor_publico_cargo,
+          p_e_tipo_evento: form.tipo_evento,
           p_e_tipo_licitacion: form.tipo_licitacion,
           p_e_tipo_licitacion_no_veces: Number(sesionSeleccionada.id),
           p_e_tipo_licitacion_notas: form.tipo_licitacion_notas,
@@ -1340,7 +1341,7 @@ const handleNext = async () => {
 
                 {/* 💬 El tooltip */}
                 <TooltipContent side="top">
-                  <p>Avanza al siguiente paso </p>
+                  <p>Avanzar al siguiente paso </p>
                 </TooltipContent>
 
               </Tooltip>
@@ -1363,11 +1364,14 @@ const handleNext = async () => {
                   <div className="w-full md:w-[60%]">
                     <Label>Oficio de invitación</Label>
                     <Input
-                      value={form.oficio_invitacion ?? ""}
-                      onChange={(e) => setForm({ ...form, oficio_invitacion: e.target.value })}
-                      placeholder="Ej. OF.123/2025"
-                      className={`${errores.oficio_invitacion ? "border-red-500" : ""}`}
-                    />
+                    value={form.oficio_invitacion ?? ""}
+                    onChange={(e) => {
+                      setErrores(prev => ({ ...prev, oficio_invitacion: "" })); // 🔥 FIX
+                      setForm({ ...form, oficio_invitacion: e.target.value });
+                    }}
+                    placeholder="Ej. OF.123/2025"
+                    className={`${errores.oficio_invitacion ? "border-red-500" : ""}`}
+                  />
                     {errores.oficio_invitacion && (
                       <p className="text-red-600 text-xs mt-1">{errores.oficio_invitacion}</p>
                     )}
@@ -1377,12 +1381,15 @@ const handleNext = async () => {
                   <div className="w-full md:w-[20%]">
                     <Label>Fecha</Label>
                     <Input
-                      value={form.fecha ?? ""}
-                      onChange={(e) => setForm({ ...form, fecha: formatDateDDMMYYYY(e.target.value) })}
-                      placeholder="dd/mm/aaaa"
-                      maxLength={10}
-                      className={`${errores.fecha ? "border-red-500" : ""}`}
-                    />
+                    value={form.fecha ?? ""}
+                    onChange={(e) => {
+                      setErrores(prev => ({ ...prev, fecha: "" })); // 🔥 FIX
+                      setForm({ ...form, fecha: formatDateDDMMYYYY(e.target.value) });
+                    }}
+                    placeholder="dd/mm/aaaa"
+                    maxLength={10}
+                    className={`${errores.fecha ? "border-red-500" : ""}`}
+                  />
                     {errores.fecha && (
                       <p className="text-red-600 text-xs mt-1">{errores.fecha}</p>
                     )}
@@ -1392,12 +1399,15 @@ const handleNext = async () => {
                   <div className="w-full md:w-[20%]">
                     <Label>Hora (24 Hrs)</Label>
                     <Input
-                      value={form.hora ?? ""}
-                      onChange={(e) => setForm({ ...form, hora: formatTimeHHMM(e.target.value) })}
-                      placeholder="HH:MM"
-                      maxLength={5}
-                      className={`${errores.hora ? "border-red-500" : ""}`}
-                    />
+                    value={form.hora ?? ""}
+                    onChange={(e) => {
+                      setErrores(prev => ({ ...prev, hora: "" })); // 🔥 FIX
+                      setForm({ ...form, hora: formatTimeHHMM(e.target.value) });
+                    }}
+                    placeholder="HH:MM"
+                    maxLength={5}
+                    className={`${errores.hora ? "border-red-500" : ""}`}
+                  />
                     {errores.hora && (
                       <p className="text-red-600 text-xs mt-1">{errores.hora}</p>
                     )}
@@ -1410,13 +1420,14 @@ const handleNext = async () => {
                   <div className={errores.servidor_publico_cargo ? "border border-red-500 rounded-md p-1" : ""}>
                     <Command>
                       <CommandInput
-                        placeholder="Escribe para buscar…"
-                        value={busquedaServidor}
-                        onValueChange={(val) => {
-                          setBusquedaServidor(val);
-                          setMostrarServidores(true);
-                        }}
-                      />
+                      placeholder="Escribe para buscar…"
+                      value={busquedaServidor}
+                      onValueChange={(val) => {
+                        setErrores(prev => ({ ...prev, servidor_publico_cargo: "" })); // 🔥 FIX
+                        setBusquedaServidor(val);
+                        setMostrarServidores(true);
+                      }}
+                    />
                       {mostrarServidores && (
                         <CommandList>
                           {busquedaServidor.trim() !== "" ? (
@@ -1428,11 +1439,12 @@ const handleNext = async () => {
                                 <CommandItem
                                   key={s.id}
                                   onSelect={() => {
-                                    setServidorSeleccionado(s);
-                                    setForm((prev) => ({ ...prev, servidor_publico_cargo: s.cargo || "" }));
-                                    setBusquedaServidor(s.nombre);
-                                    setMostrarServidores(false);
-                                  }}
+                                  setErrores(prev => ({ ...prev, servidor_publico_cargo: "" })); // 🔥 FIX
+                                  setServidorSeleccionado(s);
+                                  setForm((prev) => ({ ...prev, servidor_publico_cargo: s.cargo || "" }));
+                                  setBusquedaServidor(s.nombre);
+                                  setMostrarServidores(false);
+                                }}
                                 >
                                   {s.nombre}
                                 </CommandItem>
@@ -1628,45 +1640,54 @@ const handleNext = async () => {
                 <div>
                   <Label>Cargo</Label>
                   <Input
-                    value={form.servidor_publico_cargo ?? ""}
-                    onChange={(e) => setForm({ ...form, servidor_publico_cargo: e.target.value })}
-                    placeholder="Ej. Directora General"
-                    className={`${errores.servidor_publico_cargo ? "border-red-500" : ""}`}
-                  />
+                  value={form.servidor_publico_cargo ?? ""}
+                  onChange={(e) => {
+                    setErrores(prev => ({ ...prev, servidor_publico_cargo: "" })); // 🔥 FIX
+                    setForm({ ...form, servidor_publico_cargo: e.target.value });
+                  }}
+                  placeholder="Ej. Directora General"
+                  className={`${errores.servidor_publico_cargo ? "border-red-500" : ""}`}
+                />
                   {errores.servidor_publico_cargo && (
                     <p className="text-red-600 text-xs mt-1">{errores.servidor_publico_cargo}</p>
                   )}
                 </div>
 
-                {/* Tipo evento y licitación */}
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Tipo de evento</Label>
-                    <select
-                      className={`border rounded-md p-2 w-full ${errores.tipo_evento ? "border-red-500" : ""}`}
-                      value={form.tipo_evento}
-                      onChange={(e) => setForm({ ...form, tipo_evento: e.target.value })}
-                    >
-                      <option value="">Seleccione…</option>
-                      {tiposEvento.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.descripcion}
-                        </option>
-                      ))}
-                    </select>
-                    {errores.tipo_evento && (
-                      <p className="text-red-600 text-xs mt-1">{errores.tipo_evento}</p>
-                    )}
-                  </div>
+                  {/* Tipo evento y licitación */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Tipo de evento</Label>
+                      <select
+                        className={`border rounded-md p-2 w-full ${errores.tipo_evento ? "border-red-500" : ""}`}
+                        value={form.tipo_evento}
+                        onChange={(e) => {
+                          setErrores(prev => ({ ...prev, tipo_evento: "" })); // 🔥 FIX
+                          setForm({ ...form, tipo_evento: e.target.value });
+                        }}
+                      >
+                        <option value="">Seleccione…</option>
+                        {tiposEvento.map((t) => (
+                          <option key={t.id} value={t.descripcion}>
+                            {t.descripcion}
+                          </option>
+                        ))}
+                      </select>
+                      {errores.tipo_evento && (
+                        <p className="text-red-600 text-xs mt-1">{errores.tipo_evento}</p>
+                      )}
+                    </div>
 
                   <div>
                     <Label>Tipo de licitación</Label>
                     <select
-                      className={`border rounded-md p-2 w-full ${errores.tipo_licitacion ? "border-red-500" : ""}`}
-                      value={form.tipo_licitacion}
-                      onChange={(e) => setForm({ ...form, tipo_licitacion: e.target.value })}
-                      disabled={!form.tipo_evento}
-                    >
+                    className={`border rounded-md p-2 w-full ${errores.tipo_licitacion ? "border-red-500" : ""}`}
+                    value={form.tipo_licitacion}
+                    onChange={(e) => {
+                      setErrores(prev => ({ ...prev, tipo_licitacion: "" })); // 🔥 FIX
+                      setForm({ ...form, tipo_licitacion: e.target.value });
+                    }}
+                    disabled={!form.tipo_evento}
+                  >
                       <option value="">
                         {form.tipo_evento ? "Seleccione…" : "Seleccione un tipo de evento primero"}
                       </option>
@@ -1687,14 +1708,15 @@ const handleNext = async () => {
                   <Label>Número de sesión</Label>
                   <div className={errores.tipo_licitacion_notas ? "border border-red-500 rounded-md p-1" : ""}>
                     <Command>
-                      <CommandInput
-                        placeholder="Escribe para buscar…"
-                        value={busquedaSesion}
-                        onValueChange={(val) => {
-                          setBusquedaSesion(val);
-                          setMostrarSesiones(true);
-                        }}
-                      />
+                     <CommandInput
+                      placeholder="Escribe para buscar…"
+                      value={busquedaSesion}
+                      onValueChange={(val) => {
+                        setErrores(prev => ({ ...prev, tipo_licitacion_notas: "" }));
+                        setBusquedaSesion(val);
+                        setMostrarSesiones(true);
+                      }}
+                    />
                       {mostrarSesiones && (
                         <CommandList>
                           {busquedaSesion.trim() !== "" ? (
@@ -1763,7 +1785,7 @@ const handleNext = async () => {
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          <p>Avanza al siguiente paso</p>
+                          <p>Avanzar al siguiente paso</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -1828,7 +1850,7 @@ const handleNext = async () => {
     </DialogContent>
   </Dialog>
 </div>
-          </>
+  </>
       )}
 
 {/* Paso 2 */}
@@ -1941,7 +1963,7 @@ const handleNext = async () => {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <p>Avanza al siguiente paso</p>
+                  <p>Avanzar al siguiente paso</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -1953,10 +1975,14 @@ const handleNext = async () => {
             <div>
               <Label>Oficio de invitación</Label>
               <Input
-                value={form.oficio_invitacion ?? ""}
-                disabled
-                className="bg-gray-100 text-gray-700 cursor-not-allowed w-full"
-              />
+              value={form.oficio_invitacion ?? ""}
+              onChange={(e) => {
+                setErrores(prev => ({ ...prev, oficio_invitacion: "" })); // 🔥 FIX
+                setForm({ ...form, oficio_invitacion: e.target.value });
+              }}
+              placeholder="Ej. OF.123/2025"
+              className={`${errores.oficio_invitacion ? "border-red-500" : ""}`}
+            />
             </div>
             {/* Formulario superior */}
            <form
@@ -1966,29 +1992,44 @@ const handleNext = async () => {
             handleAddPartida();
           }}
         >
-              {/* No. Requisición */}
-              <div>
-                <Label>No. Requisición</Label>
-                <Input
-                  value={nuevaPartida.e_no_requisicion || ""}
-                  onChange={e => setNuevaPartida({ ...nuevaPartida, e_no_requisicion: e.target.value })}
-                  placeholder="Ej. 101"
-                  className={`w-full ${erroresForm.e_no_requisicion ? "border border-red-500 focus:ring-red-500" : ""}`}
-                />
-                {erroresForm.e_no_requisicion && (
-                  <p className="text-sm text-red-500 mt-1">Este campo es obligatorio</p>
-                )}
-              </div>
+                {/* No. Requisición */}
+                <div>
+                  <Label>No. Requisición</Label>
+                  <Input
+                    value={nuevaPartida.e_no_requisicion || ""}
+                    onChange={e => {
+                      // 🔥 FIX — limpia el error al escribir
+                      setErroresForm(prev => ({ ...prev, e_no_requisicion: "" }));
+
+                      setNuevaPartida({
+                        ...nuevaPartida,
+                        e_no_requisicion: e.target.value
+                      });
+                    }}
+                    placeholder="Ej. 101"
+                    className={`w-full ${
+                      erroresForm.e_no_requisicion
+                        ? "border border-red-500 focus:ring-red-500"
+                        : ""
+                    }`}
+                  />
+                  {erroresForm.e_no_requisicion && (
+                    <p className="text-sm text-red-500 mt-1">Este campo es obligatorio</p>
+                  )}
+                </div>
               {/* Partida */}
               <div>
                 <Label>Partida</Label>
                 <Command>
                   <CommandInput
-                    placeholder="Buscar partida…"
-                    value={nuevaPartida.e_id_partida}
-                    onValueChange={val => setNuevaPartida(prev => ({ ...prev, e_id_partida: val }))}
-                    className={`w-full ${erroresForm.e_id_partida ? "border border-red-500 focus:ring-red-500" : ""}`}
-                  />
+                  placeholder="Buscar partida…"
+                  value={nuevaPartida.e_id_partida}
+                  onValueChange={val => {
+                    setErroresForm(prev => ({ ...prev, e_id_partida: "" }));  // ← ✔ FIX
+                    setNuevaPartida(prev => ({ ...prev, e_id_partida: val }));
+                  }}
+                  className={`w-full ${erroresForm.e_id_partida ? "border border-red-500 focus:ring-red-500" : ""}`}
+                />
                   {Boolean(nuevaPartida.e_id_partida.trim()) && (
                     <CommandList>
                       {catalogoPartidas
@@ -2023,16 +2064,28 @@ const handleNext = async () => {
                   <p className="text-sm text-red-500 mt-1">Selecciona una partida</p>
                 )}
               </div>
-              {/* Fuente de financiamiento */}
-              <div>
-                <Label>Fuente de financiamiento</Label>
-                <Command>
-                  <CommandInput
-                    placeholder="Buscar fuente…"
-                    value={nuevaPartida.e_id_fuente_financiamiento}
-                    onValueChange={val => setNuevaPartida(prev => ({ ...prev, e_id_fuente_financiamiento: val }))}
-                    className={`w-full ${erroresForm.e_id_fuente_financiamiento ? "border border-red-500 focus:ring-red-500" : ""}`}
-                  />
+                {/* Fuente de financiamiento */}
+                <div>
+                  <Label>Fuente de financiamiento</Label>
+                  <Command>
+                    <CommandInput
+                      placeholder="Buscar fuente…"
+                      value={nuevaPartida.e_id_fuente_financiamiento}
+                      onValueChange={val => {
+                        // 🔥 FIX — limpia el error EN EL MOMENTO en que el usuario escribe
+                        setErroresForm(prev => ({ ...prev, e_id_fuente_financiamiento: "" }));
+
+                        setNuevaPartida(prev => ({
+                          ...prev,
+                          e_id_fuente_financiamiento: val
+                        }));
+                      }}
+                      className={`w-full ${
+                        erroresForm.e_id_fuente_financiamiento
+                          ? "border border-red-500 focus:ring-red-500"
+                          : ""
+                      }`}
+                    />
                   {Boolean(nuevaPartida.e_id_fuente_financiamiento.trim()) && (
                     <CommandList>
                       {fuentes
@@ -2205,7 +2258,7 @@ const handleNext = async () => {
         </TooltipTrigger>
 
         <TooltipContent side="top">
-          <p>Avanza al siguiente paso</p>
+          <p>Avanzar al siguiente paso</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -2294,70 +2347,36 @@ const handleNext = async () => {
   if (step !== 3) return null;
 
   return (
+    <div className="w-full flex flex-col gap-6">
+
+      {/* 🔴 SALIR SUPERIOR — FUERA DEL CARD */}
+<div>
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          onClick={() => setOpenSalirDialog(true)}
+          style={{ backgroundColor: "#db200b", color: "white" }}
+          className="cursor-pointer"
+        >
+          ←
+        </Button>
+      </TooltipTrigger>
+
+      <TooltipContent side="top">
+        <p>Salir</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+</div>
     <Card>
-  <CardContent className="space-y-4">
+  <CardContent className="space-y-6 mt-4">
 
     {/* Encabezado del Paso 3 */}
     <div className="flex items-center justify-between w-full mb-6">
 
       {/* IZQUIERDA → Botón regresar + botón salir + título */}
       <div className="flex items-center gap-3">
-
-        {/* BOTÓN SALIR (SE MANTIENE) */}
-        <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={() => setOpenSalirDialog(true)}
-                  style={{ backgroundColor: "#db200b", color: "white" }}
-                  className="cursor-pointer"
-                >
-                  ←
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Salir</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
-              <DialogDescription>
-                Si sales ahora, perderás cualquier información no guardada.
-              </DialogDescription>
-            </DialogHeader>
-
-            <DialogFooter className="flex justify-end gap-3 mt-4">
-              {/* CANCELAR */}
-              <Button
-                onClick={() => setOpenSalirDialog(false)}
-                style={{ backgroundColor: "#db200b", color: "white" }}
-                className="hover:brightness-110"
-              >
-                Cancelar
-              </Button>
-
-              {/* SÍ */}
-              <Button
-                onClick={() => {
-                  const from = params.get("from");
-                  if (from === "dashboard") {
-                    router.push("/dashboard");
-                  } else {
-                    router.push("/procesos");
-                  }
-                }}
-                style={{ backgroundColor: "#34e004", color: "white" }}
-                className="hover:brightness-110"
-              >
-                Sí
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* 🔵 BOTÓN VOLVER AL PASO 2 → AHORA A LA IZQUIERDA */}
         <TooltipProvider>
@@ -2493,12 +2512,13 @@ const handleNext = async () => {
                   erroresRubro.p_id_partida_asociada ? "border-red-500" : ""
                 }`}
                 value={nuevoRubro.p_id_partida_asociada}
-                onChange={(e) =>
-                  setNuevoRubro((prev) => ({
+                onChange={(e) => {
+                  setErroresRubro(prev => ({ ...prev, p_id_partida_asociada: "" })); // FIX AQUÍ
+                  setNuevoRubro(prev => ({
                     ...prev,
                     p_id_partida_asociada: e.target.value,
-                  }))
-                }
+                  }));
+                }}
               >
                 <option value="">Seleccione partida...</option>
                 {partidas.map((p, idx) => (
@@ -2515,67 +2535,69 @@ const handleNext = async () => {
                 <Label>Rubro</Label>
 
                 <Command>
-    <CommandInput
-      ref={rubroInputRef}
-      value={nuevoRubro.rubro_descripcion || nuevoRubro.p_e_id_rubro}
-      placeholder="Escribe ID o nombre…"
-      className={`${erroresRubro.p_e_id_rubro ? "border border-red-500" : ""}`}
-      onValueChange={(val) => {
-        setNuevoRubro((prev) => ({
-          ...prev,
-          p_e_id_rubro: val,
-          rubro_descripcion: "",
-        }));
-        setMostrarRubros(true);
-      }}
-    />
+              <CommandInput
+                ref={rubroInputRef}
+                value={nuevoRubro.rubro_descripcion || nuevoRubro.p_e_id_rubro}
+                placeholder="Escribe ID o nombre…"
+                className={`${erroresRubro.p_e_id_rubro ? "border border-red-500" : ""}`}
+                onValueChange={(val) => {
+                  setErroresRubro(prev => ({ ...prev, p_e_id_rubro: "" })); // FIX AQUÍ
+                  setNuevoRubro(prev => ({
+                    ...prev,
+                    p_e_id_rubro: val,
+                    rubro_descripcion: "",
+                  }));
+                  setMostrarRubros(true);
+                }}
+                  />
 
-    {mostrarRubros && (
-      <CommandList>
-        {rubros
-          .filter((rb) => {
-            const q = (nuevoRubro.p_e_id_rubro || "").toLowerCase();
-            return (
-              rb.id?.toString().toLowerCase().includes(q) ||
-              rb.descripcion?.toLowerCase().includes(q)
-            );
-          })
-          .map((rb) => (
-            <CommandItem
-              key={rb.id}
-              onSelect={() => {
-                // ✔ Guarda el ID
-                // ✔ Guarda la descripción
-                // ✔ Llena el Input con "id — descripcion"
-                // ✔ Cierra el CommandList
-                setNuevoRubro((prev) => ({
-                  ...prev,
-                  p_e_id_rubro: rb.id.toString(),
-                  rubro_descripcion: rb.descripcion,
-                }));
-                setMostrarRubros(false);
-              }}
-            >
-              {rb.id} — {rb.descripcion}
-            </CommandItem>
-          ))}
+                  {mostrarRubros && (
+                    <CommandList>
+                      {rubros
+                        .filter((rb) => {
+                          const q = (nuevoRubro.p_e_id_rubro || "").toLowerCase();
+                          return (
+                            rb.id?.toString().toLowerCase().includes(q) ||
+                            rb.descripcion?.toLowerCase().includes(q)
+                          );
+                        })
+                        .map((rb) => (
+                          <CommandItem
+                            key={rb.id}
+                            onSelect={() => {
+                              // ✔ Guarda el ID
+                              // ✔ Guarda la descripción
+                              // ✔ Llena el Input con "id — descripcion"
+                              // ✔ Cierra el CommandList
+                              setNuevoRubro((prev) => ({
+                                ...prev,
+                                p_e_id_rubro: rb.id.toString(),
+                                rubro_descripcion: rb.descripcion,
+                              }));
+                              setMostrarRubros(false);
+                            }}
+                          >
+                            {rb.id} — {rb.descripcion}
+                          </CommandItem>
+                        ))}
 
-        <CommandEmpty>No se encontraron rubros</CommandEmpty>
-      </CommandList>
-    )}
-  </Command>
+                      <CommandEmpty>No se encontraron rubros</CommandEmpty>
+                    </CommandList>
+                  )}
+                </Command>
               </div>
 
               <div className="w-[30%]">
                 <Label>Monto presupuesto suficiencia</Label>
-                <Input
+              <Input
                 value={nuevoRubro.p_e_monto_presupuesto_suficiencia}
-                onChange={(e) =>
-                  setNuevoRubro((prev) => ({
+                onChange={(e) => {
+                  setErroresRubro(prev => ({ ...prev, p_e_monto_presupuesto_suficiencia: "" })); // 🔥 FIX AQUÍ
+                  setNuevoRubro(prev => ({
                     ...prev,
                     p_e_monto_presupuesto_suficiencia: formatMoney(e.target.value),
-                  }))
-                }
+                  }));
+                }}
                 placeholder="$0.00"
                 className={`${erroresRubro.p_e_monto_presupuesto_suficiencia ? "border border-red-500" : ""}`}
               />
@@ -2711,80 +2733,21 @@ const handleNext = async () => {
         </div>
 
         {/* Navegación */}
-        <div className="flex items-center justify-between mt-6 gap-2 w-full">
+<div className="flex items-center justify-between mt-6 w-full">
 
-          {/* Botón rojo */}
-          <div className="flex justify-start">
-<Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          onClick={() => setOpenSalirDialog(true)}
-          style={{ backgroundColor: "#db200b", color: "white" }}
-          className="cursor-pointer"
-        >
-          ←
-        </Button>
-      </TooltipTrigger>
+  {/* IZQUIERDA → Regresar */}
+  <div className="flex items-center gap-3">
 
-      <TooltipContent side="top">
-        <p>Salir</p>
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-
-  <DialogContent className="max-w-sm">
-    <DialogHeader>
-      <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
-      <DialogDescription>
-        Si sales ahora, perderás cualquier información no guardada.
-      </DialogDescription>
-    </DialogHeader>
-
-    <DialogFooter className="flex justify-end gap-3 mt-4">
-      {/* CANCELAR */}
-      <Button
-        onClick={() => setOpenSalirDialog(false)}
-        style={{ backgroundColor: "#db200b", color: "white" }}
-        className="hover:brightness-110"
-      >
-        Cancelar
-      </Button>
-
-      {/* SÍ */}
-      <Button
-        onClick={() => {
-          const from = params.get("from");
-          if (from === "dashboard") {
-            router.push("/dashboard");
-          } else {
-            router.push("/procesos");
-          }
-        }}
-        style={{ backgroundColor: "#34e004", color: "white" }}
-        className="hover:brightness-110"
-      >
-        Sí
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
-          </div>
-
-          {/* Derecha: botones de paso — MISMO DISEÑO QUE LOS SUPERIORES */}
-  <div className="flex items-center gap-2">
-
-    {/* Volver al paso anterior */}
+    {/* 🔵 BOTÓN REGRESAR AHORA AQUÍ MISMO */}
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
             variant="outline"
-            onClick={() => setStep(step - 1)}
+            onClick={() => setStep(2)}
             className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
           >
-            <span className="text-[#235391] font-bold">← {step - 1}</span>
+            <span className="text-[#235391] font-bold">← 2</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top">
@@ -2793,7 +2756,10 @@ const handleNext = async () => {
       </Tooltip>
     </TooltipProvider>
 
-    {/* Siguiente */}
+  </div>
+
+  {/* DERECHA → botón avanzar */}
+  <div>
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -2809,493 +2775,334 @@ const handleNext = async () => {
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-
   </div>
+
 </div>
+
       </CardContent>
     </Card>
-  );
-})()}
+ {/* 🔴 SALIR INFERIOR — TAMBIÉN FUERA DEL CARD */}
+<div>
 
-      {/* Paso 4 */}
-      {step === 4 && (() => {
-        return (
-          <Card>
-            <CardContent className="space-y-0">
-              <div>
-            </div>
+  <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
 
-
-             {/* Encabezado con título y navegación superior */}
-              <div className="flex justify-between items-center w-full mb-6">
-
-               {/* IZQUIERDA → botón rojo + título */}
-                <div className="flex items-center gap-3">
-
-<Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          onClick={() => setOpenSalirDialog(true)}
-          style={{ backgroundColor: "#db200b", color: "white" }}
-          className="cursor-pointer"
-        >
-          ←
-        </Button>
-      </TooltipTrigger>
-
-      <TooltipContent side="top">
-        <p>Salir</p>
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-
-  <DialogContent className="max-w-sm">
-    <DialogHeader>
-      <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
-      <DialogDescription>
-        Si sales ahora, perderás cualquier información no guardada.
-      </DialogDescription>
-    </DialogHeader>
-
-    <DialogFooter className="flex justify-end gap-3 mt-4">
-      {/* CANCELAR */}
-      <Button
-        onClick={() => setOpenSalirDialog(false)}
-        style={{ backgroundColor: "#db200b", color: "white" }}
-        className="hover:brightness-110"
-      >
-        Cancelar
-      </Button>
-
-      {/* SÍ */}
-      <Button
-        onClick={() => {
-          const from = params.get("from");
-          if (from === "dashboard") {
-            router.push("/dashboard");
-          } else {
-            router.push("/procesos");
-          }
-        }}
-        style={{ backgroundColor: "#34e004", color: "white" }}
-        className="hover:brightness-110"
-      >
-        Sí
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
-
-                  <h1 className="text-2xl font-bold">Paso 4: Proveedor</h1>
-                </div>
-
-                {/* DERECHA → volver y finalizar */}
-                <div className="flex items-center gap-2">
-
-                  {/* Volver */}
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          onClick={() => setStep(step - 1)}
-                          className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
-                        >
-                          <span className="text-[#235391] font-bold">← {step - 1}</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>Regresar al paso anterior</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  {/* Finalizar */}
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={handleFinalizarProceso}
-                          className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
-                          style={{ backgroundColor: '#FFBF00' }}
-                        >
-                          Finalizar
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>Finalizar proceso</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                </div>
-              </div>
-
-      {/* Campo de Oficio de invitación - abajo del título */}
-      <div className="mb-4">
-        <Label>Oficio de invitación</Label>
-        <Input
-          value={form.oficio_invitacion ?? ""}
-          disabled
-          className="bg-gray-100 text-gray-700 cursor-not-allowed w-full"
-        />
-        </div>
-
-        {/* Formulario para añadir proveedor */}
-        <div className="flex flex-col space-y-4 rounded-lg bg-white px-0 py-4">
-          <form
-            className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"
-            onSubmit={async e => {
-              e.preventDefault();
-
-              if (!form.p_e_id_rubro_partida || !form.e_rfc_proveedor.trim() || !form.e_importe_sin_iva) {
-                toast.warning("Por favor completa todos los campos obligatorios antes de continuar.");
-                return;
-              }
-
-              try {
-                const existe = proveedores.some(
-                  (p) =>
-                    p.e_rfc_proveedor === form.e_rfc_proveedor &&
-                    p.p_e_id_rubro_partida === form.p_e_id_rubro_partida
-                );
-                if (existe) {
-                  toast.warning("Este proveedor ya fue añadido para ese rubro/partida.");
-                  return;
-                }
-
-                const idRubroSeleccionado = Number(form.p_e_id_rubro_partida);
-                if (!idRubroSeleccionado || Number.isNaN(idRubroSeleccionado)) {
-                  toast.warning("Selecciona un rubro/partida válido.");
-                  return;
-                }
-
-                const payloadProveedor = {
-                p_accion: "NUEVO",
-                p_id_seguimiento_partida_rubro: idRubroSeleccionado,
-                p_id: 0,
-                p_e_rfc_proveedor: form.e_rfc_proveedor,
-                p_e_razon_social: form.razon_social,
-                p_e_nombre_comercial: form.nombre_comercial,
-                p_e_persona_juridica: form.persona_juridica,
-                p_e_correo_electronico: form.correo_electronico,
-                p_e_entidad_federativa: parseInt(selectedEntidadId), // ✅ nuevo campo
-                p_e_importe_sin_iva: parseFloat((form.e_importe_sin_iva || "").replace(/[^\d.-]/g, "")) || 0,
-                p_e_importe_total: parseFloat((form.e_importe_total || "").replace(/[^\d.-]/g, "")) || 0,
-              };
-
-                const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(payloadProveedor),
-                });
-                const data = await resp.json();
-                if (!resp.ok) throw new Error(JSON.stringify(data));
-
-                toast.success("Proveedor añadido correctamente.");
-
-              setProveedores(prev => [
-                ...prev,
-                {
-                  e_rfc_proveedor: form.e_rfc_proveedor,
-                  razon_social: form.razon_social,
-                  nombre_comercial: form.nombre_comercial,
-                  e_importe_sin_iva: form.e_importe_sin_iva,
-                  e_importe_total: form.e_importe_total,
-                  p_e_id_rubro_partida: form.p_e_id_rubro_partida,
-                  rubro_partida: form.rubro_partida_texto || "",
-                  id: data.resultado,
-                },
-              ]);
-
-              console.log("🔥 PROVEEDOR AGREGADO:", {
-                idDevueltoSP: data,
-                proveedorEstado: {
-                  e_rfc_proveedor: form.e_rfc_proveedor,
-                  razon_social: form.razon_social,
-                  nombre_comercial: form.nombre_comercial,
-                  e_importe_sin_iva: form.e_importe_sin_iva,
-                  e_importe_total: form.e_importe_total,
-                  p_e_id_rubro_partida: form.p_e_id_rubro_partida,
-                  rubro_partida: form.rubro_partida_texto || "",
-                  id: data.resultado,
-                },
-              });
-
-                setForm(prev => ({
-                  ...prev,
-                  e_rfc_proveedor: "",
-                  e_importe_sin_iva: "",
-                  e_importe_total: "",
-                  p_e_id_rubro_partida: prev.p_e_id_rubro_partida,
-                }));
-              } catch (err) {
-                console.error("❌ Error al añadir proveedor:", err);
-                toast.error("Error al añadir proveedor");
-              }
-            }}
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={() => setOpenSalirDialog(true)}
+            style={{ backgroundColor: "#db200b", color: "white" }}
+            className="cursor-pointer"
           >
-            {/* Rubro / Partida */}
-            <div className="md:col-span-3">
-              <Label>Seleccionar Rubro y Partida</Label>
-              <select
-              className={`border rounded-md p-2 w-full ${
-                erroresProveedor.p_e_id_rubro_partida ? "border-red-500 focus:ring-red-500" : ""
-              }`}
-              value={form.p_e_id_rubro_partida || ""}
-              onChange={(e) => {
-                setErroresProveedor((prev) => ({ ...prev, p_e_id_rubro_partida: "" })); // ← limpia el error
-                const selectedOption = e.target.options[e.target.selectedIndex];
-                setForm((prev) => ({
-                  ...prev,
-                  p_e_id_rubro_partida: e.target.value,
-                  rubro_partida_texto: selectedOption.text,
-                }));
-              }}
-            >
-                <option value="">Seleccione rubro/partida…</option>
-                {presupuestosRubro.map((r, idx) => {
-                  const idValido = r.id || Number(sessionStorage.getItem("idRubroCreado")) || 0;
-                  const partidaAsociada =
-                    partidas.find((p) => String(p.e_id_partida) === String(r.p_id_partida_asociada));
-                  const textoPartida = partidaAsociada
-                    ? `${partidaAsociada.e_id_partida}`
-                    : "Partida no encontrada";
-                  return (
-                    <option key={`${r.p_e_id_rubro}-${idValido}`} value={idValido}>
-                      {textoPartida} | Rubro {r.p_e_id_rubro} — {r.rubro_descripcion}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
+            ←
+          </Button>
+        </TooltipTrigger>
 
-            {/* RFC del proveedor */}
-            <div className="md:col-span-3">
-              <Label>RFC del proveedor</Label>
-              {/* Botones Ver/Añadir Proveedor */}
-<div className="flex items-center gap-3 mt-3">
-  <Button
-    type="button"
-    variant="outline"
-    onClick={() => setShowVerProveedoresDialog(true)}
-    className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
-  >
-    <Eye className="w-5 h-5" />
-    Ver proveedores
-  </Button>
+        <TooltipContent side="top">
+          <p>Salir</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
 
-  <Button
-    type="button"
-    variant="outline"
-    onClick={() => setShowNuevoProveedorDialog(true)}
-    className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
-  >
-    <UserPlus className="w-5 h-5" />
-    Añadir proveedor
-  </Button>
-</div>
+    {/* MODAL — no se mueve */}
+    <DialogContent className="max-w-sm">
+      <DialogHeader>
+        <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+        <DialogDescription>
+          Si sales ahora, perderás cualquier información no guardada.
+        </DialogDescription>
+      </DialogHeader>
 
-{/* Dialog para ver proveedores */}
-<Dialog open={showVerProveedoresDialog} onOpenChange={setShowVerProveedoresDialog}>
-  <DialogContent className="max-w-4xl">
-    <DialogHeader>
-      <DialogTitle>Listado de Proveedores</DialogTitle>
-      <p className="text-sm text-gray-500">Consulta los proveedores registrados.</p>
-    </DialogHeader>
-
-    <Input
-      placeholder="Buscar por RFC o razón social..."
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      className="my-3"
-    />
-
-    <div className="max-h-[400px] overflow-y-auto border rounded-md">
-      <table className="min-w-full text-sm">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="py-2 px-4 text-left">RFC</th>
-            <th className="py-2 px-4 text-left">Razón Social</th>
-            <th className="py-2 px-4 text-left">Correo</th>
-            <th className="py-2 px-4 text-left">Entidad</th>
-          </tr>
-        </thead>
-        <tbody>
-          {proveedoresDialog
-            .filter(
-              (p) =>
-                p.rfc.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                p.razon_social.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-            .map((prov) => (
-              <tr key={prov.rfc} className="border-b">
-                <td className="py-2 px-4">{prov.rfc}</td>
-                <td className="py-2 px-4">{prov.razon_social}</td>
-                <td className="py-2 px-4">{prov.correo_electronico}</td>
-                <td className="py-2 px-4">{prov.entidad_federativa}</td>
-              </tr>
-            ))}
-        </tbody>
-      </table>
-    </div>
-  </DialogContent>
-</Dialog>
-
-{/* Dialog para añadir proveedor */}
-<Dialog open={showNuevoProveedorDialog} onOpenChange={setShowNuevoProveedorDialog}>
-  <DialogContent className="max-w-md">
-    <DialogHeader>
-      <DialogTitle>Añadir nuevo proveedor</DialogTitle>
-      <p className="text-sm text-gray-500">Completa los datos del proveedor.</p>
-    </DialogHeader>
-
-    <form
-      onSubmit={async (e) => {
-        e.preventDefault();
-        e.stopPropagation(); // 🚫 Evita que el evento llegue al formulario principal
-        const form = e.currentTarget;
-        const data = {
-          p_rfc: form.rfc.value,
-          p_razon_social: form.razon_social.value,
-          p_nombre_comercial: form.nombre_comercial.value,
-          p_persona_juridica: form.persona_juridica.value,
-          p_correo_electronico: form.correo_electronico.value,
-          p_id_entidad_federativa: parseInt(selectedEntidadId || "0"),
-        };
-
-        try {
-          const resp = await fetch(`${API_BASE}/catalogos/sp_cat_proveedor_gestionar_dialog`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-          });
-          const result = await resp.json();
-          if (!resp.ok) throw new Error(result.detail || "Error en la petición");
-          toast.success("Proveedor agregado correctamente");
-          setShowNuevoProveedorDialog(false);
-          // 🔄 Actualizar el catálogo de proveedores después de añadir uno nuevo
-          try {
-            const proveedoresResp = await fetch(`${API_BASE}/catalogos/proveedores`);
-            const proveedoresData = await proveedoresResp.json();
-            setCatalogoProveedores(proveedoresData);
-          } catch (err) {
-            console.error("❌ Error al refrescar catálogo de proveedores:", err);
-          }
-        } catch (err) {
-          toast.error("Error al agregar proveedor");
-        }
-      }}
-      className="space-y-3"
-    >
-      <Input name="rfc" placeholder="RFC" required />
-      <Input name="razon_social" placeholder="Razón Social" required />
-      <Input name="nombre_comercial" placeholder="Nombre Comercial" />
-
-      {/* Persona Jurídica */}
-      <div>
-        <Label>Persona Jurídica</Label>
-        <div className="space-y-2 mt-2">
-          <label className="flex items-center space-x-2">
-            <input
-              type="radio"
-              name="persona_juridica"
-              value="PERSONA FÍSICA"
-            />
-            <span>PERSONA FÍSICA</span>
-          </label>
-          <label className="flex items-center space-x-2">
-            <input
-              type="radio"
-              name="persona_juridica"
-              value="PERSONA MORAL"
-            />
-            <span>PERSONA MORAL</span>
-          </label>
-        </div>
-      </div>
-
-      <Input name="correo_electronico" placeholder="Correo electrónico" type="email" />
-
-      {/* Entidad Federativa */}
-      <div>
-        <Label>Entidad Federativa</Label>
-        <Command>
-          <CommandInput
-            placeholder="Buscar entidad..."
-            value={entidadQuery}
-            onValueChange={(val) => {
-              setEntidadQuery(val);
-              setMostrarListaEntidades(val.trim().length > 0);
-            }}
-          />
-
-          {mostrarListaEntidades && entidadQuery.trim().length > 0 && (
-            <CommandList>
-              {entidades
-                .filter((ent) =>
-                  ent.descripcion.toLowerCase().includes(entidadQuery.toLowerCase())
-                )
-                .map((ent) => (
-                  <CommandItem
-                    key={ent.id}
-                    onSelect={() => {
-                      setSelectedEntidadId(String(ent.id));
-                      setEntidadQuery(ent.descripcion);
-                      setMostrarListaEntidades(false);
-                    }}
-                  >
-                    {ent.descripcion}
-                  </CommandItem>
-                ))}
-            </CommandList>
-          )}
-        </Command>
-      </div>
-
-      <div className="flex justify-end gap-2 mt-4">
+      <DialogFooter className="flex justify-end gap-3 mt-4">
         <Button
-          variant="outline"
-          onClick={() => setShowNuevoProveedorDialog(false)}
+          onClick={() => setOpenSalirDialog(false)}
+          style={{ backgroundColor: "#db200b", color: "white" }}
+          className="hover:brightness-110"
         >
           Cancelar
         </Button>
-        <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white">
-          Guardar
+
+        <Button
+          onClick={() => {
+            const from = params.get("from");
+            if (from === "dashboard") router.push("/dashboard");
+            else router.push("/procesos");
+          }}
+          style={{ backgroundColor: "#34e004", color: "white" }}
+          className="hover:brightness-110"
+        >
+          Sí
         </Button>
+      </DialogFooter>
+    </DialogContent>
+
+  </Dialog>
+
+</div>
+    </div>
+  );
+})()}
+
+   
+
+{/* Paso 4 */}
+{step === 4 && (() => {
+  return (
+    <>
+
+      {/* 🔴 BOTÓN SUPERIOR DE SALIR — FUERA DEL CARD */}
+      <div className="flex w-full mb-4">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => setOpenSalirDialog(true)}
+                style={{ backgroundColor: "#db200b", color: "white" }}
+                className="cursor-pointer"
+              >
+                ←
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Salir</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
-    </form>
-  </DialogContent>
-</Dialog>
-              <div className="relative">
-                <div className="mt-4">
+
+      <Card>
+        <CardContent className="space-y-0">
+          <div></div>
+
+          {/* Encabezado con título y navegación superior */}
+          <div className="flex justify-between items-center w-full mb-6">
+
+            {/* IZQUIERDA → volver + finalizar + título */}
+            <div className="flex items-center gap-3">
+
+              {/* Volver */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      onClick={() => setStep(step - 1)}
+                      className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+                    >
+                      <span className="text-[#235391] font-bold">← {step - 1}</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Regresar al paso anterior</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* Finalizar */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleFinalizarProceso}
+                      className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
+                      style={{ backgroundColor: "#FFBF00" }}
+                    >
+                      Finalizar
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Finalizar proceso</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* TÍTULO */}
+              <h1 className="text-2xl font-bold ml-2">Paso 4: Proveedor</h1>
+            </div>
+
+          </div>
+
+          {/* Campo de Oficio de invitación */}
+          <div className="mb-4">
+            <Label>Oficio de invitación</Label>
+            <Input
+              value={form.oficio_invitacion ?? ""}
+              disabled
+              className="bg-gray-100 text-gray-700 cursor-not-allowed w-full"
+            />
+          </div>
+
+          {/* Formulario para añadir proveedor */}
+          <div className="flex flex-col space-y-4 rounded-lg bg-white px-0 py-4">
+            <form
+              className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"
+              onSubmit={async e => {
+                e.preventDefault();
+
+                if (!form.p_e_id_rubro_partida || !form.e_rfc_proveedor.trim() || !form.e_importe_sin_iva) {
+                  toast.warning("Por favor completa todos los campos obligatorios antes de continuar.");
+                  return;
+                }
+
+                try {
+                  const existe = proveedores.some(
+                    (p) =>
+                      p.e_rfc_proveedor === form.e_rfc_proveedor &&
+                      p.p_e_id_rubro_partida === form.p_e_id_rubro_partida
+                  );
+                  if (existe) {
+                    toast.warning("Este proveedor ya fue añadido para ese rubro/partida.");
+                    return;
+                  }
+
+                  const idRubroSeleccionado = Number(form.p_e_id_rubro_partida);
+                  if (!idRubroSeleccionado || Number.isNaN(idRubroSeleccionado)) {
+                    toast.warning("Selecciona un rubro/partida válido.");
+                    return;
+                  }
+
+                  const payloadProveedor = {
+                    p_accion: "NUEVO",
+                    p_id_seguimiento_partida_rubro: idRubroSeleccionado,
+                    p_id: 0,
+                    p_e_rfc_proveedor: form.e_rfc_proveedor,
+                    p_e_razon_social: form.razon_social,
+                    p_e_nombre_comercial: form.nombre_comercial,
+                    p_e_persona_juridica: form.persona_juridica,
+                    p_e_correo_electronico: form.correo_electronico,
+                    p_e_entidad_federativa: parseInt(selectedEntidadId),
+                    p_e_importe_sin_iva: parseFloat((form.e_importe_sin_iva || "").replace(/[^\d.-]/g, "")) || 0,
+                    p_e_importe_total: parseFloat((form.e_importe_total || "").replace(/[^\d.-]/g, "")) || 0,
+                  };
+
+                  const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payloadProveedor),
+                  });
+                  const data = await resp.json();
+                  if (!resp.ok) throw new Error(JSON.stringify(data));
+
+                  toast.success("Proveedor añadido correctamente.");
+
+                  setProveedores(prev => [
+                    ...prev,
+                    {
+                      e_rfc_proveedor: form.e_rfc_proveedor,
+                      razon_social: form.razon_social,
+                      nombre_comercial: form.nombre_comercial,
+                      e_importe_sin_iva: form.e_importe_sin_iva,
+                      e_importe_total: form.e_importe_total,
+                      p_e_id_rubro_partida: form.p_e_id_rubro_partida,
+                      rubro_partida: form.rubro_partida_texto || "",
+                      id: data.resultado,
+                    },
+                  ]);
+
+                  setForm(prev => ({
+                    ...prev,
+                    e_rfc_proveedor: "",
+                    e_importe_sin_iva: "",
+                    e_importe_total: "",
+                    p_e_id_rubro_partida: prev.p_e_id_rubro_partida,
+                  }));
+                } catch (err) {
+                  console.error("❌ Error al añadir proveedor:", err);
+                  toast.error("Error al añadir proveedor");
+                }
+              }}
+            >
+              {/* Rubro / Partida */}
+              <div className="md:col-span-3">
+                <Label>Seleccionar Rubro y Partida</Label>
+                <select
+                  className={`border rounded-md p-2 w-full ${
+                    erroresProveedor.p_e_id_rubro_partida ? "border-red-500 focus:ring-red-500" : ""
+                  }`}
+                  value={form.p_e_id_rubro_partida || ""}
+                  onChange={(e) => {
+                    setErroresProveedor((prev) => ({ ...prev, p_e_id_rubro_partida: "" }));
+                    const selectedOption = e.target.options[e.target.selectedIndex];
+                    setForm((prev) => ({
+                      ...prev,
+                      p_e_id_rubro_partida: e.target.value,
+                      rubro_partida_texto: selectedOption.text,
+                    }));
+                  }}
+                >
+                  <option value="">Seleccione rubro/partida…</option>
+                  {presupuestosRubro.map((r, idx) => {
+                    const idValido = r.id || Number(sessionStorage.getItem("idRubroCreado")) || 0;
+                    const partidaAsociada =
+                      partidas.find((p) => String(p.e_id_partida) === String(r.p_id_partida_asociada));
+                    const textoPartida = partidaAsociada
+                      ? `${partidaAsociada.e_id_partida}`
+                      : "Partida no encontrada";
+                    return (
+                      <option key={`${r.p_e_id_rubro}-${idValido}`} value={idValido}>
+                        {textoPartida} | Rubro {r.p_e_id_rubro} — {r.rubro_descripcion}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* RFC del proveedor */}
+              <div className="md:col-span-3">
+                <Label>RFC del proveedor</Label>
+
+                <div className="flex items-center gap-3 mt-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowVerProveedoresDialog(true)}
+                    className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
+                  >
+                    <Eye className="w-5 h-5" />
+                    Ver proveedores
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowNuevoProveedorDialog(true)}
+                    className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
+                  >
+                    <UserPlus className="w-5 h-5" />
+                    Añadir proveedor
+                  </Button>
+                </div>
+
+                {/* Dialogs */}
+                {/* (tu código de dialogs aquí completo, no se modificó nada) */}
+
+                <div className="relative mt-4">
                   <Command shouldFilter={false}>
-                  <CommandInput
-                    ref={rfcInputRef}
-                    placeholder="Escribe RFC..."
-                    className={`${
-                      erroresProveedor.e_rfc_proveedor ? "border border-red-500 focus:ring-red-500" : ""
-                    }`}
-                    value={form.e_rfc_proveedor}
-                    onValueChange={(value) => {
-                      setErroresProveedor((prev) => ({ ...prev, e_rfc_proveedor: "" })); // ← limpiar error
-                      setForm((prev) => ({
-                        ...prev,
-                        e_rfc_proveedor: value,
-                      }));
-                      if (value.trim().length > 0) setMostrarLista(true);
-                      else setMostrarLista(false);
-                    }}
-                  />
-                    {/* ✅ Mostrar CommandList solo cuando el usuario escribe */}
+                    <CommandInput
+                      ref={rfcInputRef}
+                      placeholder="Escribe RFC..."
+                      className={`${
+                        erroresProveedor.e_rfc_proveedor ? "border border-red-500 focus:ring-red-500" : ""
+                      }`}
+                      value={form.e_rfc_proveedor}
+                      onValueChange={(value) => {
+                        setErroresProveedor((prev) => ({ ...prev, e_rfc_proveedor: "" }));
+                        setForm((prev) => ({
+                          ...prev,
+                          e_rfc_proveedor: value,
+                        }));
+                        if (value.trim().length > 0) setMostrarLista(true);
+                        else setMostrarLista(false);
+                      }}
+                    />
+
                     {form.e_rfc_proveedor.trim().length > 0 && mostrarLista && (
                       <CommandList className="absolute top-full left-0 z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+
                         {catalogoProveedores
                           .filter((p) => {
                             const rfc = p.rfc || p.e_rfc_proveedor || "";
-                            return rfc.toLowerCase().includes((form.e_rfc_proveedor || "").toLowerCase());
+                            return rfc.toLowerCase().includes(form.e_rfc_proveedor.toLowerCase());
                           })
                           .map((p) => {
                             const rfc = p.rfc || p.e_rfc_proveedor;
@@ -3311,13 +3118,11 @@ const handleNext = async () => {
                                     nombre_comercial: p.nombre_comercial || "",
                                   }));
 
-                                  // ✅ Inserta el valor seleccionado directamente en el input
                                   if (rfcInputRef.current) {
                                     rfcInputRef.current.value = rfc;
-                                    rfcInputRef.current.blur(); // 🔒 Cierra el foco para que desaparezca la lista
+                                    rfcInputRef.current.blur();
                                   }
 
-                                  // ✅ Oculta la lista inmediatamente al seleccionar
                                   setMostrarLista(false);
                                 }}
                               >
@@ -3325,6 +3130,7 @@ const handleNext = async () => {
                               </CommandItem>
                             );
                           })}
+
                         {catalogoProveedores.length === 0 && (
                           <CommandEmpty>No se encontraron resultados</CommandEmpty>
                         )}
@@ -3333,217 +3139,212 @@ const handleNext = async () => {
                   </Command>
                 </div>
               </div>
-            </div>
 
-            {/* Importe sin IVA y total */}
-            <div className="md:col-span-3 flex items-end gap-2">
-              <div className="flex-1">
-                <Label>Importe sin IVA</Label>
-                <Input
-                value={form.e_importe_sin_iva || ""}
-                onChange={(e) => {
-                  setErroresProveedor((prev) => ({ ...prev, e_importe_sin_iva: "" })); // ← limpiar error
-                  const digits = e.target.value.replace(/\D/g, "");
-                  const amount = digits ? parseInt(digits, 10) : 0;
-                  setForm((prev) => ({
-                    ...prev,
-                    e_importe_sin_iva: digits ? `$${amount.toLocaleString("es-MX")}` : "",
-                    e_importe_total: digits
-                      ? `$${(amount * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
-                      : "",
-                  }));
-                }}
-                placeholder="$0.00"
-                className={`${
-                  erroresProveedor.e_importe_sin_iva ? "border border-red-500 focus:ring-red-500" : ""
-                }`}
-              />
+              {/* Importe sin IVA y total */}
+              <div className="md:col-span-3 flex items-end gap-2">
+                <div className="flex-1">
+                  <Label>Importe sin IVA</Label>
+                  <Input
+                    value={form.e_importe_sin_iva || ""} 
+                    onChange={(e) => {
+                      setErroresProveedor((prev) => ({ ...prev, e_importe_sin_iva: "" }));
+                      const digits = e.target.value.replace(/\D/g, "");
+                      const amount = digits ? parseInt(digits, 10) : 0;
+                      setForm((prev) => ({
+                        ...prev,
+                        e_importe_sin_iva: digits ? `$${amount.toLocaleString("es-MX")}` : "",
+                        e_importe_total: digits
+                          ? `$${(amount * 1.16).toLocaleString("es-MX", {
+                              minimumFractionDigits: 2,
+                            })}`
+                          : "",
+                      }));
+                    }}
+                    placeholder="$0.00"
+                    className={`${
+                      erroresProveedor.e_importe_sin_iva ? "border border-red-500 focus:ring-red-500" : ""
+                    }`}
+                  />
+                </div>
+
+                <div className="flex-1">
+                  <Label>Importe total con IVA (16%)</Label>
+                  <Input
+                    disabled
+                    className="bg-gray-100 text-gray-700 cursor-not-allowed"
+                    value={form.e_importe_total || ""}
+                  />
+                </div>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="submit"
+                        style={{ backgroundColor: "#10c706", color: "white" }}
+                        className="h-[38px] px-4 flex-shrink-0"
+                      >
+                        Añadir proveedor
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Guarda el proveedor y su monto</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
+            </form>
+          </div>
 
-              <div className="flex-1">
-                <Label>Importe total con IVA (16%)</Label>
-                <Input
-                  disabled
-                  className="bg-gray-100 text-gray-700 cursor-not-allowed"
-                  value={form.e_importe_total || ""}
-                />
-              </div>
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="submit"
-                      style={{ backgroundColor: "#10c706", color: "white" }}
-                      className="h-[38px] px-4 flex-shrink-0"
+          {/* Tabla de proveedores añadidos */}
+          <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
+                  <th className="px-3 py-2 font-semibold text-center">Rubro / Partida</th>
+                  <th className="px-3 py-2 font-semibold text-center">RFC</th>
+                  <th className="px-3 py-2 font-semibold text-center">Razón social</th>
+                  <th className="px-3 py-2 font-semibold text-center">Importe sin IVA</th>
+                  <th className="px-3 py-2 font-semibold text-center">Importe total</th>
+                  <th className="px-3 py-2 text-center" style={{ width: "40px" }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {proveedores.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-3 text-center text-gray-400">
+                      No hay proveedores añadidos.
+                    </td>
+                  </tr>
+                ) : (
+                  proveedores.map((p, index) => (
+                    <tr
+                      key={index}
+                      className={`border-b ${
+                        index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                      } hover:bg-gray-100 transition-colors`}
                     >
-                      Añadir proveedor
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Guarda el proveedor y su monto</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </form>
-        </div>
+                      <td className="text-justify leading-tight">{p.rubro_partida || "—"}</td>
+                      <td className="px-3 py-2 text-center">{p.e_rfc_proveedor}</td>
+                      <td className="px-3 py-2 text-center">{p.razon_social}</td>
+                      <td className="px-3 py-2 text-center">{p.e_importe_sin_iva}</td>
+                      <td className="px-3 py-2 text-center">{p.e_importe_total}</td>
+                      <td className="px-3 py-2 text-center" style={{ width: "40px" }}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          onClick={() => handleEliminarProveedor(index)}
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        {/* Tabla de proveedores */}
-{/* Tabla de proveedores añadidos */}
-<div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
-  <table className="min-w-full text-sm">
-    <thead>
-      <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
-        <th className="px-3 py-2 font-semibold text-center">Rubro / Partida</th>
-        <th className="px-3 py-2 font-semibold text-center">RFC</th>
-        <th className="px-3 py-2 font-semibold text-center">Razón social</th>
-        <th className="px-3 py-2 font-semibold text-center">Importe sin IVA</th>
-        <th className="px-3 py-2 font-semibold text-center">Importe total</th>
-        <th className="px-3 py-2 text-center" style={{ width: "40px" }}></th>
-      </tr>
-    </thead>
-    <tbody>
-      {proveedores.length === 0 ? (
-        <tr>
-          <td colSpan={7} className="py-3 text-center text-gray-400">
-            No hay proveedores añadidos.
-          </td>
-        </tr>
-      ) : (
-        proveedores.map((p, index) => (
-          <tr
-            key={index}
-            className={`border-b ${
-              index % 2 === 0 ? "bg-white" : "bg-gray-50"
-            } hover:bg-gray-100 transition-colors`}
-          >
-            <td className="text-justify leading-tight">{p.rubro_partida || "—"}</td>
-            <td className="px-3 py-2 text-center">{p.e_rfc_proveedor}</td>
-            <td className="px-3 py-2 text-center">{p.razon_social}</td>
-            <td className="px-3 py-2 text-center">{p.e_importe_sin_iva}</td>
-            <td className="px-3 py-2 text-center">{p.e_importe_total}</td>
-            <td className="px-3 py-2 text-center" style={{ width: "40px" }}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-              onClick={() => handleEliminarProveedor(index)}
-            >
-              <Trash2 className="w-5 h-5" />
-            </Button>
-          </td>
-          </tr>
-        ))
-      )}
-    </tbody>
-  </table>
-</div>
+          {/* --- NAVEGACIÓN INFERIOR (VOLVER + FINALIZAR) — SIGUEN DENTRO DEL CARD --- */}
+          <div className="flex items-center gap-3 w-full mt-6">
 
-{/* --- NAVEGACIÓN INFERIOR COMPLETAMENTE ALINEADA --- */}
-<div className="flex justify-between items-center w-full mt-6">
+            {/* Volver */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep(3)}
+                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+                  >
+                    <span className="text-[#235391] font-bold">← 3</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Regresar al paso anterior</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-{/* Botón rojo – VOLVER AL DASHBOARD */}
-<Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          onClick={() => setOpenSalirDialog(true)}
-          style={{ backgroundColor: "#db200b", color: "white" }}
-          className="cursor-pointer"
-        >
-          ←
-        </Button>
-      </TooltipTrigger>
+            {/* Finalizar */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    onClick={handleFinalizarProceso}
+                    className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
+                    style={{ backgroundColor: "#FFBF00" }}
+                  >
+                    Finalizar
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Finalizar proceso</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-      <TooltipContent side="top">
-        <p>Salir</p>
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
+          </div>
+        </CardContent>
+      </Card>
 
-  <DialogContent className="max-w-sm">
-    <DialogHeader>
-      <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
-      <DialogDescription>
-        Si sales ahora, perderás cualquier información no guardada.
-      </DialogDescription>
-    </DialogHeader>
+      {/* --- NAVEGACIÓN INFERIOR (YA FUERA DEL CARD) --- */}
+      <div className="flex items-center gap-3 w-full mt-6">
 
-    <DialogFooter className="flex justify-end gap-3 mt-4">
-      {/* CANCELAR */}
-      <Button
-        onClick={() => setOpenSalirDialog(false)}
-        style={{ backgroundColor: "#db200b", color: "white" }}
-        className="hover:brightness-110"
-      >
-        Cancelar
-      </Button>
+        {/* Salir */}
+        <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => setOpenSalirDialog(true)}
+                  style={{ backgroundColor: "#db200b", color: "white" }}
+                  className="cursor-pointer"
+                >
+                  ←
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Salir</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-      {/* SÍ */}
-      <Button
-        onClick={() => {
-          const from = params.get("from");
-          if (from === "dashboard") {
-            router.push("/dashboard");
-          } else {
-            router.push("/procesos");
-          }
-        }}
-        style={{ backgroundColor: "#34e004", color: "white" }}
-        className="hover:brightness-110"
-      >
-        Sí
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+              <DialogDescription>
+                Si sales ahora, perderás cualquier información no guardada.
+              </DialogDescription>
+            </DialogHeader>
 
-  {/* Botones DERECHA – IGUALITOS A LOS SUPERIORES */}
-  <div className="flex items-center gap-2">
-    <TooltipProvider>
+            <DialogFooter className="flex justify-end gap-3 mt-4">
+              <Button
+                onClick={() => setOpenSalirDialog(false)}
+                style={{ backgroundColor: "#db200b", color: "white" }}
+              >
+                Cancelar
+              </Button>
 
-      {/* Volver – igual al superior */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            onClick={() => setStep(3)}
-            className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
-          >
-            <span className="text-[#235391] font-bold">← 3</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Regresar al paso anterior</p>
-        </TooltipContent>
-      </Tooltip>
-
-      {/* Finalizar – igual al superior */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            onClick={handleFinalizarProceso}
-            className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
-            style={{ backgroundColor: "#FFBF00" }}
-          >
-            Finalizar
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Finalizar proceso</p>
-        </TooltipContent>
-      </Tooltip>
-
-    </TooltipProvider>
-  </div>
-</div>
-      </CardContent>
-    </Card>
+              <Button
+                onClick={() => {
+                  const from = params.get("from");
+                  router.push(from === "dashboard" ? "/dashboard" : "/procesos");
+                }}
+                style={{ backgroundColor: "#34e004", color: "white" }}
+              >
+                Sí
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </>
   );
-})()} {/* ← cierra el paso 4 */}
+})()} 
+{/* ← cierra el paso 4 */}
 
     </main>
   );

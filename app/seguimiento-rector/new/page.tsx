@@ -1809,7 +1809,7 @@ useEffect(() => {
   <Card className="shadow-md border">
     <CardHeader className="flex flex-row items-center justify-between">
   <CardTitle>Seleccionar proceso de adjudicación</CardTitle>
-  
+
 </CardHeader>
 
     <CardContent className="space-y-6">
