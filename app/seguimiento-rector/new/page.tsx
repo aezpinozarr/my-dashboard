@@ -114,6 +114,7 @@ type ServidorPublico = {
   id_ente?: number;
 };
 
+
 const API_BASE =
   typeof window !== "undefined"
     ? window.location.hostname.includes("railway")
@@ -207,6 +208,7 @@ export default function Page() {
 function RectorForm() {
   // Paso visual y control de flujo
   const [step, setStep] = useState(1);
+  const [openSalirDialog, setOpenSalirDialog] = React.useState(false);
   // Estados para gestión de servidores públicos del ente 0
   const [verServidoresDialogOpen, setVerServidoresDialogOpen] = React.useState(false);
   const [addServidorDialogOpen, setAddServidorDialogOpen] = React.useState(false);
@@ -1160,7 +1162,8 @@ useEffect(() => {
 {/* IZQUIERDA: Flecha + Título + Oficio + Botones superiores */}
 <div className="flex items-center gap-3">
 
-  {/* Flecha SALIR */}
+{/* Flecha SALIR con Dialog */}
+<Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
   <TooltipProvider>
     <Tooltip>
       <TooltipTrigger asChild>
@@ -1168,18 +1171,53 @@ useEffect(() => {
           variant="outline"
           size="icon"
           type="button"
+          onClick={() => setOpenSalirDialog(true)}
           style={{ backgroundColor: "#db200b", color: "white" }}
-          onClick={() => router.push("/seguimiento-rector")}
           className="rounded-md shadow-sm cursor-pointer"
         >
           <span className="text-lg">←</span>
         </Button>
       </TooltipTrigger>
+
       <TooltipContent side="bottom" className="text-xs">
         Salir
       </TooltipContent>
     </Tooltip>
   </TooltipProvider>
+
+  {/* --- Diálogo --- */}
+  <DialogContent className="max-w-sm">
+    <DialogHeader>
+      <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+      <DialogDescription>
+        Si sales ahora, podrías perder información no guardada.
+      </DialogDescription>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 mt-4">
+      {/* Cancelar */}
+      <Button
+        onClick={() => setOpenSalirDialog(false)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Cancelar
+      </Button>
+
+      {/* Confirmar salida */}
+      <Button
+        onClick={() => {
+          setOpenSalirDialog(false);
+          router.push("/seguimiento-rector"); // 🔥 tu ruta original
+        }}
+        style={{ backgroundColor: "#34e004", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Sí
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
   {/* ⭐ BOTONES SUPERIORES AGREGADOS AQUÍ */}
   {estatusGeneral === "REVISADO" && pasoActual === 2 && (
@@ -1356,453 +1394,525 @@ useEffect(() => {
   </Card>
 )}
 
-      {/* Paso 1: Gestión del Rector */}
+     {/* Paso 1: Gestión del Rector */}
 {pasoActual === 1 && (
-  <Card className="shadow-md border w-full pt-1">
+  <>
 
-    {/* 🔹 Reducimos el espacio del Header */}
-    <CardHeader className="flex flex-row items-center justify-between py-1">
-      <CardTitle className="text-lg">Gestión del Rector</CardTitle>
-    </CardHeader>
+    <Card className="shadow-md border w-full pt-1">
+      <CardHeader className="flex flex-row items-center justify-between py-1">
+        <CardTitle className="text-lg">Gestión del Rector</CardTitle>
+      </CardHeader>
 
-    {/* 🔹 Reducimos espacio superior de los campos */}
-    <CardContent className="pt-0">
+      <CardContent className="pt-0">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-[-10px]">
 
-      <form onSubmit={handleSubmit} className="space-y-4 mt-[-10px]">
-        {/* Primera fila */}
-        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div className="flex flex-wrap items-end justify-between gap-6">
 
-          {/* Oficio */}
-          <div className="flex flex-col min-w-[160px]">
-            <Label className="text-gray-700 font-medium">Oficio</Label>
-            <Input
-              name="oficio"
-              value={form.oficio ?? detalleGeneral?.e_oficio_invitacion ?? ""}
-              onChange={(e) => setForm({ ...form, oficio: e.target.value })}
-              placeholder="Número de oficio"
-              className={`w-[320px] shadow-sm ${formErrors.oficio ? "border-red-500" : ""}`}
-            />
-          </div>
-
-          {/* Fecha de Emisión */}
-          <div className="flex flex-col min-w-[140px]">
-            <Label className="text-gray-700 font-medium">Fecha de Emisión</Label>
-            <Input
-              value={form.fecha_emision ?? ""}
-              onChange={(e) =>
-                setForm({ ...form, fecha_emision: formatDateDDMMYYYY(e.target.value) })
-              }
-              placeholder="dd/mm/aaaa"
-              maxLength={10}
-              name="fecha_emision"
-              className={`w-[140px] shadow-sm ${errores.fecha_emision || formErrors.fecha_emision ? "border-red-500" : ""}`}
-            />
-          </div>
-
-              {/* Fecha reunión */}
-              <div className="flex flex-col min-w-[140px]">
-                <Label className="text-gray-700 font-medium">Fecha reunión</Label>
-                <Input
-                  value={form.fecha_reunion ?? ""}
-                  onChange={(e) =>
-                    setForm({ ...form, fecha_reunion: formatDateDDMMYYYY(e.target.value) })
-                  }
-                  placeholder="dd/mm/aaaa"
-                  maxLength={10}
-                  name="fecha_reunion_fecha"
-                  className={`w-[140px] shadow-sm ${errores.fecha_reunion || formErrors.fecha_reunion ? "border-red-500" : ""}`}
-                />
-              </div>
-
-              {/* Hora reunión */}
-              <div className="flex flex-col min-w-[100px]">
-                <Label className="text-gray-700 font-medium">Hora (24 Hrs)</Label>
-                <Input
-                  value={form.hora_reunion ?? ""}
-                  onChange={(e) =>
-                    setForm({ ...form, hora_reunion: formatTimeHHMM(e.target.value) })
-                  }
-                  placeholder="HH:MM"
-                  maxLength={5}
-                  name="fecha_reunion_hora"
-                  className={`w-[100px] shadow-sm ${errores.hora_reunion || formErrors.hora_reunion ? "border-red-500" : ""}`}
-                />
-              </div>
-
-              {/* Estatus General */}
-              <div className="flex flex-col justify-end min-w-[300px]">
-                <Label className="mb-1 text-gray-700 font-medium">Estatus General</Label>
-                <RadioGroup
-                  value={estatusGeneral}
-                  onValueChange={(val: string) => {
-                    setEstatusGeneral(val);
-                    if (val !== "REVISADO") {
-                      setMostrarObservaciones(false);
-                    }
-                  }}
-                  className="flex flex-row gap-6 items-center bg-gray-50 px-3 py-2 rounded-md border border-gray-200 shadow-sm"
-                  name="estatus"
-                >
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value="REVISADO" id="estatus-revisado" />
-                    <Label htmlFor="estatus-revisado" className="cursor-pointer text-sm font-medium">REVISADO</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value="CANCELADO" id="estatus-cancelado" />
-                    <Label htmlFor="estatus-cancelado" className="cursor-pointer text-sm font-medium">CANCELADO</Label>
-                  </div>
-                </RadioGroup>
-                NOTA: El Estatus se actualiza al finalizar el proceso
-              </div>
-            </div>
-            {/* Observaciones/Motivo de cancelación según estatus */}
-            {estatusGeneral === "REVISADO" && (
-              <div className="mt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={mostrarObservaciones}
-                    onChange={(e) => setMostrarObservaciones(e.target.checked)}
-                    className="accent-blue-600"
-                  />
-                  Observaciones
-                </label>
-                {mostrarObservaciones && (
-                  <div className="mt-2">
-                    <Label htmlFor="observaciones">Observaciones</Label>
-                    <textarea
-                      id="observaciones"
-                      name="observaciones"
-                      className="w-full border rounded-md p-2 resize-none"
-                      rows={2}
-                      value={observaciones}
-                      onChange={(e) => setObservaciones(e.target.value)}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-            {estatusGeneral === "CANCELADO" && (
-              <div className="mt-2">
-                <Label htmlFor="observacionesCancelado">Motivo de cancelación</Label>
-                <textarea
-                  id="observacionesCancelado"
-                  name="observacionesCancelado"
-                  className="w-full border rounded-md p-2 resize-none"
-                  rows={2}
-                  value={observaciones}
-                  onChange={(e) => {
-                    setObservaciones(e.target.value);
-                    setMostrarObservaciones(true);
-                  }}
-                  placeholder="Escribe el motivo de la cancelación..."
-                />
-              </div>
-            )}
-            {/* Asunto */}
-            <div>
-              <Label>Asunto</Label>
-              <textarea
-                name="asunto"
-                value={form.asunto ?? detalleGeneral?.e_asunto ?? ""}
-                onChange={(e) => setForm({ ...form, asunto: e.target.value })}
-                placeholder="Escribe el asunto..."
-                className={`w-full border rounded-md p-2 resize-none ${formErrors.asunto ? "border-red-500" : ""}`}
-                rows={2}
+            <div className="flex flex-col min-w-[160px]">
+              <Label className="text-gray-700 font-medium">Oficio</Label>
+              <Input
+                name="oficio"
+                value={form.oficio ?? detalleGeneral?.e_oficio_invitacion ?? ""}
+                onChange={(e) => setForm({ ...form, oficio: e.target.value })}
+                placeholder="Número de oficio"
+                className={`w-[320px] shadow-sm ${formErrors.oficio ? "border-red-500" : ""}`}
               />
             </div>
-            {/* Servidor público (con Command) */}
-            <div>
-              <Label>Servidor público (asiste)</Label>
-              <Command>
-                <CommandInput
-                  placeholder="Escribe para buscar…"
-                  value={busquedaServidor}
-                  onValueChange={(val) => {
-                    setBusquedaServidor(val);
-                    setMostrarServidores(true);
-                  }}
+
+            <div className="flex flex-col min-w-[140px]">
+              <Label className="text-gray-700 font-medium">Fecha de Emisión</Label>
+              <Input
+                value={form.fecha_emision ?? ""}
+                onChange={(e) =>
+                  setForm({ ...form, fecha_emision: formatDateDDMMYYYY(e.target.value) })
+                }
+                placeholder="dd/mm/aaaa"
+                maxLength={10}
+                name="fecha_emision"
+                className={`w-[140px] shadow-sm ${errores.fecha_emision || formErrors.fecha_emision ? "border-red-500" : ""}`}
+              />
+            </div>
+
+            <div className="flex flex-col min-w-[140px]">
+              <Label className="text-gray-700 font-medium">Fecha reunión</Label>
+              <Input
+                value={form.fecha_reunion ?? ""}
+                onChange={(e) =>
+                  setForm({ ...form, fecha_reunion: formatDateDDMMYYYY(e.target.value) })
+                }
+                placeholder="dd/mm/aaaa"
+                maxLength={10}
+                name="fecha_reunion_fecha"
+                className={`w-[140px] shadow-sm ${errores.fecha_reunion || formErrors.fecha_reunion ? "border-red-500" : ""}`}
+              />
+            </div>
+
+            <div className="flex flex-col min-w-[100px]">
+              <Label className="text-gray-700 font-medium">Hora (24 Hrs)</Label>
+              <Input
+                value={form.hora_reunion ?? ""}
+                onChange={(e) =>
+                  setForm({ ...form, hora_reunion: formatTimeHHMM(e.target.value) })
+                }
+                placeholder="HH:MM"
+                maxLength={5}
+                name="fecha_reunion_hora"
+                className={`w-[100px] shadow-sm ${errores.hora_reunion || formErrors.hora_reunion ? "border-red-500" : ""}`}
+              />
+            </div>
+
+            <div className="flex flex-col justify-end min-w-[300px]">
+              <Label className="mb-1 text-gray-700 font-medium">Estatus General</Label>
+              <RadioGroup
+                value={estatusGeneral}
+                onValueChange={(val: string) => {
+                  setEstatusGeneral(val);
+                  if (val !== "REVISADO") setMostrarObservaciones(false);
+                }}
+                className="flex flex-row gap-6 items-center bg-gray-50 px-3 py-2 rounded-md border border-gray-200 shadow-sm"
+                name="estatus"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="REVISADO" id="estatus-revisado" />
+                  <Label htmlFor="estatus-revisado" className="cursor-pointer text-sm font-medium">
+                    REVISADO
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="CANCELADO" id="estatus-cancelado" />
+                  <Label htmlFor="estatus-cancelado" className="cursor-pointer text-sm font-medium">
+                    CANCELADO
+                  </Label>
+                </div>
+              </RadioGroup>
+              NOTA: El Estatus se actualiza al finalizar el proceso
+            </div>
+          </div>
+
+          {estatusGeneral === "REVISADO" && (
+            <div className="mt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={mostrarObservaciones}
+                  onChange={(e) => setMostrarObservaciones(e.target.checked)}
+                  className="accent-blue-600"
                 />
-                    {mostrarServidores && (
-                  <CommandList>
-                    {busquedaServidor.trim() !== "" ? (
-                      servidores
-                        .filter((s) =>
-                          (s.nombre || "").toLowerCase().includes(busquedaServidor.toLowerCase())
-                        )
-                        .map((s) => (
-                          <CommandItem
-                            key={s.id}
-                            onSelect={() => {
-                              setServidorSeleccionado(s);
+                Observaciones
+              </label>
+
+              {mostrarObservaciones && (
+                <div className="mt-2">
+                  <Label htmlFor="observaciones">Observaciones</Label>
+                  <textarea
+                    id="observaciones"
+                    name="observaciones"
+                    className="w-full border rounded-md p-2 resize-none"
+                    rows={2}
+                    value={observaciones}
+                    onChange={(e) => setObservaciones(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {estatusGeneral === "CANCELADO" && (
+            <div className="mt-2">
+              <Label>Motivo de cancelación</Label>
+              <textarea
+                className="w-full border rounded-md p-2 resize-none"
+                rows={2}
+                value={observaciones}
+                onChange={(e) => {
+                  setObservaciones(e.target.value);
+                  setMostrarObservaciones(true);
+                }}
+                placeholder="Escribe el motivo de la cancelación..."
+              />
+            </div>
+          )}
+
+          <div>
+            <Label>Asunto</Label>
+            <textarea
+              name="asunto"
+              value={form.asunto ?? detalleGeneral?.e_asunto ?? ""}
+              onChange={(e) => setForm({ ...form, asunto: e.target.value })}
+              placeholder="Escribe el asunto..."
+              className={`w-full border rounded-md p-2 resize-none ${formErrors.asunto ? "border-red-500" : ""}`}
+              rows={2}
+            />
+          </div>
+
+          <div>
+            <Label>Servidor público (asiste)</Label>
+
+            <Command>
+              <CommandInput
+                placeholder="Escribe para buscar…"
+                value={busquedaServidor}
+                onValueChange={(val) => {
+                  setBusquedaServidor(val);
+                  setMostrarServidores(true);
+                }}
+              />
+
+              {mostrarServidores && (
+                <CommandList>
+                  {busquedaServidor.trim() !== "" ? (
+                    servidores
+                      .filter((s) =>
+                        (s.nombre || "").toLowerCase().includes(busquedaServidor.toLowerCase())
+                      )
+                      .map((s) => (
+                        <CommandItem
+                          key={s.id}
+                          onSelect={() => {
+                            setServidorSeleccionado(s);
+                            setForm((prev) => ({
+                              ...prev,
+                              servidor_publico_cargo: s.cargo || "",
+                              id_servidor_publico_asiste: s.id,
+                            }));
+                            setBusquedaServidor(s.nombre);
+                            setMostrarServidores(false);
+                          }}
+                        >
+                          {s.nombre}
+                        </CommandItem>
+                      ))
+                  ) : (
+                    <CommandEmpty>Escribe para buscar un servidor</CommandEmpty>
+                  )}
+                </CommandList>
+              )}
+            </Command>
+
+            {servidorSeleccionado && (
+              <p className="text-sm text-gray-600 mt-1">
+                Seleccionado: <strong>{servidorSeleccionado.nombre}</strong>
+              </p>
+            )}
+
+            {!servidorSeleccionado && formErrors.servidor && (
+              <p className="text-xs text-red-600 mt-1">Campo obligatorio</p>
+            )}
+
+            <div className="flex gap-3 mt-2 items-center">
+
+{/* Ver servidores públicos */}
+<Dialog open={verServidoresDialogOpen} onOpenChange={setVerServidoresDialogOpen}>
+  <DialogTrigger asChild>
+    <Button
+      variant="outline"
+      className="border-gray-300 text-gray-700 hover:bg-gray-100"
+      type="button"
+    >
+      <Eye className="w-4 h-4 mr-2" />
+      Ver servidores públicos
+    </Button>
+  </DialogTrigger>
+
+  {/* Dialog más pequeño y con altura máxima */}
+  <DialogContent className="max-w-md max-h-[70vh] overflow-hidden flex flex-col">
+    <DialogHeader>
+      <DialogTitle>Servidores públicos del ente 0</DialogTitle>
+      <DialogDescription>
+        Lista de servidores públicos registrados para el ente 0.
+      </DialogDescription>
+    </DialogHeader>
+
+    {/* Contenedor scrollable */}
+    <div className="overflow-y-auto mt-2 border rounded-md max-h-[50vh]">
+      <table className="min-w-full bg-white border-collapse">
+        <thead className="sticky top-0 bg-gray-100 z-10">
+          <tr>
+            <th className="py-2 px-4 border-b text-left">Nombre</th>
+            <th className="py-2 px-4 border-b text-left">Cargo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {servidores.map((s, idx) => (
+            <tr key={s.id || idx}>
+              <td className="py-2 px-4 border-b">{s.nombre}</td>
+              <td className="py-2 px-4 border-b">{s.cargo}</td>
+            </tr>
+          ))}
+
+          {servidores.length === 0 && (
+            <tr>
+              <td colSpan={2} className="py-2 px-4 text-center text-gray-400">
+                No hay servidores públicos para el ente 0.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+
+    <DialogFooter className="mt-4">
+    <Button
+      onClick={() => setVerServidoresDialogOpen(false)}
+      style={{
+        backgroundColor: "#db200b",
+        color: "white"
+      }}
+      className="hover:brightness-110"
+    >
+      Cerrar
+    </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+
+              {/* Añadir servidor */}
+              <Dialog open={addServidorDialogOpen} onOpenChange={setAddServidorDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                    type="button"
+                  >
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Añadir servidor público
+                  </Button>
+                </DialogTrigger>
+
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Añadir nuevo servidor público</DialogTitle>
+                    <DialogDescription>
+                      Completa los campos para registrar un nuevo servidor público del ente 0.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <form className="space-y-4 mt-2" onSubmit={(e) => e.preventDefault()}>
+                    <div>
+                      <Label>Ente perteneciente</Label>
+                      <Input value="Ente 0 (Rector)" disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
+                    </div>
+
+                    <div>
+                      <Label>Nombre</Label>
+                      <Input
+                        value={nuevoServidorNombre}
+                        onChange={(e) => setNuevoServidorNombre(e.target.value)}
+                        placeholder="Nombre del servidor público"
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Cargo</Label>
+                      <Input
+                        value={nuevoServidorCargo}
+                        onChange={(e) => setNuevoServidorCargo(e.target.value)}
+                        placeholder="Cargo del servidor público"
+                      />
+                    </div>
+
+                    <DialogFooter className="mt-2">
+                      <Button
+                        type="button"
+                        className="bg-[#db200b] text-white hover:bg-[#b81a09]"
+                        onClick={() => setAddServidorDialogOpen(false)}
+                      >
+                        Cancelar
+                      </Button>
+
+                      <Button
+                        type="button"
+                        className="bg-[#34e004] text-white hover:bg-[#2bc103]"
+                        onClick={async () => {
+                          if (!nuevoServidorNombre.trim() || !nuevoServidorCargo.trim()) {
+                            toast.warning("Por favor ingresa nombre y cargo.");
+                            return;
+                          }
+
+                          setAddServidorLoading(true);
+
+                          try {
+                            const url = `${API_BASE}/catalogos/ente-y-servidor-publico-gestionar-ambos?p_id_ente=0&p_nombre=${encodeURIComponent(
+                              nuevoServidorNombre
+                            )}&p_cargo=${encodeURIComponent(nuevoServidorCargo)}`;
+
+                            const resp = await fetch(url, { method: "POST" });
+                            if (!resp.ok) {
+                              toast.error("Error al añadir servidor público.");
+                              return;
+                            }
+
+                            const sResp = await fetch(
+                              `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=0`
+                            );
+                            const nuevosServidores = await sResp.json();
+                            setServidores(nuevosServidores);
+
+                            const nuevoServidor = nuevosServidores.find(
+                              (s: ServidorPublico) =>
+                                s.nombre?.toLowerCase() === nuevoServidorNombre.toLowerCase() &&
+                                s.cargo?.toLowerCase() === nuevoServidorCargo.toLowerCase()
+                            );
+
+                            if (nuevoServidor) {
+                              setServidorSeleccionado(nuevoServidor);
                               setForm((prev) => ({
                                 ...prev,
-                                servidor_publico_cargo: s.cargo || "",
-                                id_servidor_publico_asiste: s.id,
+                                id_servidor_publico_asiste: nuevoServidor.id,
                               }));
-                              setBusquedaServidor(s.nombre);
+                              setBusquedaServidor(nuevoServidor.nombre);
                               setMostrarServidores(false);
-                            }}
-                          >
-                            {s.nombre}
-                          </CommandItem>
-                        ))
-                    ) : (
-                      <CommandEmpty>Escribe para buscar un servidor</CommandEmpty>
-                    )}
-                  </CommandList>
-                )}
-              </Command>
-              {servidorSeleccionado && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Seleccionado: <strong>{servidorSeleccionado.nombre}</strong>
-                </p>
-              )}
-              {!servidorSeleccionado && formErrors.servidor && (
-                <p className="text-xs text-red-600 mt-1">Campo obligatorio</p>
-              )}
-{/* Botones para ver y añadir servidores públicos del ente 0 */}
-<div className="flex gap-3 mt-2 items-center">
+                            }
 
-  {/* Ver servidores públicos */}
-  <Dialog open={verServidoresDialogOpen} onOpenChange={setVerServidoresDialogOpen}>
-    <DialogTrigger asChild>
-      <Button
-        variant="outline"
-        className="border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
-        type="button"
-      >
-        <Eye className="w-4 h-4 mr-2" />
-        Ver servidores públicos
-      </Button>
-    </DialogTrigger>
+                            setNuevoServidorNombre("");
+                            setNuevoServidorCargo("");
+                            setAddServidorDialogOpen(false);
 
-    <DialogContent className="max-w-lg">
+                          } catch (err) {
+                            toast.error("Error al añadir servidor público.");
+                          } finally {
+                            setAddServidorLoading(false);
+                          }
+                        }}
+                        disabled={addServidorLoading}
+                      >
+                        {addServidorLoading ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          "Guardar"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+
+              {/* Botones avanzar/cancelar */}
+              {estatusGeneral === "REVISADO" && (
+                <div className="relative ml-auto">
+                  <Button
+                    type="button"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onMouseEnter={() => setShowTooltipAvanzarBottom(true)}
+                    onMouseLeave={() => setShowTooltipAvanzarBottom(false)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (!validateStep1Fields()) {
+                        toast.error("❌ Completa todos los campos obligatorios antes de avanzar");
+                        return;
+                      }
+
+                      const formEl = document.querySelector("form");
+                      if (formEl) {
+                        formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+                      }
+
+                      setTimeout(() => setStep(2), 500);
+                    }}
+                  >
+                    Avanzar al paso 2
+                  </Button>
+
+                  {showTooltipAvanzarBottom && (
+                    <div className="absolute bottom-full right-0 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
+                      Avanza al siguiente paso
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {estatusGeneral === "CANCELADO" && (
+                <div className="relative ml-auto">
+                  <Button
+                    type="button"
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    onMouseEnter={() => setShowTooltipFinalizar(true)}
+                    onMouseLeave={() => setShowTooltipFinalizar(false)}
+                    onClick={() => {
+                      const formEl = document.querySelector("form");
+                      if (formEl) {
+                        formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+                      }
+                    }}
+                  >
+                    Finalizar proceso
+                  </Button>
+
+                  {showTooltipFinalizar && (
+                    <div className="absolute bottom-full right-0 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
+                      Terminar proceso. No se podrá avanzar a adjudicación.
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+          </div>
+
+        </form>
+      </CardContent>
+    </Card>
+
+    {/* 🔥 BOTÓN DE SALIR — FUERA DEL CARD */}
+<div className="flex justify-start mb-4">
+  <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={() => setOpenSalirDialog(true)}
+            style={{ backgroundColor: "#db200b", color: "white" }}
+            className="cursor-pointer rounded-md shadow-sm"
+            size="icon"
+          >
+            ←
+          </Button>
+        </TooltipTrigger>
+
+        <TooltipContent side="top">
+          <p>Salir</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+
+    <DialogContent className="max-w-sm">
       <DialogHeader>
-        <DialogTitle>Servidores públicos del ente 0</DialogTitle>
+        <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
         <DialogDescription>
-          Lista de servidores públicos registrados para el ente 0.
+          Si sales ahora, podrías perder información no guardada.
         </DialogDescription>
       </DialogHeader>
 
-      <div className="overflow-x-auto mt-2">
-        <table className="min-w-full bg-white border border-gray-200 rounded">
-          <thead>
-            <tr>
-              <th className="py-2 px-4 border-b text-left">Nombre</th>
-              <th className="py-2 px-4 border-b text-left">Cargo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {servidores.map((s, idx) => (
-              <tr key={s.id || idx}>
-                <td className="py-2 px-4 border-b">{s.nombre}</td>
-                <td className="py-2 px-4 border-b">{s.cargo}</td>
-              </tr>
-            ))}
-
-            {servidores.length === 0 && (
-              <tr>
-                <td colSpan={2} className="py-2 px-4 text-center text-gray-400">
-                  No hay servidores públicos para el ente 0.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <DialogFooter>
-        <Button variant="outline" onClick={() => setVerServidoresDialogOpen(false)}>
-          Cerrar
+      <DialogFooter className="flex justify-end gap-3 mt-4">
+        
+        {/* Cancelar */}
+        <Button
+          onClick={() => setOpenSalirDialog(false)}
+          style={{ backgroundColor: "#db200b", color: "white" }}
+          className="hover:brightness-110"
+        >
+          Cancelar
         </Button>
+
+        {/* Confirmación: redirige igual que tu botón original */}
+        <Button
+          onClick={() => {
+            setOpenSalirDialog(false);
+            router.push("/seguimiento-rector"); // 🔥 MISMA RUTA QUE TENÍAS
+          }}
+          style={{ backgroundColor: "#34e004", color: "white" }}
+          className="hover:brightness-110"
+        >
+          Sí
+        </Button>
+
       </DialogFooter>
     </DialogContent>
   </Dialog>
-
-  {/* Añadir servidor público */}
-  <Dialog open={addServidorDialogOpen} onOpenChange={setAddServidorDialogOpen}>
-    <DialogTrigger asChild>
-      <Button
-        variant="outline"
-        className="border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
-        type="button"
-      >
-        <UserPlus className="w-4 h-4 mr-2" />
-        Añadir servidor público
-      </Button>
-    </DialogTrigger>
-
-    <DialogContent className="max-w-md">
-      <DialogHeader>
-        <DialogTitle>Añadir nuevo servidor público</DialogTitle>
-        <DialogDescription>
-          Completa los campos para registrar un nuevo servidor público del ente 0.
-        </DialogDescription>
-      </DialogHeader>
-
-      <form className="space-y-4 mt-2" onSubmit={e => e.preventDefault()}>
-        <div>
-          <Label>Ente perteneciente</Label>
-          <Input value="Ente 0 (Rector)" disabled className="bg-gray-100 text-gray-700 cursor-not-allowed" />
-        </div>
-
-        <div>
-          <Label>Nombre</Label>
-          <Input
-            value={nuevoServidorNombre}
-            onChange={(e) => setNuevoServidorNombre(e.target.value)}
-            placeholder="Nombre del servidor público"
-          />
-        </div>
-
-        <div>
-          <Label>Cargo</Label>
-          <Input
-            value={nuevoServidorCargo}
-            onChange={(e) => setNuevoServidorCargo(e.target.value)}
-            placeholder="Cargo del servidor público"
-          />
-        </div>
-
-        <DialogFooter className="mt-2">
-          <Button
-            type="button"
-            className="bg-[#db200b] text-white hover:bg-[#b81a09]"
-            onClick={() => setAddServidorDialogOpen(false)}
-          >
-            Cancelar
-          </Button>
-
-          <Button
-            type="button"
-            className="bg-[#34e004] text-white hover:bg-[#2bc103]"
-            onClick={async () => {
-              if (!nuevoServidorNombre.trim() || !nuevoServidorCargo.trim()) {
-                toast.warning("Por favor ingresa nombre y cargo.");
-                return;
-              }
-              setAddServidorLoading(true);
-
-              try {
-                const url = `${API_BASE}/catalogos/ente-y-servidor-publico-gestionar-ambos?p_id_ente=0&p_nombre=${encodeURIComponent(
-                  nuevoServidorNombre
-                )}&p_cargo=${encodeURIComponent(nuevoServidorCargo)}`;
-
-                const resp = await fetch(url, { method: "POST" });
-                if (!resp.ok) {
-                  toast.error("Error al añadir servidor público.");
-                  return;
-                }
-
-                const sResp = await fetch(
-                  `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=0`
-                );
-                const nuevosServidores = await sResp.json();
-                setServidores(nuevosServidores);
-
-                const nuevoServidor = nuevosServidores.find(
-                  (s: ServidorPublico) =>
-                    s.nombre?.toLowerCase() === nuevoServidorNombre.toLowerCase() &&
-                    s.cargo?.toLowerCase() === nuevoServidorCargo.toLowerCase()
-                );
-
-                if (nuevoServidor) {
-                  setServidorSeleccionado(nuevoServidor);
-                  setForm(prev => ({
-                    ...prev,
-                    id_servidor_publico_asiste: nuevoServidor.id,
-                  }));
-                  setBusquedaServidor(nuevoServidor.nombre);
-                  setMostrarServidores(false);
-                }
-
-                setNuevoServidorNombre("");
-                setNuevoServidorCargo("");
-                setAddServidorDialogOpen(false);
-
-              } catch (err) {
-                toast.error("Error al añadir servidor público.");
-              } finally {
-                setAddServidorLoading(false);
-              }
-            }}
-            disabled={addServidorLoading}
-          >
-            {addServidorLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Guardar"}
-          </Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-  </Dialog>
-
-  {/* 👉 BOTÓN AVANZAR / FINALIZAR A LA DERECHA */}
-  {estatusGeneral === "REVISADO" && (
-      <div className="relative ml-auto">
-      <Button
-        type="button"
-        className="bg-blue-600 hover:bg-blue-700 text-white"
-        onMouseEnter={() => setShowTooltipAvanzarBottom(true)}
-        onMouseLeave={() => setShowTooltipAvanzarBottom(false)}
-        onClick={async (e) => {
-          e.preventDefault();
-          if (!validateStep1Fields()) {
-            toast.error("❌ Completa todos los campos obligatorios antes de avanzar");
-            return;
-          }
-
-          const formEl = document.querySelector('form');
-          if (formEl) {
-            formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
-          }
-
-          setTimeout(() => setStep(2), 500);
-        }}
-      >
-        Avanzar al paso 2
-      </Button>
-
-      {showTooltipAvanzarBottom && (
-        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
-          Avanza al siguiente paso
-        </div>
-      )}
-    </div>
-  )}
-
-  {estatusGeneral === "CANCELADO" && (
-    <div className="relative ml-auto">
-      <Button
-        type="button"
-        className="bg-red-600 hover:bg-red-700 text-white"
-        onMouseEnter={() => setShowTooltipFinalizar(true)}
-        onMouseLeave={() => setShowTooltipFinalizar(false)}
-        onClick={(e) => {
-          const formEl = document.querySelector('form');
-          if (formEl) {
-            // @ts-ignore
-            formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
-          }
-        }}
-      >
-        Finalizar proceso
-      </Button>
-
-      {showTooltipFinalizar && (
-        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
-          Terminar proceso. No se podrá avanzar a adjudicación.
-        </div>
-      )}
-    </div>
-  )}
-
 </div>
-            </div>
 
-            </form>
-          </CardContent>
-        </Card>
-      )}
+  </>
+)}
 
 {/* Paso 2: Seleccionar proceso de adjudicación */}
 {pasoActual === 2 && estatusGeneral === "REVISADO" && (
@@ -2643,25 +2753,60 @@ useEffect(() => {
    {pasoActual === 2 && (
   <div className="flex justify-start items-center gap-3 mt-10">
 
-    {/* Botón rojo SALIR */}
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Link href="/dashboard">
-            <Button
-              variant="outline"
-              style={{ backgroundColor: "#db200b", color: "white" }}
-              className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-            >
-              ←
-            </Button>
-          </Link>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Salir</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+{/* Botón rojo SALIR con Tooltip + Dialog */}
+<Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="outline"
+          style={{ backgroundColor: "#db200b", color: "white" }}
+          className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+          onClick={() => setOpenSalirDialog(true)}
+        >
+          ←
+        </Button>
+      </TooltipTrigger>
+
+      <TooltipContent side="top">
+        <p>Salir</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+
+  {/* ----- Diálogo de confirmación ----- */}
+  <DialogContent className="max-w-sm">
+    <DialogHeader>
+      <DialogTitle>¿Deseas salir?</DialogTitle>
+      <DialogDescription>
+        Si sales ahora, podrías perder información no guardada.
+      </DialogDescription>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 mt-4">
+      {/* Cancelar */}
+      <Button
+        onClick={() => setOpenSalirDialog(false)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Cancelar
+      </Button>
+
+      {/* Confirmar salida */}
+      <Button
+        onClick={() => {
+          setOpenSalirDialog(false);
+          router.push("/dashboard"); // 👈 tu misma ruta del Link original
+        }}
+        style={{ backgroundColor: "#34e004", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Sí
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
     {/* Botones derecha ahora junto al botón salir */}
     {estatusGeneral === "REVISADO" && (

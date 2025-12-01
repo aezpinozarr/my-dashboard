@@ -73,8 +73,9 @@ interface Seguimiento {
   proveedores: string | null;
   id_seguimiento_partida_rubro?: number | null;
   presupuestos?: {
-     id_partida?: number | null;
-    id_rubro?: number | null;
+    e_id_partida?: number | null;
+    e_id_rubro?: number | null;
+    id_capitulo?: number | null; 
     partida: string | null;
     capitulo: string | null;
     clasificacion: string | null;
@@ -216,6 +217,7 @@ useEffect(() => {
           item.presupuestos.push({
             e_id_partida: row.e_id_partida ?? null,
             e_id_rubro: row.e_id_rubro ?? null,
+            id_capitulo: row.id_capitulo ? Number(row.id_capitulo) : null,
             partida: row.partida,
             capitulo: row.capitulo,
             clasificacion: row.clasificacion,
@@ -232,9 +234,13 @@ useEffect(() => {
         }
       }
 
-      const final = Array.from(map.values());
-      setData(final);
-      setOriginalData(final);
+    const final = Array.from(map.values());
+
+    // 🟦 ORDENAR: más recientes arriba
+    final.sort((a, b) => Number(b.id) - Number(a.id));
+
+    setData(final);
+    setOriginalData(final);
 
     } catch (error) {
       console.error("❌ Error cargando datos:", error);
@@ -297,6 +303,7 @@ useEffect(() => {
 
   // Contextual menu component for actions
   function RowActionsMenu({ id, estatus }: { id: number; estatus?: string | null }) {
+    if (!['PREREGISTRADO',].includes(estatus ?? '')) return null;
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -851,6 +858,7 @@ useEffect(() => {
                                                         if (estatus === "ADJUDICADO") color = "#22c55e";
                                                         if (estatus === "DIFERIMIENTO") color = "#ff8800";
                                                         if (estatus === "CANCELADO") color = "#ef4444";
+                                                        if (estatus === "PREINGRESO") color = "#4b0082";
 
                                                         return (
                                                           <TooltipProvider delayDuration={100}>
@@ -882,11 +890,17 @@ useEffect(() => {
                                                       )
                                                     ) : col.id === "partida" ? (
                                                       `${(pres as any)?.e_id_partida ? "#" + (pres as any).e_id_partida + " - " : ""}${pres.partida || "—"}`
+                                                        ) : col.id === "capitulo" ? (
+                                                    pres.id_capitulo
+                                                      ? `#${pres.id_capitulo} - ${pres.capitulo ?? "—"}`
+                                                      : pres.capitulo ?? "—"
                                                     ) : col.id === "rubro" ? (
                                                       `${(pres as any)?.e_id_rubro ? "#" + (pres as any).e_id_rubro + " - " : ""}${pres.rubro || "—"}`
                                                     ) : (
                                                       (pres as Record<string, any>)[col.id] ?? "—"
-                                                    )}
+                                                    )
+                                                    
+                                                    }
                                                   </TableCell>
                                                 ))}
                                             </TableRow>
@@ -1006,7 +1020,6 @@ useEffect(() => {
                       <p><strong>Fecha de emisión:</strong> {item.r_fecha_emision || "—"} <StatusBadge value={item.r_fecha_emision} /></p>
                       <p><strong>Asunto:</strong> {item.r_asunto || "—"} <StatusBadge value={item.r_asunto} /></p>
                       <p><strong>Fecha reunión:</strong> {item.r_fecha_y_hora_reunion || "—"} <StatusBadge value={item.r_fecha_y_hora_reunion} /></p>
-                      <p><strong>Estatus:</strong> {item.seguimiento_estatus || "—"} <StatusBadge value={item.seguimiento_estatus} /></p>
                     </div>
                   </div>
 
@@ -1017,15 +1030,28 @@ useEffect(() => {
                     {item.presupuestos && item.presupuestos.length > 0 ? (
                       item.presupuestos.map((pres, idx) => (
                         <div key={idx} className="mb-4 pb-4 border-b border-gray-100 last:border-none">
-                          <p><strong>Partida:</strong> {pres.partida || "—"}</p>
-                          <p><strong>Capítulo:</strong> {pres.capitulo || "—"}</p>
+<p>
+  <strong>Partida:</strong>{" "}
+  {pres.e_id_partida
+    ? `#${pres.e_id_partida} - ${pres.partida ?? "—"}`
+    : pres.partida ?? "—"}
+</p>
+                          <p><strong>Capítulo:</strong> { pres.id_capitulo
+  ? `#${pres.id_capitulo} - ${pres.capitulo ?? "—"}`
+  : pres.capitulo ?? "—"
+}</p>
                           <p><strong>Clasificación:</strong> {pres.clasificacion || "—"}</p>
                           <p><strong>Tipo de Gasto:</strong> {pres.tipo_gasto || "—"}</p>
                           <p><strong>Fuente de Financiamiento:</strong> {pres.f_financiamiento || "—"}</p>
                           <p><strong>Etiquetado:</strong> {pres.etiquetado || "—"}</p>
                           <p><strong>Fondo:</strong> {pres.fondo || "—"}</p>
                           <p><strong>Ramo:</strong> {pres.ramo || "—"}</p>
-                          <p><strong>Rubro:</strong> {pres.rubro || "—"}</p>
+<p>
+  <strong>Rubro:</strong>{" "}
+  {pres.e_id_rubro
+    ? `#${pres.e_id_rubro} - ${pres.rubro ?? "—"}`
+    : pres.rubro ?? "—"}
+</p>
                           <p><strong>Monto Presupuesto Suficiencia:</strong> {formatMXN(pres.e_monto_presupuesto_suficiencia)}</p>
                           <div>
                             <strong>Proveedores:</strong>

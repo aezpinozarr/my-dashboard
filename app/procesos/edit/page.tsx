@@ -417,6 +417,7 @@ setPuedeAgregarPartida(true);
     p_e_monto_presupuesto_suficiencia: "",
     p_id_partida_asociada: "",
   });
+
   const [presupuestosRubro, setPresupuestosRubro] = React.useState<any[]>([
     {
       p_e_id_rubro: "",
@@ -457,49 +458,95 @@ React.useEffect(() => {
   const [catalogoProveedores, setCatalogoProveedores] = React.useState<any[]>([]);
   // Paso 4 - errores de proveedor
   const [erroresProveedor, setErroresProveedor] = React.useState<Record<string, string>>({});
+  
 
   const [mostrarLista, setMostrarLista] = React.useState(true);
+
   const [showVerProveedoresDialog, setShowVerProveedoresDialog] = React.useState(false);
-  const [showNuevoProveedorDialog, setShowNuevoProveedorDialog] = React.useState(false);
-  const [proveedoresDialog, setProveedoresDialog] = React.useState<Proveedor[]>([]);
-  const [searchTerm, setSearchTerm] = React.useState("");
+const [showNuevoProveedorDialog, setShowNuevoProveedorDialog] = React.useState(false);
+
+const [proveedoresDialog, setProveedoresDialog] = React.useState<any[]>([]);
+const [searchTerm, setSearchTerm] = React.useState("");
+
 
   // Paso 4: Cargar todos los proveedores al entrar al paso 4 (solo catálogo de backend)
   // Paso 4: Cargar todos los proveedores al entrar al paso 4 (solo catálogo de backend)
+// ======================================================
+// 1. Cargar proveedores cuando entras al Paso 4
+// ======================================================
 React.useEffect(() => {
   if (step === 4) {
     (async () => {
       try {
         const resp = await fetch(`${API_BASE}/catalogos/proveedor?p_rfc=-99`);
         const data = await resp.json();
-        setCatalogoProveedores(Array.isArray(data) ? data : []);
+
+        // 🔥 Normaliza SIEMPRE a array
+        const lista =
+          Array.isArray(data)
+            ? data
+            : Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data?.proveedores)
+            ? data.proveedores
+            : [];
+
+        setCatalogoProveedores(lista);
       } catch (err) {
         console.error("❌ Error al cargar proveedores:", err);
+        setCatalogoProveedores([]); // fallback seguro
       }
     })();
   }
 }, [step]);
 
-// Cargar proveedores solo cuando se abre el diálogo "Ver proveedores"
+// ======================================================
+// 2. Cargar proveedores SOLO al abrir el diálogo "Ver proveedores"
+// ======================================================
 React.useEffect(() => {
   if (showVerProveedoresDialog) {
     fetch(`${API_BASE}/catalogos/proveedor?p_rfc=-99`)
       .then((r) => r.json())
-      .then(setProveedoresDialog)
-      .catch((err) => console.error("❌ Error cargando proveedores:", err));
+      .then((data) => {
+        const lista =
+          Array.isArray(data)
+            ? data
+            : Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data?.proveedores)
+            ? data.proveedores
+            : [];
+
+        setProveedoresDialog(lista);
+      })
+      .catch((err) =>
+        console.error("❌ Error cargando proveedores:", err)
+      );
   }
 }, [showVerProveedoresDialog]);
 
+// ======================================================
+// 3. Cargar entidades federativas una sola vez
+// ======================================================
 React.useEffect(() => {
   const fetchEntidades = async () => {
     try {
       const resp = await fetch(`${API_BASE}/catalogos/entidad-federativa?p_id=-99`);
       const data = await resp.json();
-      if (Array.isArray(data)) setEntidades(data);
+
+      const lista =
+        Array.isArray(data)
+          ? data
+          : Array.isArray(data?.data)
+          ? data.data
+          : [];
+
+      setEntidades(lista);
     } catch (err) {
       console.error("❌ Error cargando entidades:", err);
     }
   };
+
   fetchEntidades();
 }, []);
 
@@ -596,102 +643,126 @@ React.useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  // Paso 4: Finalizar proceso handler (actualizado)
-  const handleFinalizarProceso = React.useCallback(async () => {
-    console.log("🔍 Validando proveedores antes de finalizar...");
+// Paso 4: Finalizar proceso handler (actualizado con validación completa)
+const handleFinalizarProceso = React.useCallback(async () => {
+  console.log("🔍 Validando proveedores antes de finalizar...");
 
-    // ✅ Permitir finalizar si ya hay al menos un proveedor añadido
-    if (proveedores.length > 0) {
-      console.log("✅ Ya existe al menos un proveedor añadido:", proveedores);
-      try {
-        const folioFinal =
-          folioSeguimiento ||
-          folio ||
-          Number(sessionStorage.getItem("folioSeguimiento")) ||
-          null;
+  const nuevosErrores: Record<string, string> = {};
 
-        if (user && folioFinal) {
-          const tipoNormalizado = (user.tipo || "").toString().trim().toUpperCase();
-          if (tipoNormalizado === "ENTE") {
-            const mensaje = `El usuario ${user.nombre} ha completado el seguimiento #${folioFinal}`;
-            const params = new URLSearchParams();
-            params.append("p_accion", "CREAR");
-            params.append("p_id_usuario_origen", String(user.id));
-            params.append("p_id_ente", String(user.id_ente));
-            params.append("p_mensaje_extra", mensaje);
+/* ============================================================
+   1️⃣ VALIDAR: TODOS LOS RUBROS DEBEN TENER PROVEEDOR
+============================================================ */
 
-            console.log("🚀 Enviando notificación (ENTE → RECTORES):", params.toString());
+const rubrosSinProveedor = presupuestosRubro.filter(
+  r => !proveedores.some(p => Number(p.p_e_id_rubro_partida) === Number(r.id))
+);
 
-            try {
-              const resp = await fetch(`${API_BASE}/seguridad/notificaciones/?${params.toString()}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-              });
+// Si hay rubros sin proveedor → mostrar mensaje específico
+if (rubrosSinProveedor.length > 0) {
+  // crear mensaje detallado
+  const detalles = rubrosSinProveedor
+    .map(r => {
+      const id = r.p_e_id_rubro || r.e_id_rubro || r.e_id_rubro_partida || "—";
+      const desc = r.rubro_descripcion || r.rubro || "Rubro sin descripción";
+      return `• Rubro ${id} — ${desc}`;
+    })
+    .join("\n");
 
-              const data = await resp.json();
-              console.log("📩 Respuesta del backend:", data);
-            } catch (err) {
-              console.error("❌ Error al enviar la notificación:", err);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("⚠️ No se pudo enviar la notificación al rector:", err);
-      }
-      toast.success("Proceso finalizado correctamente.");
-      router.push("/procesos");
-      return;
+  toast.warning(
+    `Hay rubros sin proveedor asignado:\n${detalles}`,
+    { duration: 6000 }
+  );
+
+  return;
+}
+
+  /* ============================================================
+     2️⃣ SI NO HAY PROVEEDORES → VALIDAR CAMPOS OBLIGATORIOS
+     (solo aplica si la tabla está completamente vacía)
+  ============================================================ */
+  if (proveedores.length === 0) {
+    if (!form.p_e_id_rubro_partida) {
+      nuevosErrores.p_e_id_rubro_partida = "Este campo es obligatorio";
     }
 
-    // 🧩 Validación rápida adicional (por si los datos aún no se actualizaron)
-    const yaAgregoProveedor = proveedores.some(
-      (p) => p && p.e_rfc_proveedor && p.e_importe_sin_iva
-    );
-    if (yaAgregoProveedor) {
-      console.log("✅ Proveedor válido detectado.");
-      try {
-        const folioFinal =
-          folioSeguimiento ||
-          folio ||
-          Number(sessionStorage.getItem("folioSeguimiento")) ||
-          null;
-
-        if (user && folioFinal) {
-          const tipoNormalizado = (user.tipo || "").toString().trim().toUpperCase();
-          if (tipoNormalizado === "ENTE") {
-            const mensaje = `El usuario ${user.nombre} ha completado el seguimiento #${folioFinal}`;
-            const params = new URLSearchParams();
-            params.append("p_accion", "CREAR");
-            params.append("p_id_usuario_origen", String(user.id));
-            params.append("p_id_ente", String(user.id_ente));
-            params.append("p_mensaje_extra", mensaje);
-
-            console.log("🚀 Enviando notificación (ENTE → RECTORES):", params.toString());
-
-            try {
-              const resp = await fetch(`${API_BASE}/seguridad/notificaciones/?${params.toString()}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-              });
-
-              const data = await resp.json();
-              console.log("📩 Respuesta del backend:", data);
-            } catch (err) {
-              console.error("❌ Error al enviar la notificación:", err);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("⚠️ No se pudo enviar la notificación al rector:", err);
-      }
-      toast.success("Proceso finalizado correctamente.");
-      router.push("/procesos");
-      return;
+    if (!form.e_rfc_proveedor?.trim()) {
+      nuevosErrores.e_rfc_proveedor = "Este campo es obligatorio";
     }
 
-    // ⚠️ Si no hay proveedores, solo mostrar toast de advertencia (sin marcar campos)
-    toast.warning("Debes añadir al menos un proveedor antes de finalizar.");
-  }, [proveedores, router, user, folio, folioSeguimiento]);
+    if (!form.e_importe_sin_iva?.trim()) {
+      nuevosErrores.e_importe_sin_iva = "Este campo es obligatorio";
+    }
+
+    if (Object.keys(nuevosErrores).length > 0) {
+      setErroresProveedor(nuevosErrores);
+      toast.warning("Completa los campos o añade al menos un proveedor antes de finalizar.");
+      return;
+    }
+  }
+
+  /* ============================================================
+     3️⃣ SI TODO ESTÁ BIEN — PERMITIR FINALIZAR
+  ============================================================ */
+  console.log("✅ Validación correcta. Finalizando proceso...");
+
+  setErroresProveedor({}); // limpiar errores
+
+  try {
+    /* ------------------------------------------------------------
+       📩 Notificación (solo usuarios ENTE)
+    ------------------------------------------------------------ */
+    const folioFinal =
+      folioSeguimiento ||
+      folio ||
+      Number(sessionStorage.getItem("folioSeguimiento")) ||
+      null;
+
+    if (user && folioFinal) {
+      const tipoNormalizado = (user.tipo || "").toString().trim().toUpperCase();
+
+      if (tipoNormalizado === "ENTE") {
+        const mensaje = `El usuario ${user.nombre} ha completado el seguimiento #${folioFinal}`;
+
+        const params = new URLSearchParams();
+        params.append("p_accion", "CREAR");
+        params.append("p_id_usuario_origen", String(user.id));
+        params.append("p_id_ente", String(user.id_ente));
+        params.append("p_mensaje_extra", mensaje);
+
+        console.log("🚀 Enviando notificación (ENTE → RECTORES):", params.toString());
+
+        try {
+          const resp = await fetch(
+            `${API_BASE}/seguridad/notificaciones/?${params.toString()}`,
+            { method: "POST", headers: { "Content-Type": "application/json" } }
+          );
+          const data = await resp.json();
+          console.log("📩 Respuesta del backend:", data);
+        } catch (err) {
+          console.error("❌ Error al enviar la notificación:", err);
+        }
+      }
+    }
+
+    /* ------------------------------------------------------------
+       🎉 Finalizar proceso
+    ------------------------------------------------------------ */
+    toast.success("Proceso finalizado correctamente.");
+    router.push("/procesos");
+
+  } catch (err) {
+    console.error("❌ Error finalizando proceso:", err);
+    toast.error("Error al finalizar el proceso.");
+  }
+}, [
+  proveedores,
+  presupuestosRubro,
+  form,
+  router,
+  user,
+  folio,
+  folioSeguimiento
+]);
 
   /* ========================================
      🔹 Cargar catálogos paso 1
@@ -1211,24 +1282,47 @@ try {
   };
 
   // Paso 2: hooks y handlers
-  const [nuevaPartida, setNuevaPartida] = React.useState({
-    e_no_requisicion: "",
-    e_id_partida: "",
-    partida_descripcion: "",
-    clave_capitulo: "",
-    capitulo: "",
-    e_id_fuente_financiamiento: "",
-    fuente_descripcion: "",
-    fuente_etiquetado: "",
-    fuente_fondo: "",
-    id_ramo: "",          
-    ramo_descripcion: "",    
-  });
+const [nuevaPartida, setNuevaPartida] = React.useState({
+  e_no_requisicion: "",
+  e_id_partida: "",
+  partida_descripcion: "",
+  clave_capitulo: "",
+  capitulo: "",
+  e_id_fuente_financiamiento: "",
+  fuente_descripcion: "",
+  fuente_etiquetado: "",
+  fuente_fondo: "",
+  id_ramo: "",
+  ramo_descripcion: "",
+});
 
-  const [erroresForm, setErroresForm] = React.useState<Record<string, string>>({});
-  React.useEffect(() => {
-    setErroresForm({});
-  }, [step]);
+const [erroresForm, setErroresForm] = React.useState<Record<string, string>>({});
+
+// 🔥 Resetear errores cuando cambia de step
+React.useEffect(() => {
+  setErroresForm({});
+}, [step]);
+
+// =======================================
+//     🔍 VALIDACIÓN DEL STEP 2
+// =======================================
+const validarStep2 = () => {
+  const nuevosErrores: Record<string, string> = {};
+
+  if (!nuevaPartida.e_no_requisicion?.trim()) {
+    nuevosErrores.e_no_requisicion = "Este campo es obligatorio";
+  }
+  if (!nuevaPartida.e_id_partida?.toString().trim()) {
+    nuevosErrores.e_id_partida = "Este campo es obligatorio";
+  }
+  if (!nuevaPartida.e_id_fuente_financiamiento?.toString().trim()) {
+    nuevosErrores.e_id_fuente_financiamiento = "Este campo es obligatorio";
+  }
+
+  setErroresForm(nuevosErrores);
+
+  return Object.keys(nuevosErrores).length === 0;
+};
 
   /* ========================================
      🔹 Catálogo de rubros (Paso 3)
@@ -1389,55 +1483,91 @@ try {
 
   // Handler avanzar al siguiente paso (nuevo bloque)
   const handleNext = async () => {
-    try {
-      const folioActual =
-        folioSeguimiento || folio || Number(sessionStorage.getItem("folioSeguimiento"));
-      if (!folioActual) {
-        toast.info("Primero debes completar el Paso 1 antes de continuar.");
-        return;
-      }
+  try {
+    const folioActual =
+      folioSeguimiento || folio || Number(sessionStorage.getItem("folioSeguimiento"));
 
-      // 🔹 Traer partidas actualizadas desde la BD
-      const res = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          p_accion: "CONSULTAR",
-          p_id_seguimiento: folioActual,
-          p_e_id_partida: -99,
-        }),
-      });
-
-      const data = await res.json();
-      let partidasActualizadas = Array.isArray(data) ? data : partidas;
-
-      // 🔹 Validar si hay al menos una partida con los campos básicos completos
-      const partidasValidas = partidasActualizadas.filter((p: any) => {
-        const noReq = p.e_no_requisicion ?? p.no_requisicion;
-        const idPartida = p.e_id_partida ?? p.partida ?? p.id_partida;
-        const fuente = p.e_id_fuente_financiamiento ?? p.fuente_financiamiento ?? p.id_fuente_financiamiento;
-        return (
-          String(noReq || "").trim() !== "" &&
-          String(idPartida || "").trim() !== "" &&
-          String(fuente || "").trim() !== ""
-        );
-      });
-
-      if (partidasValidas.length === 0) {
-        toast.warning("Debes añadir al menos una partida antes de continuar.");
-        return;
-      }
-
-      // 🔹 Limpiar errores si pasa la validación
-      setErroresForm({});
-      setPartidas(partidasValidas);
-      toast.success("Partidas validadas correctamente.");
-      setStep(3);
-    } catch (err) {
-      console.error("❌ Error en handleNext:", err);
-      toast.error("Error al validar las partidas.");
+    if (!folioActual) {
+      toast.info("Primero debes completar el Paso 1 antes de continuar.");
+      return;
     }
-  };
+
+    // ============================================
+    //   🔥 VALIDAR SOLO SI NO HAY PARTIDAS REGISTRADAS
+    // ============================================
+    if (step === 2 && partidas.length === 0) {
+      const nuevosErrores: Record<string, string> = {};
+
+      if (!nuevaPartida.e_no_requisicion?.trim()) {
+        nuevosErrores.e_no_requisicion = "Este campo es obligatorio";
+      }
+      if (!nuevaPartida.e_id_partida?.toString().trim()) {
+        nuevosErrores.e_id_partida = "Este campo es obligatorio";
+      }
+      if (!nuevaPartida.e_id_fuente_financiamiento?.toString().trim()) {
+        nuevosErrores.e_id_fuente_financiamiento = "Este campo es obligatorio";
+      }
+
+      if (Object.keys(nuevosErrores).length > 0) {
+        setErroresForm(nuevosErrores);
+        toast.warning("Debes completar todos los campos obligatorios.");
+        return;
+      }
+    }
+
+    // ============================================
+    //   🔥 CONSULTAR PARTIDAS DESDE LA BD
+    // ============================================
+    const res = await fetch(`${API_BASE}/procesos/seguimiento/partida-ente/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        p_accion: "CONSULTAR",
+        p_id_seguimiento: folioActual,
+        p_e_id_partida: -99,
+      }),
+    });
+
+    const data = await res.json();
+    const partidasActualizadas = Array.isArray(data) ? data : partidas;
+
+    // ============================================
+    //   🔥 VALIDAR QUE AL MENOS UNA PARTIDA SEA COMPLETA
+    // ============================================
+    const partidasValidas = partidasActualizadas.filter((p: any) => {
+      const noReq = p.e_no_requisicion ?? p.no_requisicion;
+      const idPartida = p.e_id_partida ?? p.partida ?? p.id_partida;
+      const fuente =
+        p.e_id_fuente_financiamiento ??
+        p.fuente_financiamiento ??
+        p.id_fuente_financiamiento;
+
+      return (
+        String(noReq || "").trim() !== "" &&
+        String(idPartida || "").trim() !== "" &&
+        String(fuente || "").trim() !== ""
+      );
+    });
+
+    if (partidasValidas.length === 0) {
+      toast.warning("Debes añadir al menos una partida antes de continuar.");
+      return;
+    }
+
+    // ============================================
+    //   🔥 SI TODO ESTÁ BIEN → AVANZAR
+    // ============================================
+    setErroresForm({});
+    setPartidas(partidasValidas);
+
+    toast.success("Partidas validadas correctamente.");
+    setStep(3);
+
+  } catch (err) {
+    console.error("❌ Error en handleNext:", err);
+    toast.error("Error al validar las partidas.");
+  }
+};
 
   /* ========================================
      🔹 Handler para eliminar proveedor del paso 4
@@ -2364,7 +2494,7 @@ console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
               )}
             </Command>
             {erroresForm.e_id_partida && (
-              <p className="text-sm text-red-500 mt-1">Selecciona una partida</p>
+              <p className="text-sm text-red-500 mt-1">Este campo es obligatorio</p>
             )}
           </div>
 
@@ -2426,7 +2556,7 @@ console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
             </Command>
             {erroresForm.e_id_fuente_financiamiento && (
               <p className="text-sm text-red-500 mt-1">
-                Selecciona una fuente de financiamiento
+                Este campo es obligatorio 
               </p>
             )}
           </div>
@@ -2685,6 +2815,44 @@ console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
 {/* Paso 3 */}
 {(() => {
   const rubroInputRef = React.useRef<any>(null);
+  const [mostrarRubros, setMostrarRubros] = React.useState(false);
+
+  // ===== VALIDACIÓN PASO 3 =====
+const [erroresRubro, setErroresRubro] = React.useState<Record<string, string>>({});
+
+const handleGuardarRubros = async () => {
+  const nuevosErrores: Record<string, string> = {};
+
+  // VALIDACIÓN SOLO SI NO HAY RUBROS AÑADIDOS
+  if (presupuestosRubro.length === 0) {
+
+    // Validar partida asociada
+    if (!nuevoRubro.p_id_partida_asociada?.toString().trim()) {
+      nuevosErrores.p_id_partida_asociada = "Este campo es obligatorio";
+    }
+
+    // Validar rubro
+    if (!nuevoRubro.p_e_id_rubro?.toString().trim()) {
+      nuevosErrores.p_e_id_rubro = "Este campo es obligatorio";
+    }
+
+    // Validar monto
+    if (!nuevoRubro.p_e_monto_presupuesto_suficiencia?.toString().trim()) {
+      nuevosErrores.p_e_monto_presupuesto_suficiencia = "Este campo es obligatorio";
+    }
+
+    // Si faltan campos y NO hay rubros → bloquear avance
+    if (Object.keys(nuevosErrores).length > 0) {
+      setErroresRubro(nuevosErrores);
+      toast.warning("Por favor completa todos los campos antes de continuar o añade al menos un rubro.");
+      return;
+    }
+  }
+
+  // SI YA HAY RUBROS → Permitir avanzar aunque inputs estén vacíos
+  setErroresRubro({});
+  setStep(4);
+};
 
   // 🟡 Ctrl+S para guardar rubros
   React.useEffect(() => {
@@ -2847,16 +3015,28 @@ return (
               onSubmit={async (e) => {
                 e.preventDefault();
 
-                if (!nuevoRubro.p_e_id_rubro) {
-                  rubroInputRef.current?.focus();
-                  toast.warning("Completa los campos antes de añadir el rubro.");
-                  return;
-                }
+              const nuevosErrores: Record<string, string> = {};
 
-                if (!nuevoRubro.p_e_monto_presupuesto_suficiencia || !nuevoRubro.p_id_partida_asociada) {
-                  toast.warning("Completa los campos antes de añadir el rubro.");
-                  return;
-                }
+              if (!nuevoRubro.p_id_partida_asociada?.toString().trim()) {
+                nuevosErrores.p_id_partida_asociada = "Este campo es obligatorio";
+              }
+
+              if (!nuevoRubro.p_e_id_rubro?.toString().trim()) {
+                nuevosErrores.p_e_id_rubro = "Este campo es obligatorio";
+              }
+
+              if (!nuevoRubro.p_e_monto_presupuesto_suficiencia?.toString().trim()) {
+                nuevosErrores.p_e_monto_presupuesto_suficiencia = "Este campo es obligatorio";
+              }
+
+              if (Object.keys(nuevosErrores).length > 0) {
+                setErroresRubro(nuevosErrores);
+                toast.warning("Por favor completa los campos obligatorios.");
+                return;
+              }
+
+              // Si pasa la validación, limpiar errores
+              setErroresRubro({});
 
                 const existe = presupuestosRubro.some(
                   (r) =>
@@ -2924,89 +3104,120 @@ return (
               }}
             >
 
-              {/* PARTIDA */}
-              <div>
-                <Label>Partida asociada</Label>
-                <select
-                  className="border rounded-md p-2 w-full"
-                  value={nuevoRubro.p_id_partida_asociada}
-                  onChange={(e) =>
-                    setNuevoRubro((prev) => ({
-                      ...prev,
-                      p_id_partida_asociada: e.target.value,
-                    }))
-                  }
-                >
-                  <option value="">Seleccione partida...</option>
-                  {partidas.map((p, idx) => (
-                    <option key={p.e_id_partida || idx} value={p.e_id_partida}>
-                      {`Partida #${idx + 1} — ${p.e_id_partida} — ${p.partida_descripcion}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* PARTIDA */}
+            <div className="w-full">
+              <Label>Partida asociada</Label>
 
-              {/* RUBRO + MONTO */}
-              <div className="flex gap-4">
-                <div className="w-[70%]">
-                  <Label>Rubro</Label>
-                  <Command>
-                    <CommandInput
-                      ref={rubroInputRef}
-                      value={nuevoRubro.p_e_id_rubro}
-                      placeholder="Escribe ID o nombre…"
-                      onValueChange={(val) =>
-                        setNuevoRubro((prev) => ({
-                          ...prev,
-                          p_e_id_rubro: val,
-                          rubro_descripcion: "",
-                        }))
-                      }
-                    />
-                    {Boolean(nuevoRubro.p_e_id_rubro) && (
-                      <CommandList>
-                        {rubros
-                          .filter((rb) => {
-                            const q = nuevoRubro.p_e_id_rubro.toLowerCase();
-                            return (
-                              rb.id?.toString().toLowerCase().includes(q) ||
-                              rb.descripcion?.toLowerCase().includes(q)
-                            );
-                          })
-                          .map((rb) => (
-                            <CommandItem
-                              key={rb.id}
-                              onSelect={() =>
-                                setNuevoRubro((prev) => ({
-                                  ...prev,
-                                  p_e_id_rubro: rb.id,
-                                  rubro_descripcion: rb.descripcion,
-                                }))
-                              }
-                            >
-                              {rb.id} — {rb.descripcion}
-                            </CommandItem>
-                          ))}
-                        <CommandEmpty>No se encontraron rubros</CommandEmpty>
-                      </CommandList>
-                    )}
-                  </Command>
-                </div>
+              <select
+                className={`border rounded-md p-2 w-full ${
+                  erroresRubro.p_id_partida_asociada ? "border-red-500 focus:ring-red-500" : ""
+                }`}
+                value={nuevoRubro.p_id_partida_asociada}
+                onChange={(e) => {
+                  setErroresRubro((prev) => ({ ...prev, p_id_partida_asociada: "" }));
+                  setNuevoRubro((prev) => ({
+                    ...prev,
+                    p_id_partida_asociada: e.target.value,
+                  }));
+                }}
+              >
+                <option value="">Seleccione partida...</option>
+                {partidas.map((p, idx) => (
+                  <option key={p.e_id_partida || idx} value={p.e_id_partida}>
+                    {`Partida #${idx + 1} — ${p.e_id_partida} — ${p.partida_descripcion}`}
+                  </option>
+                ))}
+              </select>
 
-                <div className="w-[30%]">
-                  <Label>Monto</Label>
-                  <Input
-                    value={nuevoRubro.p_e_monto_presupuesto_suficiencia}
-                    onChange={(e) =>
-                      setNuevoRubro((prev) => ({
-                        ...prev,
-                        p_e_monto_presupuesto_suficiencia: formatMoney(e.target.value),
-                      }))
-                    }
-                    placeholder="$0.00"
-                  />
-                </div>
-              </div>
+              {/* Mensaje de error */}
+              {erroresRubro.p_id_partida_asociada && (
+                <p className="text-red-500 text-xs mt-1">
+                  {erroresRubro.p_id_partida_asociada}
+                </p>
+              )}
+            </div>
+
+             {/* Rubro */}
+               <div className="w-full">
+                 <Label>Rubro</Label>
+                 <Command>
+                   <CommandInput
+                     ref={rubroInputRef}
+                     value={
+                     nuevoRubro.p_e_id_rubro && nuevoRubro.rubro_descripcion
+                       ? `${nuevoRubro.p_e_id_rubro} — ${nuevoRubro.rubro_descripcion}`
+                       : nuevoRubro.p_e_id_rubro || ""
+                   }
+                     placeholder="Escribe ID o nombre…"
+                     className={`${erroresRubro.p_e_id_rubro ? "border border-red-500" : ""}`}
+                     onValueChange={(val) => {
+                       setErroresRubro((prev) => ({ ...prev, p_e_id_rubro: "" }));
+                       setNuevoRubro((prev) => ({
+                         ...prev,
+                         p_e_id_rubro: val,
+                         rubro_descripcion: "",
+                       }));
+                       setMostrarRubros(true);
+                     }}
+                   />
+             
+                   {mostrarRubros && (
+                     <CommandList>
+                       {rubros
+                         .filter((rb) => {
+                           const q = (nuevoRubro.p_e_id_rubro || "").toLowerCase();
+                           return (
+                             rb.id?.toString().toLowerCase().includes(q) ||
+                             rb.descripcion?.toLowerCase().includes(q)
+                           );
+                         })
+                         .map((rb) => (
+                           <CommandItem
+                             key={rb.id}
+                             onSelect={() => {
+                               setNuevoRubro((prev) => ({
+                                 ...prev,
+                                 p_e_id_rubro: rb.id.toString(),
+                                 rubro_descripcion: rb.descripcion,
+                               }));
+                               setMostrarRubros(false);
+                             }}
+                           >
+                             {rb.id} — {rb.descripcion}
+                           </CommandItem>
+                         ))}
+             
+                       <CommandEmpty>No se encontraron rubros</CommandEmpty>
+                     </CommandList>
+                   )}
+                 </Command>
+             
+                 {erroresRubro.p_e_id_rubro && (
+                   <p className="text-red-500 text-xs mt-1">{erroresRubro.p_e_id_rubro}</p>
+                 )}
+               </div>
+             
+               {/* Monto presupuesto */}
+               <div className="w-full">
+                 <Label>Monto presupuesto suficiencia</Label>
+                 <Input
+                   value={nuevoRubro.p_e_monto_presupuesto_suficiencia}
+                   onChange={(e) => {
+                     setErroresRubro((prev) => ({ ...prev, p_e_monto_presupuesto_suficiencia: "" }));
+                     setNuevoRubro((prev) => ({
+                       ...prev,
+                       p_e_monto_presupuesto_suficiencia: formatMoney(e.target.value),
+                     }));
+                   }}
+                   className={`${erroresRubro.p_e_monto_presupuesto_suficiencia ? "border border-red-500" : ""}`}
+                   placeholder="$0.00"
+                 />
+                 {erroresRubro.p_e_monto_presupuesto_suficiencia && (
+                   <p className="text-red-500 text-xs mt-1">
+                     {erroresRubro.p_e_monto_presupuesto_suficiencia}
+                   </p>
+                 )}
+               </div>
 
               {/* AÑADIR BOTÓN */}
               <div className="flex justify-end">
@@ -3425,93 +3636,99 @@ return (
             <form
               className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"
               onSubmit={async e => {
-                e.preventDefault();
+  e.preventDefault();
 
-                // 🔥 Tu misma lógica, intacta
-                if (!form.p_e_id_rubro_partida) {
-                  setErroresProveedor(prev => ({ ...prev, p_e_id_rubro_partida: "Selecciona un rubro" }));
-                  toast.warning("Selecciona un rubro/partida.");
-                  return;
-                }
+  const nuevosErrores: Record<string, string> = {};
 
-                if (!form.e_rfc_proveedor.trim()) {
-                  setErroresProveedor(prev => ({ ...prev, e_rfc_proveedor: "RFC requerido" }));
-                  toast.warning("Ingresa un RFC válido.");
-                  return;
-                }
+  if (!form.p_e_id_rubro_partida) {
+    nuevosErrores.p_e_id_rubro_partida = "Este campo es obligatorio";
+  }
 
-                if (!form.e_importe_sin_iva) {
-                  setErroresProveedor(prev => ({ ...prev, e_importe_sin_iva: "Importe requerido" }));
-                  toast.warning("Ingresa un importe sin IVA.");
-                  return;
-                }
+  if (!form.e_rfc_proveedor.trim()) {
+    nuevosErrores.e_rfc_proveedor = "Este campo es obligatorio";
+  }
 
-                try {
-                  const existe = proveedores.some(
-                    (p) =>
-                      p.e_rfc_proveedor === form.e_rfc_proveedor &&
-                      p.p_e_id_rubro_partida === form.p_e_id_rubro_partida
-                  );
-                  if (existe) {
-                    toast.warning("Este proveedor ya fue añadido para ese rubro/partida.");
-                    return;
-                  }
+  if (!form.e_importe_sin_iva?.trim()) {
+    nuevosErrores.e_importe_sin_iva = "Este campo es obligatorio";
+  }
 
-                  const idRubroSeleccionado = Number(form.p_e_id_rubro_partida);
+  // ❌ Si hay errores → detener envío
+  if (Object.keys(nuevosErrores).length > 0) {
+    setErroresProveedor(nuevosErrores);
+    toast.warning("Por favor completa todos los campos obligatorios.");
+    return;
+  }
 
-                  const payloadProveedor = {
-                    p_accion: "NUEVO",
-                    p_id_seguimiento_partida_rubro: idRubroSeleccionado,
-                    p_id: 0,
-                    p_e_rfc_proveedor: form.e_rfc_proveedor,
-                    p_e_razon_social: form.razon_social,
-                    p_e_nombre_comercial: form.nombre_comercial,
-                    p_e_persona_juridica: form.persona_juridica,
-                    p_e_correo_electronico: form.correo_electronico,
-                    p_e_entidad_federativa: parseInt(selectedEntidadId),
-                    p_e_importe_sin_iva: parseFloat((form.e_importe_sin_iva || "").replace(/[^\d.-]/g, "")) || 0,
-                    p_e_importe_total: parseFloat((form.e_importe_total || "").replace(/[^\d.-]/g, "")) || 0,
-                  };
+  // ✔ Limpia errores si todo está bien
+  setErroresProveedor({});
 
-                  const resp = await fetch(
-                    `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`,
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(payloadProveedor),
-                    }
-                  );
+  // ⬇⬇⬇ DESDE AQUÍ VA TODA TU LÓGICA ORIGINAL (NO BORRAR NADA)
+  try {
+    const existe = proveedores.some(
+      (p) =>
+        p.e_rfc_proveedor === form.e_rfc_proveedor &&
+        p.p_e_id_rubro_partida === form.p_e_id_rubro_partida
+    );
+    if (existe) {
+      toast.warning("Este proveedor ya fue añadido para ese rubro/partida.");
+      return;
+    }
 
-                  const data = await resp.json();
-                  if (!resp.ok) throw new Error(JSON.stringify(data));
+    const idRubroSeleccionado = Number(form.p_e_id_rubro_partida);
 
-                  toast.success("Proveedor añadido correctamente.");
+    const payloadProveedor = {
+      p_accion: "NUEVO",
+      p_id_seguimiento_partida_rubro: idRubroSeleccionado,
+      p_id: 0,
+      p_e_rfc_proveedor: form.e_rfc_proveedor,
+      p_e_razon_social: form.razon_social,
+      p_e_nombre_comercial: form.nombre_comercial,
+      p_e_persona_juridica: form.persona_juridica,
+      p_e_correo_electronico: form.correo_electronico,
+      p_e_entidad_federativa: parseInt(selectedEntidadId),
+      p_e_importe_sin_iva: parseFloat((form.e_importe_sin_iva || "").replace(/[^\d.-]/g, "")) || 0,
+      p_e_importe_total: parseFloat((form.e_importe_total || "").replace(/[^\d.-]/g, "")) || 0,
+    };
 
-                  setProveedores(prev => [
-                    ...prev,
-                    {
-                      e_rfc_proveedor: form.e_rfc_proveedor,
-                      razon_social: form.razon_social,
-                      nombre_comercial: form.nombre_comercial,
-                      e_importe_sin_iva: form.e_importe_sin_iva,
-                      e_importe_total: form.e_importe_total,
-                      p_e_id_rubro_partida: form.p_e_id_rubro_partida,
-                      rubro_partida: form.rubro_partida_texto || "",
-                      id: data.resultado,
-                    },
-                  ]);
+    const resp = await fetch(
+      `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadProveedor),
+      }
+    );
 
-                  setForm(prev => ({
-                    ...prev,
-                    e_rfc_proveedor: "",
-                    e_importe_sin_iva: "",
-                    e_importe_total: "",
-                  }));
-                } catch (err) {
-                  console.error("❌ Error al añadir proveedor:", err);
-                  toast.error("Error al añadir proveedor");
-                }
-              }}
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(JSON.stringify(data));
+
+    toast.success("Proveedor añadido correctamente.");
+
+    setProveedores(prev => [
+      ...prev,
+      {
+        e_rfc_proveedor: form.e_rfc_proveedor,
+        razon_social: form.razon_social,
+        nombre_comercial: form.nombre_comercial,
+        e_importe_sin_iva: form.e_importe_sin_iva,
+        e_importe_total: form.e_importe_total,
+        p_e_id_rubro_partida: form.p_e_id_rubro_partida,
+        rubro_partida: form.rubro_partida_texto || "",
+        id: data.resultado,
+      },
+    ]);
+
+    setForm(prev => ({
+      ...prev,
+      e_rfc_proveedor: "",
+      e_importe_sin_iva: "",
+      e_importe_total: "",
+    }));
+  } catch (err) {
+    console.error("❌ Error al añadir proveedor:", err);
+    toast.error("Error al añadir proveedor");
+  }
+}}
             >
 
               {/* ---------------- SELECT RUBRO ---------------- */}
@@ -3547,13 +3764,20 @@ return (
                     );
                   })}
                 </select>
+                {erroresProveedor.p_e_id_rubro_partida && (
+                <p className="text-red-500 text-xs mt-1">
+                  {erroresProveedor.p_e_id_rubro_partida}
+                </p>
+              )}
               </div>
 
               {/* ---------------- RFC + BOTONES ---------------- */}
+              {/* RFC del proveedor */}
               <div className="md:col-span-3">
                 <Label>RFC del proveedor</Label>
-
-                {/* Botones Ver y Añadir */}
+              
+                {/* Botones Ver/Añadir Proveedor */}
+                
                 <div className="flex items-center gap-3 mt-3">
                   <Button
                     type="button"
@@ -3561,105 +3785,146 @@ return (
                     onClick={() => setShowVerProveedoresDialog(true)}
                     className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
                   >
-                    <Eye className="w-5 h-5" /> Ver proveedores
+                    <Eye className="w-5 h-5" />
+                    Ver proveedores
                   </Button>
-
+              
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setShowNuevoProveedorDialog(true)}
                     className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
                   >
-                    <UserPlus className="w-5 h-5" /> Añadir proveedor
+                    <UserPlus className="w-5 h-5" />
+                    Añadir proveedor
                   </Button>
                 </div>
-
-                {/* Input RFC con Command */}
-                <div className="relative">
+              
+                {/* --- CAMPO RFC PRINCIPAL --- */}
+                <div className="relative mt-4">
                   <Command shouldFilter={false}>
                     <CommandInput
                       ref={rfcInputRef}
                       placeholder="Escribe RFC..."
-                      className={`mt-3 ${erroresProveedor.e_rfc_proveedor ? "border border-red-500" : ""}`}
                       value={form.e_rfc_proveedor}
+                      className={`${
+                        erroresProveedor.e_rfc_proveedor
+                          ? "border border-red-500 focus:ring-red-500"
+                          : ""
+                      }`}
                       onValueChange={(value) => {
-                        setErroresProveedor(prev => ({ ...prev, e_rfc_proveedor: "" }));
-                        setForm(prev => ({ ...prev, e_rfc_proveedor: value }));
-                        setMostrarLista(value.trim().length > 0);
+                        // 🔥 eliminar error cuando escriben
+                        setErroresProveedor((prev) => ({ ...prev, e_rfc_proveedor: "" }));
+              
+                        setForm((prev) => ({
+                          ...prev,
+                          e_rfc_proveedor: value,
+                        }));
+              
+                        if (value.trim().length > 0) {
+                          setMostrarLista(true);
+                        } else {
+                          setMostrarLista(false);
+                        }
                       }}
                     />
-
+              
+                    {/* Lista de coincidencias RFC */}
                     {form.e_rfc_proveedor.trim().length > 0 && mostrarLista && (
                       <CommandList className="absolute top-full left-0 z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
                         {catalogoProveedores
-                          .filter((p) =>
-                            (p.rfc || p.e_rfc_proveedor || "")
+                          .filter((p) => {
+                            const rfc = p.rfc || p.e_rfc_proveedor || "";
+                            return rfc
                               .toLowerCase()
-                              .includes(form.e_rfc_proveedor.toLowerCase())
-                          )
-                          .map((p) => (
-                            <CommandItem
-                              key={p.rfc}
-                              value={p.rfc}
-                              onSelect={() => {
-                                setForm(prev => ({
-                                  ...prev,
-                                  e_rfc_proveedor: p.rfc,
-                                  razon_social: p.razon_social,
-                                  nombre_comercial: p.nombre_comercial,
-                                }));
-
-                                if (rfcInputRef.current) {
-                                  rfcInputRef.current.value = p.rfc;
-                                  rfcInputRef.current.blur();
-                                }
-                                setMostrarLista(false);
-                              }}
-                            >
-                              {p.rfc} — {p.razon_social}
-                            </CommandItem>
-                          ))}
+                              .includes((form.e_rfc_proveedor || "").toLowerCase());
+                          })
+                          .map((p) => {
+                            const rfc = p.rfc || p.e_rfc_proveedor;
+                            return (
+                              <CommandItem
+                                key={rfc}
+                                value={rfc}
+                                onSelect={() => {
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    e_rfc_proveedor: rfc,
+                                    razon_social: p.razon_social || "",
+                                    nombre_comercial: p.nombre_comercial || "",
+                                  }));
+              
+                                  if (rfcInputRef.current) {
+                                    rfcInputRef.current.value = rfc;
+                                    rfcInputRef.current.blur();
+                                  }
+              
+                                  setMostrarLista(false);
+                                }}
+                              >
+                                {rfc} — {p.razon_social || "—"} — {p.nombre_comercial || "—"}
+                              </CommandItem>
+                            );
+                          })}
+              
+                        {catalogoProveedores.length === 0 && (
+                          <CommandEmpty>No se encontraron resultados</CommandEmpty>
+                        )}
                       </CommandList>
                     )}
                   </Command>
+              
+                  {/* 🔴 MENSAJE DE ERROR */}
+                  {erroresProveedor.e_rfc_proveedor && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {erroresProveedor.e_rfc_proveedor}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {/* ---------------- IMPORTES ---------------- */}
-              <div className="md:col-span-3 flex items-end gap-2">
-                <div className="flex-1">
-                  <Label>Importe sin IVA</Label>
-                  <Input
-                    value={form.e_importe_sin_iva || ""}
-                    onChange={(e) => {
-                      setErroresProveedor(prev => ({ ...prev, e_importe_sin_iva: "" }));
+             {/* ---------------- IMPORTES ---------------- */}
+<div className="md:col-span-3 flex items-end gap-2">
+  <div className="flex-1">
+    <Label>Importe sin IVA</Label>
 
-                      const digits = e.target.value.replace(/\D/g, "");
-                      const amount = digits ? parseInt(digits, 10) : 0;
+    <Input
+      value={form.e_importe_sin_iva || ""}
+      onChange={(e) => {
+        setErroresProveedor(prev => ({ ...prev, e_importe_sin_iva: "" }));
 
-                      setForm(prev => ({
-                        ...prev,
-                        e_importe_sin_iva: digits ? `$${amount.toLocaleString("es-MX")}` : "",
-                        e_importe_total: digits
-                          ? `$${(amount * 1.16).toLocaleString("es-MX", {
-                              minimumFractionDigits: 2,
-                            })}`
-                          : "",
-                      }));
-                    }}
-                    placeholder="$0.00"
-                    className={`${erroresProveedor.e_importe_sin_iva ? "border border-red-500" : ""}`}
-                  />
-                </div>
+        const digits = e.target.value.replace(/\D/g, "");
+        const amount = digits ? parseInt(digits, 10) : 0;
 
-                <div className="flex-1">
-                  <Label>Importe total con IVA (16%)</Label>
-                  <Input
-                    disabled
-                    value={form.e_importe_total || ""}
-                    className="bg-gray-100 text-gray-700 cursor-not-allowed"
-                  />
-                </div>
+        setForm(prev => ({
+          ...prev,
+          e_importe_sin_iva: digits ? `$${amount.toLocaleString("es-MX")}` : "",
+          e_importe_total: digits
+            ? `$${(amount * 1.16).toLocaleString("es-MX", {
+                minimumFractionDigits: 2,
+              })}`
+            : "",
+        }));
+      }}
+      placeholder="$0.00"
+      className={`${erroresProveedor.e_importe_sin_iva ? "border border-red-500" : ""}`}
+    />
+
+    {/* 🔴 MENSAJE DE ERROR */}
+    {erroresProveedor.e_importe_sin_iva && (
+      <p className="text-red-500 text-xs mt-1">
+        {erroresProveedor.e_importe_sin_iva}
+      </p>
+    )}
+  </div>
+
+  <div className="flex-1">
+    <Label>Importe total con IVA (16%)</Label>
+    <Input
+      disabled
+      value={form.e_importe_total || ""}
+      className="bg-gray-100 text-gray-700 cursor-not-allowed"
+    />
+  </div>
 
                 {/* Botón añadir */}
                 <TooltipProvider>
@@ -3832,6 +4097,197 @@ return (
 
        </CardContent>
       </Card>
+
+<Dialog open={showVerProveedoresDialog} onOpenChange={setShowVerProveedoresDialog}>
+  <DialogContent className="max-w-4xl">
+    <DialogHeader>
+      <DialogTitle>Listado de Proveedores</DialogTitle>
+      <p className="text-sm text-gray-500">Consulta los proveedores registrados.</p>
+    </DialogHeader>
+
+    <Input
+      placeholder="Buscar por RFC o razón social..."
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      className="my-3"
+    />
+
+    <div className="max-h-[400px] overflow-y-auto border rounded-md">
+      <table className="min-w-full text-sm">
+        <thead className="bg-gray-100">
+          <tr>
+            <th className="py-2 px-4 text-left">RFC</th>
+            <th className="py-2 px-4 text-left">Razón Social</th>
+            <th className="py-2 px-4 text-left">Correo</th>
+            <th className="py-2 px-4 text-left">Entidad</th>
+          </tr>
+        </thead>
+        <tbody>
+          {proveedoresDialog
+            .filter(
+              (p) =>
+                p.rfc.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.razon_social.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            .map((prov) => (
+              <tr key={prov.rfc} className="border-b">
+                <td className="py-2 px-4">{prov.rfc}</td>
+                <td className="py-2 px-4">{prov.razon_social}</td>
+                <td className="py-2 px-4">{prov.correo_electronico}</td>
+                <td className="py-2 px-4">{prov.entidad_federativa}</td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
+    </div>
+
+    <DialogFooter>
+      <Button onClick={() => setShowVerProveedoresDialog(false)}>Cerrar</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+
+<Dialog open={showNuevoProveedorDialog} onOpenChange={setShowNuevoProveedorDialog}>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle>Añadir nuevo proveedor</DialogTitle>
+      <p className="text-sm text-gray-500">Completa los datos del proveedor.</p>
+    </DialogHeader>
+
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const form = e.currentTarget;
+        const data = {
+          p_rfc: form.rfc.value,
+          p_razon_social: form.razon_social.value,
+          p_nombre_comercial: form.nombre_comercial.value,
+          p_persona_juridica: form.persona_juridica.value,
+          p_correo_electronico: form.correo_electronico.value,
+          p_id_entidad_federativa: parseInt(selectedEntidadId || "0"),
+        };
+
+        try {
+          const resp = await fetch(`${API_BASE}/catalogos/sp_cat_proveedor_gestionar_dialog`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+          const result = await resp.json();
+          if (!resp.ok) throw new Error(result.detail || "Error en la petición");
+
+          toast.success("Proveedor agregado correctamente");
+
+           // ⬇⬇⬇ AGREGA ESTO AQUÍ MISMO
+          try {
+            const proveedoresResp = await fetch(`${API_BASE}/catalogos/proveedor?p_rfc=-99`);
+            const proveedoresData = await proveedoresResp.json();
+
+            const lista =
+              Array.isArray(proveedoresData)
+                ? proveedoresData
+                : Array.isArray(proveedoresData?.data)
+                ? proveedoresData.data
+                : Array.isArray(proveedoresData?.proveedores)
+                ? proveedoresData.proveedores
+                : [];
+
+            setCatalogoProveedores(lista);
+          } catch (err) {
+            console.error("❌ Error recargando catálogo tras crear proveedor:", err);
+          }
+          // ⬆⬆⬆ FIN DEL FIX
+
+          setShowNuevoProveedorDialog(false);
+
+          const proveedoresResp = await fetch(`${API_BASE}/catalogos/proveedor?p_rfc=-99`);
+          const proveedoresData = await proveedoresResp.json();
+
+          const lista =
+            Array.isArray(proveedoresData)
+              ? proveedoresData
+              : Array.isArray(proveedoresData?.data)
+              ? proveedoresData.data
+              : Array.isArray(proveedoresData?.proveedores)
+              ? proveedoresData.proveedores
+              : [];
+
+          setCatalogoProveedores(lista);
+
+        } catch (err) {
+          toast.error("Error al agregar proveedor");
+        }
+      }}
+      className="space-y-3"
+    >
+      <Input name="rfc" placeholder="RFC" required />
+      <Input name="razon_social" placeholder="Razón Social" required />
+      <Input name="nombre_comercial" placeholder="Nombre Comercial" />
+
+      <div>
+        <Label>Persona Jurídica</Label>
+        <div className="space-y-2 mt-2">
+          <label className="flex items-center space-x-2">
+            <input type="radio" name="persona_juridica" value="PERSONA FÍSICA" />
+            <span>PERSONA FÍSICA</span>
+          </label>
+          <label className="flex items-center space-x-2">
+            <input type="radio" name="persona_juridica" value="PERSONA MORAL" />
+            <span>PERSONA MORAL</span>
+          </label>
+        </div>
+      </div>
+
+      <Input name="correo_electronico" placeholder="Correo electrónico" type="email" />
+
+      <div>
+        <Label>Entidad Federativa</Label>
+        <Command>
+          <CommandInput
+            placeholder="Buscar entidad..."
+            value={entidadQuery}
+            onValueChange={(val) => {
+              setEntidadQuery(val);
+              setMostrarListaEntidades(val.trim().length > 0);
+            }}
+          />
+
+          {mostrarListaEntidades && entidadQuery.trim().length > 0 && (
+            <CommandList>
+              {entidades
+                .filter((ent) =>
+                  ent.descripcion.toLowerCase().includes(entidadQuery.toLowerCase())
+                )
+                .map((ent) => (
+                  <CommandItem
+                    key={ent.id}
+                    onSelect={() => {
+                      setSelectedEntidadId(String(ent.id));
+                      setEntidadQuery(ent.descripcion);
+                      setMostrarListaEntidades(false);
+                    }}
+                  >
+                    {ent.descripcion}
+                  </CommandItem>
+                ))}
+            </CommandList>
+          )}
+        </Command>
+      </div>
+
+      <DialogFooter className="mt-4">
+        <Button
+          type="submit"
+          className="bg-green-600 hover:bg-green-700 text-white"
+        >
+          Guardar
+        </Button>
+      </DialogFooter>
+    </form>
+  </DialogContent>
+</Dialog>
 
       {/* ---------------- SALIR (FUERA DEL CARD) ---------------- */}
       <div className="flex justify-start items-center gap-3 w-full mt-6">

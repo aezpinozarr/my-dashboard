@@ -434,13 +434,13 @@ React.useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  // Paso 4: Finalizar proceso handler (actualizado)
+  // Paso 4: Finalizar proceso handler (versión corregida)
 const handleFinalizarProceso = React.useCallback(async () => {
   console.log("🔍 Validando proveedores antes de finalizar...");
 
-  // ===============================
-  // 🔴 VALIDACIÓN DE CAMPOS (cuando NO hay proveedores)
-  // ===============================
+  // =====================================================
+  // 🟥 CASO 1: NO HAY PROVEEDORES → VALIDAR FORMULARIO
+  // =====================================================
   if (proveedores.length === 0) {
     const nuevosErrores: Record<string, string> = {};
 
@@ -453,7 +453,7 @@ const handleFinalizarProceso = React.useCallback(async () => {
     if (!form.e_importe_sin_iva)
       nuevosErrores.e_importe_sin_iva = "Ingresa un importe válido.";
 
-    // 👀 guardar errores → esto ya pinta los bordes rojos en los inputs
+    
     setErroresProveedor(nuevosErrores);
 
     if (Object.keys(nuevosErrores).length > 0) {
@@ -462,11 +462,14 @@ const handleFinalizarProceso = React.useCallback(async () => {
     }
   }
 
-  // ===============================
-  // 🟢 SI YA HAY PROVEEDORES — PERMITIR FINALIZAR
-  // ===============================
+  // =====================================================
+  // 🟩 CASO 2: YA HAY PROVEEDORES — PERMITIR FINALIZAR
+  // =====================================================
   if (proveedores.length > 0) {
     console.log("✅ Ya existe al menos un proveedor añadido:", proveedores);
+
+    // ✔ LIMPIAR ERRORES VISUALES
+    setErroresProveedor({});
 
     try {
       const folioFinal =
@@ -477,8 +480,10 @@ const handleFinalizarProceso = React.useCallback(async () => {
 
       if (user && folioFinal) {
         const tipoNormalizado = (user.tipo || "").toString().trim().toUpperCase();
+
         if (tipoNormalizado === "ENTE") {
           const mensaje = `El usuario ${user.nombre} ha completado el seguimiento #${folioFinal}`;
+
           const params = new URLSearchParams();
           params.append("p_accion", "CREAR");
           params.append("p_id_usuario_origen", String(user.id));
@@ -892,35 +897,36 @@ const handleFinalizarProceso = React.useCallback(async () => {
     })();
   }, [step, folio]);
 
-  /* ========================================
-     🔹 Guardar Paso 3
+ /* ========================================
+     🔹 Guardar Paso 3 (validación correcta)
 ======================================== */
 const [erroresRubro, setErroresRubro] = React.useState<Record<string, string>>({});
 
 const handleGuardarRubros = async () => {
   const nuevosErrores: Record<string, string> = {};
 
-  // 🚨 Si NO hay rubros añadidos → validar formulario
+  // 🚨 Validar campos SOLO cuando la tabla está vacía
   if (presupuestosRubro.length === 0) {
     if (!nuevoRubro.p_id_partida_asociada)
-      nuevosErrores.p_id_partida_asociada = "Selecciona una partida asociada";
+      nuevosErrores.p_id_partida_asociada = "Este campo es obligatorio";
 
     if (!nuevoRubro.p_e_id_rubro)
-      nuevosErrores.p_e_id_rubro = "El campo de rubro es obligatorio";
+      nuevosErrores.p_e_id_rubro = "Este campo es obligatorio";
 
     if (!nuevoRubro.p_e_monto_presupuesto_suficiencia)
-      nuevosErrores.p_e_monto_presupuesto_suficiencia = "Debes ingresar un monto válido";
+      nuevosErrores.p_e_monto_presupuesto_suficiencia = "Este campo es obligatorio";
   }
 
+  // 🔥 Pintar bordes rojos y mensajes
   setErroresRubro(nuevosErrores);
 
-  // ⛔ Detener si no hay rubros y hay errores
-  if (presupuestosRubro.length === 0 && Object.keys(nuevosErrores).length > 0) {
-    toast.warning("Por favor completa todos los campos antes de continuar o añade al menos un rubro.");
+  // ⛔ NO AVANZAR si no hay rubros añadidos (independientemente del formulario)
+  if (presupuestosRubro.length === 0) {
+    toast.warning("Debes añadir al menos un rubro antes de continuar.");
     return;
   }
 
-  // 🟢 Si ya hay rubros añadidos, permitir avanzar
+  // 🟢 Si SÍ hay rubros → avanzar al paso 4
   setStep(4);
 };
 
@@ -1160,10 +1166,10 @@ const handleNext = async () => {
     nuevaPartida.e_no_requisicion.trim() === "" ? "Este campo es obligatorio" : "",
 
   e_id_partida:
-    nuevaPartida.e_id_partida.trim() === "" ? "Selecciona una partida" : "",
+    nuevaPartida.e_id_partida.trim() === "" ? "Este campo es obligatorio" : "",
 
   e_id_fuente_financiamiento:
-    nuevaPartida.e_id_fuente_financiamiento.trim() === "" ? "Selecciona una fuente de financiamiento" : ""
+    nuevaPartida.e_id_fuente_financiamiento.trim() === "" ? "Este campo es obligatorio" : ""
     });
   toast.warning("Debes añadir al menos una partida antes de continuar.");
   return;
@@ -1971,19 +1977,20 @@ const handleNext = async () => {
         </div>
 
       </div>
+
+
             {/* Oficio de invitación bloqueado */}
             <div>
               <Label>Oficio de invitación</Label>
               <Input
-              value={form.oficio_invitacion ?? ""}
-              onChange={(e) => {
-                setErrores(prev => ({ ...prev, oficio_invitacion: "" })); // 🔥 FIX
-                setForm({ ...form, oficio_invitacion: e.target.value });
-              }}
-              placeholder="Ej. OF.123/2025"
-              className={`${errores.oficio_invitacion ? "border-red-500" : ""}`}
-            />
+                value={form.oficio_invitacion ?? ""}
+                disabled
+                className="bg-gray-100 text-gray-600 cursor-not-allowed"
+              />
             </div>
+
+
+
             {/* Formulario superior */}
            <form
           className="flex flex-col space-y-4 rounded-lg bg-white px-0 py-4"
@@ -2061,7 +2068,7 @@ const handleNext = async () => {
                   )}
                 </Command>
                 {erroresForm.e_id_partida && (
-                  <p className="text-sm text-red-500 mt-1">Selecciona una partida</p>
+                  <p className="text-sm text-red-500 mt-1">Este campo es obligatorio</p>
                 )}
               </div>
                 {/* Fuente de financiamiento */}
@@ -2121,7 +2128,7 @@ const handleNext = async () => {
                   )}
                 </Command>
                 {erroresForm.e_id_fuente_financiamiento && (
-                  <p className="text-sm text-red-500 mt-1">Selecciona una fuente de financiamiento</p>
+                  <p className="text-sm text-red-500 mt-1">Este campo es obligatorio</p>
                 )}
               </div>
               {/* Botón añadir partida */}
@@ -2435,191 +2442,199 @@ const handleNext = async () => {
 
         {/* Formulario rubros */}
         <div className="flex flex-col space-y-4 rounded-lg bg-white px-0 py-4">
-          <form
-            className="space-y-4"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!nuevoRubro.p_e_id_rubro) {
-                rubroInputRef.current?.focus();
-                toast.warning("Completa los campos antes de añadir el rubro.");
-                return;
-              }
-              if (!nuevoRubro.p_e_monto_presupuesto_suficiencia || !nuevoRubro.p_id_partida_asociada) {
-                toast.warning("Completa los campos antes de añadir el rubro.");
-                return;
-              }
+         <form
+  className="space-y-4"
+  onSubmit={async (e) => {
+    e.preventDefault();
 
-              const existeRubro = presupuestosRubro.some(
-                (r) =>
-                  r.p_e_id_rubro === nuevoRubro.p_e_id_rubro &&
-                  r.p_id_partida_asociada === nuevoRubro.p_id_partida_asociada
+    // 🔥 Validación obligatoria
+    const nuevosErrores: any = {};
+
+    if (!nuevoRubro.p_id_partida_asociada) {
+      nuevosErrores.p_id_partida_asociada = "Este campo es obligatorio";
+    }
+    if (!nuevoRubro.p_e_id_rubro) {
+      nuevosErrores.p_e_id_rubro = "Este campo es obligatorio";
+    }
+    if (!nuevoRubro.p_e_monto_presupuesto_suficiencia) {
+      nuevosErrores.p_e_monto_presupuesto_suficiencia = "Este campo es obligatorio";
+    }
+
+    setErroresRubro(nuevosErrores);
+
+    if (Object.keys(nuevosErrores).length > 0) {
+      toast.warning("Completa los campos antes de añadir el rubro.");
+      return;
+    }
+
+    // 🔥 VALIDACIONES RESTANTES
+    const existeRubro = presupuestosRubro.some(
+      (r) =>
+        r.p_e_id_rubro === nuevoRubro.p_e_id_rubro &&
+        r.p_id_partida_asociada === nuevoRubro.p_id_partida_asociada
+    );
+    if (existeRubro) {
+      toast.warning("Este rubro ya fue añadido.");
+      return;
+    }
+
+    try {
+      const partidaAsociada = partidas.find(
+        (p) => String(p.e_id_partida) === String(nuevoRubro.p_id_partida_asociada)
+      );
+      if (!partidaAsociada || !partidaAsociada.id) {
+        toast.warning("La partida asociada no es válida.");
+        return;
+      }
+
+      const payload = {
+        p_accion: "NUEVO",
+        p_id_seguimiento_partida: Number(partidaAsociada.id),
+        p_id: 0,
+        p_e_id_rubro: nuevoRubro.p_e_id_rubro,
+        p_e_monto_presupuesto_suficiencia: parseFloat(
+          (nuevoRubro.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "")
+        ),
+      };
+
+      const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-ente-v2/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(JSON.stringify(data));
+
+      setPresupuestosRubro((prev) => [...prev, { ...nuevoRubro, id: data.resultado }]);
+
+      setNuevoRubro({
+        p_id_partida_asociada: "",
+        p_e_id_rubro: "",
+        rubro_descripcion: "",
+        p_e_monto_presupuesto_suficiencia: "",
+      });
+
+      toast.success("Rubro añadido correctamente");
+    } catch (err) {
+      toast.error("Error al añadir rubro");
+    }
+  }}
+>
+  {/* Partida asociada */}
+  <div>
+    <Label>Partida asociada</Label>
+    <select
+      className={`border rounded-md p-2 w-full ${
+        erroresRubro.p_id_partida_asociada ? "border-red-500" : ""
+      }`}
+      value={nuevoRubro.p_id_partida_asociada}
+      onChange={(e) => {
+        setErroresRubro((prev) => ({ ...prev, p_id_partida_asociada: "" }));
+        setNuevoRubro((prev) => ({ ...prev, p_id_partida_asociada: e.target.value }));
+      }}
+    >
+      <option value="">Seleccione partida...</option>
+      {partidas.map((p, idx) => (
+        <option key={p.e_id_partida || idx} value={p.e_id_partida}>
+          {`Partida #${idx + 1} — ${p.e_id_partida} — ${p.partida_descripcion}`}
+        </option>
+      ))}
+    </select>
+
+    {erroresRubro.p_id_partida_asociada && (
+      <p className="text-red-500 text-xs mt-1">{erroresRubro.p_id_partida_asociada}</p>
+    )}
+  </div>
+
+  {/* Rubro */}
+  <div className="w-full">
+    <Label>Rubro</Label>
+    <Command>
+      <CommandInput
+        ref={rubroInputRef}
+        value={
+        nuevoRubro.p_e_id_rubro && nuevoRubro.rubro_descripcion
+          ? `${nuevoRubro.p_e_id_rubro} — ${nuevoRubro.rubro_descripcion}`
+          : nuevoRubro.p_e_id_rubro || ""
+      }
+        placeholder="Escribe ID o nombre…"
+        className={`${erroresRubro.p_e_id_rubro ? "border border-red-500" : ""}`}
+        onValueChange={(val) => {
+          setErroresRubro((prev) => ({ ...prev, p_e_id_rubro: "" }));
+          setNuevoRubro((prev) => ({
+            ...prev,
+            p_e_id_rubro: val,
+            rubro_descripcion: "",
+          }));
+          setMostrarRubros(true);
+        }}
+      />
+
+      {mostrarRubros && (
+        <CommandList>
+          {rubros
+            .filter((rb) => {
+              const q = (nuevoRubro.p_e_id_rubro || "").toLowerCase();
+              return (
+                rb.id?.toString().toLowerCase().includes(q) ||
+                rb.descripcion?.toLowerCase().includes(q)
               );
-              if (existeRubro) {
-                toast.warning("Este rubro ya fue añadido.");
-                return;
-              }
-
-              try {
-                const partidaAsociada = partidas.find(
-                  (p) => String(p.e_id_partida) === String(nuevoRubro.p_id_partida_asociada)
-                );
-                if (!partidaAsociada || !partidaAsociada.id) {
-                  toast.warning("La partida asociada no es válida.");
-                  return;
-                }
-
-                const payload = {
-                  p_accion: "NUEVO",
-                  p_id_seguimiento_partida: Number(partidaAsociada.id),
-                  p_id: 0,
-                  p_e_id_rubro: nuevoRubro.p_e_id_rubro,
-                  p_e_monto_presupuesto_suficiencia: parseFloat(
-                    (nuevoRubro.p_e_monto_presupuesto_suficiencia || "").replace(/[^\d]/g, "")
-                  ),
-                };
-
-                const resp = await fetch(`${API_BASE}/procesos/seguimiento/partida-rubro-ente-v2/`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(payload),
-                });
-                const data = await resp.json();
-                if (!resp.ok) throw new Error(JSON.stringify(data));
-
-                setPresupuestosRubro((prev) => [
-                  ...prev,
-                  { ...nuevoRubro, id: data.resultado },
-                ]);
-
-                setNuevoRubro((prev) => ({
-                  ...prev,
-                  p_e_id_rubro: "",
-                  rubro_descripcion: "",
-                  p_e_monto_presupuesto_suficiencia: "",
-                }));
-
-                toast.success("Rubro añadido correctamente");
-              } catch (err) {
-                toast.error("Error al añadir rubro");
-              }
-            }}
-          >
-            {/* Partida asociada */}
-            <div>
-              <Label>Partida asociada</Label>
-              <select
-                className={`border rounded-md p-2 w-full ${
-                  erroresRubro.p_id_partida_asociada ? "border-red-500" : ""
-                }`}
-                value={nuevoRubro.p_id_partida_asociada}
-                onChange={(e) => {
-                  setErroresRubro(prev => ({ ...prev, p_id_partida_asociada: "" })); // FIX AQUÍ
-                  setNuevoRubro(prev => ({
+            })
+            .map((rb) => (
+              <CommandItem
+                key={rb.id}
+                onSelect={() => {
+                  setNuevoRubro((prev) => ({
                     ...prev,
-                    p_id_partida_asociada: e.target.value,
+                    p_e_id_rubro: rb.id.toString(),
+                    rubro_descripcion: rb.descripcion,
                   }));
+                  setMostrarRubros(false);
                 }}
               >
-                <option value="">Seleccione partida...</option>
-                {partidas.map((p, idx) => (
-                  <option key={p.e_id_partida || idx} value={p.e_id_partida}>
-                    {`Partida #${idx + 1} — ${p.e_id_partida} — ${p.partida_descripcion}`}
-                  </option>
-                ))}
-              </select>
-            </div>
+                {rb.id} — {rb.descripcion}
+              </CommandItem>
+            ))}
 
-            {/* Rubro + Monto */}
-            <div className="flex gap-4">
-              <div className="w-[70%]">
-                <Label>Rubro</Label>
+          <CommandEmpty>No se encontraron rubros</CommandEmpty>
+        </CommandList>
+      )}
+    </Command>
 
-                <Command>
-              <CommandInput
-                ref={rubroInputRef}
-                value={nuevoRubro.rubro_descripcion || nuevoRubro.p_e_id_rubro}
-                placeholder="Escribe ID o nombre…"
-                className={`${erroresRubro.p_e_id_rubro ? "border border-red-500" : ""}`}
-                onValueChange={(val) => {
-                  setErroresRubro(prev => ({ ...prev, p_e_id_rubro: "" })); // FIX AQUÍ
-                  setNuevoRubro(prev => ({
-                    ...prev,
-                    p_e_id_rubro: val,
-                    rubro_descripcion: "",
-                  }));
-                  setMostrarRubros(true);
-                }}
-                  />
+    {erroresRubro.p_e_id_rubro && (
+      <p className="text-red-500 text-xs mt-1">{erroresRubro.p_e_id_rubro}</p>
+    )}
+  </div>
 
-                  {mostrarRubros && (
-                    <CommandList>
-                      {rubros
-                        .filter((rb) => {
-                          const q = (nuevoRubro.p_e_id_rubro || "").toLowerCase();
-                          return (
-                            rb.id?.toString().toLowerCase().includes(q) ||
-                            rb.descripcion?.toLowerCase().includes(q)
-                          );
-                        })
-                        .map((rb) => (
-                          <CommandItem
-                            key={rb.id}
-                            onSelect={() => {
-                              // ✔ Guarda el ID
-                              // ✔ Guarda la descripción
-                              // ✔ Llena el Input con "id — descripcion"
-                              // ✔ Cierra el CommandList
-                              setNuevoRubro((prev) => ({
-                                ...prev,
-                                p_e_id_rubro: rb.id.toString(),
-                                rubro_descripcion: rb.descripcion,
-                              }));
-                              setMostrarRubros(false);
-                            }}
-                          >
-                            {rb.id} — {rb.descripcion}
-                          </CommandItem>
-                        ))}
+  {/* Monto presupuesto */}
+  <div className="w-full">
+    <Label>Monto presupuesto suficiencia</Label>
+    <Input
+      value={nuevoRubro.p_e_monto_presupuesto_suficiencia}
+      onChange={(e) => {
+        setErroresRubro((prev) => ({ ...prev, p_e_monto_presupuesto_suficiencia: "" }));
+        setNuevoRubro((prev) => ({
+          ...prev,
+          p_e_monto_presupuesto_suficiencia: formatMoney(e.target.value),
+        }));
+      }}
+      className={`${erroresRubro.p_e_monto_presupuesto_suficiencia ? "border border-red-500" : ""}`}
+      placeholder="$0.00"
+    />
+    {erroresRubro.p_e_monto_presupuesto_suficiencia && (
+      <p className="text-red-500 text-xs mt-1">
+        {erroresRubro.p_e_monto_presupuesto_suficiencia}
+      </p>
+    )}
+  </div>
 
-                      <CommandEmpty>No se encontraron rubros</CommandEmpty>
-                    </CommandList>
-                  )}
-                </Command>
-              </div>
-
-              <div className="w-[30%]">
-                <Label>Monto presupuesto suficiencia</Label>
-              <Input
-                value={nuevoRubro.p_e_monto_presupuesto_suficiencia}
-                onChange={(e) => {
-                  setErroresRubro(prev => ({ ...prev, p_e_monto_presupuesto_suficiencia: "" })); // 🔥 FIX AQUÍ
-                  setNuevoRubro(prev => ({
-                    ...prev,
-                    p_e_monto_presupuesto_suficiencia: formatMoney(e.target.value),
-                  }));
-                }}
-                placeholder="$0.00"
-                className={`${erroresRubro.p_e_monto_presupuesto_suficiencia ? "border border-red-500" : ""}`}
-              />
-              </div>
-            </div>
-
-            {/* Botón añadir */}
-            <div className="flex justify-end">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button style={{ backgroundColor: "#10c706", color: "white" }}>
-                      Añadir rubro
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Agregar un nuevo rubro a la lista</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </form>
+  {/* Botón añadir */}
+  <div className="flex justify-end">
+    <Button style={{ backgroundColor: "#10c706", color: "white" }}>
+      Añadir rubro
+    </Button>
+  </div>
+</form>
         </div>
 
         {/* TABLA */}
@@ -2847,6 +2862,43 @@ const handleNext = async () => {
 
 {/* Paso 4 */}
 {step === 4 && (() => {
+  const validarRubrosConProveedores = () => {
+  for (const rubro of presupuestosRubro) {
+    const tieneProveedor = proveedores.some(
+      (prov) => String(prov.p_e_id_rubro_partida) === String(rubro.id)
+    );
+
+    if (!tieneProveedor) {
+      toast.warning(
+        `El rubro ${rubro.p_e_id_rubro} — ${rubro.rubro_descripcion} no tiene proveedor asignado.`
+      );
+      return false;
+    }
+  }
+
+  return true;
+};
+
+  const validarProveedor = () => {
+  const nuevosErrores: any = {};
+
+  if (!form.p_e_id_rubro_partida) {
+    nuevosErrores.p_e_id_rubro_partida = "Este campo es obligatorio";
+  }
+
+  if (!form.e_rfc_proveedor.trim()) {
+    nuevosErrores.e_rfc_proveedor = "Este campo es obligatorio";
+  }
+
+  if (!form.e_importe_sin_iva) {
+    nuevosErrores.e_importe_sin_iva = "Este campo es obligatorio";
+  }
+
+  setErroresProveedor(nuevosErrores);
+
+  return Object.keys(nuevosErrores).length === 0; // true = correcto
+};
+
   return (
     <>
 
@@ -2903,12 +2955,28 @@ const handleNext = async () => {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      onClick={handleFinalizarProceso}
-                      className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
-                      style={{ backgroundColor: "#FFBF00" }}
-                    >
-                      Finalizar
-                    </Button>
+                 onClick={() => {
+                  // 1️⃣ Si no hay proveedores en absoluto → validar campos
+                  if (proveedores.length === 0) {
+                    if (!validarProveedor()) {
+                      toast.warning("Completa los campos obligatorios antes de finalizar.");
+                      return;
+                    }
+                  }
+
+                  // 2️⃣ Validar que CADA rubro tenga al menos un proveedor
+                  if (!validarRubrosConProveedores()) {
+                    return; // ⛔ Detener proceso
+                  }
+
+                  // 3️⃣ Si todo está correcto → finalizar proceso
+                  handleFinalizarProceso();
+                }}
+                  className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
+                  style={{ backgroundColor: "#FFBF00" }}
+                >
+                  Finalizar
+                </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
                     <p>Finalizar proceso</p>
@@ -2937,12 +3005,12 @@ const handleNext = async () => {
             <form
               className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"
               onSubmit={async e => {
-                e.preventDefault();
+              e.preventDefault();
 
-                if (!form.p_e_id_rubro_partida || !form.e_rfc_proveedor.trim() || !form.e_importe_sin_iva) {
-                  toast.warning("Por favor completa todos los campos obligatorios antes de continuar.");
-                  return;
-                }
+              if (!validarProveedor()) {
+                toast.warning("Por favor completa todos los campos obligatorios.");
+                return;
+              }
 
                 try {
                   const existe = proveedores.some(
@@ -3013,186 +3081,239 @@ const handleNext = async () => {
               }}
             >
               {/* Rubro / Partida */}
-              <div className="md:col-span-3">
-                <Label>Seleccionar Rubro y Partida</Label>
-                <select
-                  className={`border rounded-md p-2 w-full ${
-                    erroresProveedor.p_e_id_rubro_partida ? "border-red-500 focus:ring-red-500" : ""
-                  }`}
-                  value={form.p_e_id_rubro_partida || ""}
-                  onChange={(e) => {
-                    setErroresProveedor((prev) => ({ ...prev, p_e_id_rubro_partida: "" }));
-                    const selectedOption = e.target.options[e.target.selectedIndex];
+<div className="md:col-span-3">
+  <Label>Seleccionar Rubro y Partida</Label>
+
+  <select
+    className={`border rounded-md p-2 w-full ${
+      erroresProveedor.p_e_id_rubro_partida ? "border-red-500 focus:ring-red-500" : ""
+    }`}
+    value={form.p_e_id_rubro_partida || ""}
+    onChange={(e) => {
+      // 🔥 quitar error cuando escriben
+      setErroresProveedor((prev) => ({ ...prev, p_e_id_rubro_partida: "" }));
+
+      const selectedOption = e.target.options[e.target.selectedIndex];
+      setForm((prev) => ({
+        ...prev,
+        p_e_id_rubro_partida: e.target.value,
+        rubro_partida_texto: selectedOption.text,
+      }));
+    }}
+  >
+    <option value="">Seleccione rubro/partida…</option>
+
+    {presupuestosRubro.map((r, idx) => {
+      const idValido = r.id || Number(sessionStorage.getItem("idRubroCreado")) || 0;
+
+      const partidaAsociada = partidas.find(
+        (p) => String(p.e_id_partida) === String(r.p_id_partida_asociada)
+      );
+
+      const textoPartida = partidaAsociada
+        ? `${partidaAsociada.e_id_partida}`
+        : "Partida no encontrada";
+
+      return (
+        <option key={`${r.p_e_id_rubro}-${idValido}`} value={idValido}>
+          {textoPartida} | Rubro {r.p_e_id_rubro} — {r.rubro_descripcion}
+        </option>
+      );
+    })}
+  </select>
+
+  {/* 🔴 mensaje de error */}
+  {erroresProveedor.p_e_id_rubro_partida && (
+    <p className="text-red-500 text-xs mt-1">
+      {erroresProveedor.p_e_id_rubro_partida}
+    </p>
+  )}
+</div>
+
+{/* RFC del proveedor */}
+<div className="md:col-span-3">
+  <Label>RFC del proveedor</Label>
+
+  {/* Botones Ver/Añadir Proveedor */}
+  <div className="flex items-center gap-3 mt-3">
+    <Button
+      type="button"
+      variant="outline"
+      onClick={() => setShowVerProveedoresDialog(true)}
+      className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
+    >
+      <Eye className="w-5 h-5" />
+      Ver proveedores
+    </Button>
+
+    <Button
+      type="button"
+      variant="outline"
+      onClick={() => setShowNuevoProveedorDialog(true)}
+      className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
+    >
+      <UserPlus className="w-5 h-5" />
+      Añadir proveedor
+    </Button>
+  </div>
+
+  {/* --- CAMPO RFC PRINCIPAL --- */}
+  <div className="relative mt-4">
+    <Command shouldFilter={false}>
+      <CommandInput
+        ref={rfcInputRef}
+        placeholder="Escribe RFC..."
+        value={form.e_rfc_proveedor}
+        className={`${
+          erroresProveedor.e_rfc_proveedor
+            ? "border border-red-500 focus:ring-red-500"
+            : ""
+        }`}
+        onValueChange={(value) => {
+          // 🔥 eliminar error cuando escriben
+          setErroresProveedor((prev) => ({ ...prev, e_rfc_proveedor: "" }));
+
+          setForm((prev) => ({
+            ...prev,
+            e_rfc_proveedor: value,
+          }));
+
+          if (value.trim().length > 0) {
+            setMostrarLista(true);
+          } else {
+            setMostrarLista(false);
+          }
+        }}
+      />
+
+      {/* Lista de coincidencias RFC */}
+      {form.e_rfc_proveedor.trim().length > 0 && mostrarLista && (
+        <CommandList className="absolute top-full left-0 z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+          {catalogoProveedores
+            .filter((p) => {
+              const rfc = p.rfc || p.e_rfc_proveedor || "";
+              return rfc
+                .toLowerCase()
+                .includes((form.e_rfc_proveedor || "").toLowerCase());
+            })
+            .map((p) => {
+              const rfc = p.rfc || p.e_rfc_proveedor;
+              return (
+                <CommandItem
+                  key={rfc}
+                  value={rfc}
+                  onSelect={() => {
                     setForm((prev) => ({
                       ...prev,
-                      p_e_id_rubro_partida: e.target.value,
-                      rubro_partida_texto: selectedOption.text,
+                      e_rfc_proveedor: rfc,
+                      razon_social: p.razon_social || "",
+                      nombre_comercial: p.nombre_comercial || "",
                     }));
+
+                    if (rfcInputRef.current) {
+                      rfcInputRef.current.value = rfc;
+                      rfcInputRef.current.blur();
+                    }
+
+                    setMostrarLista(false);
                   }}
                 >
-                  <option value="">Seleccione rubro/partida…</option>
-                  {presupuestosRubro.map((r, idx) => {
-                    const idValido = r.id || Number(sessionStorage.getItem("idRubroCreado")) || 0;
-                    const partidaAsociada =
-                      partidas.find((p) => String(p.e_id_partida) === String(r.p_id_partida_asociada));
-                    const textoPartida = partidaAsociada
-                      ? `${partidaAsociada.e_id_partida}`
-                      : "Partida no encontrada";
-                    return (
-                      <option key={`${r.p_e_id_rubro}-${idValido}`} value={idValido}>
-                        {textoPartida} | Rubro {r.p_e_id_rubro} — {r.rubro_descripcion}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
+                  {rfc} — {p.razon_social || "—"} — {p.nombre_comercial || "—"}
+                </CommandItem>
+              );
+            })}
 
-              {/* RFC del proveedor */}
-              <div className="md:col-span-3">
-                <Label>RFC del proveedor</Label>
+          {catalogoProveedores.length === 0 && (
+            <CommandEmpty>No se encontraron resultados</CommandEmpty>
+          )}
+        </CommandList>
+      )}
+    </Command>
 
-                <div className="flex items-center gap-3 mt-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowVerProveedoresDialog(true)}
-                    className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
-                  >
-                    <Eye className="w-5 h-5" />
-                    Ver proveedores
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowNuevoProveedorDialog(true)}
-                    className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
-                  >
-                    <UserPlus className="w-5 h-5" />
-                    Añadir proveedor
-                  </Button>
-                </div>
-
-                {/* Dialogs */}
-                {/* (tu código de dialogs aquí completo, no se modificó nada) */}
-
-                <div className="relative mt-4">
-                  <Command shouldFilter={false}>
-                    <CommandInput
-                      ref={rfcInputRef}
-                      placeholder="Escribe RFC..."
-                      className={`${
-                        erroresProveedor.e_rfc_proveedor ? "border border-red-500 focus:ring-red-500" : ""
-                      }`}
-                      value={form.e_rfc_proveedor}
-                      onValueChange={(value) => {
-                        setErroresProveedor((prev) => ({ ...prev, e_rfc_proveedor: "" }));
-                        setForm((prev) => ({
-                          ...prev,
-                          e_rfc_proveedor: value,
-                        }));
-                        if (value.trim().length > 0) setMostrarLista(true);
-                        else setMostrarLista(false);
-                      }}
-                    />
-
-                    {form.e_rfc_proveedor.trim().length > 0 && mostrarLista && (
-                      <CommandList className="absolute top-full left-0 z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
-
-                        {catalogoProveedores
-                          .filter((p) => {
-                            const rfc = p.rfc || p.e_rfc_proveedor || "";
-                            return rfc.toLowerCase().includes(form.e_rfc_proveedor.toLowerCase());
-                          })
-                          .map((p) => {
-                            const rfc = p.rfc || p.e_rfc_proveedor;
-                            return (
-                              <CommandItem
-                                key={rfc}
-                                value={rfc}
-                                onSelect={() => {
-                                  setForm((prev) => ({
-                                    ...prev,
-                                    e_rfc_proveedor: rfc,
-                                    razon_social: p.razon_social || "",
-                                    nombre_comercial: p.nombre_comercial || "",
-                                  }));
-
-                                  if (rfcInputRef.current) {
-                                    rfcInputRef.current.value = rfc;
-                                    rfcInputRef.current.blur();
-                                  }
-
-                                  setMostrarLista(false);
-                                }}
-                              >
-                                {rfc} — {p.razon_social || "—"} — {p.nombre_comercial || "—"}
-                              </CommandItem>
-                            );
-                          })}
-
-                        {catalogoProveedores.length === 0 && (
-                          <CommandEmpty>No se encontraron resultados</CommandEmpty>
-                        )}
-                      </CommandList>
-                    )}
-                  </Command>
-                </div>
-              </div>
+    {/* 🔴 MENSAJE DE ERROR */}
+    {erroresProveedor.e_rfc_proveedor && (
+      <p className="text-red-500 text-xs mt-1">
+        {erroresProveedor.e_rfc_proveedor}
+      </p>
+    )}
+  </div>
+</div>
 
               {/* Importe sin IVA y total */}
-              <div className="md:col-span-3 flex items-end gap-2">
-                <div className="flex-1">
-                  <Label>Importe sin IVA</Label>
-                  <Input
-                    value={form.e_importe_sin_iva || ""} 
-                    onChange={(e) => {
-                      setErroresProveedor((prev) => ({ ...prev, e_importe_sin_iva: "" }));
-                      const digits = e.target.value.replace(/\D/g, "");
-                      const amount = digits ? parseInt(digits, 10) : 0;
-                      setForm((prev) => ({
-                        ...prev,
-                        e_importe_sin_iva: digits ? `$${amount.toLocaleString("es-MX")}` : "",
-                        e_importe_total: digits
-                          ? `$${(amount * 1.16).toLocaleString("es-MX", {
-                              minimumFractionDigits: 2,
-                            })}`
-                          : "",
-                      }));
-                    }}
-                    placeholder="$0.00"
-                    className={`${
-                      erroresProveedor.e_importe_sin_iva ? "border border-red-500 focus:ring-red-500" : ""
-                    }`}
-                  />
-                </div>
+<div className="md:col-span-3 flex items-end gap-2">
 
-                <div className="flex-1">
-                  <Label>Importe total con IVA (16%)</Label>
-                  <Input
-                    disabled
-                    className="bg-gray-100 text-gray-700 cursor-not-allowed"
-                    value={form.e_importe_total || ""}
-                  />
-                </div>
+  {/* IMPORTE SIN IVA */}
+  <div className="flex-1">
+    <Label>Importe sin IVA</Label>
+    <Input
+      value={form.e_importe_sin_iva || ""}
+      onChange={(e) => {
+        // 🔥 limpiar error al escribir
+        setErroresProveedor((prev) => ({ ...prev, e_importe_sin_iva: "" }));
 
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="submit"
-                        style={{ backgroundColor: "#10c706", color: "white" }}
-                        className="h-[38px] px-4 flex-shrink-0"
-                      >
-                        Añadir proveedor
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Guarda el proveedor y su monto</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
+        const digits = e.target.value.replace(/\D/g, "");
+        const amount = digits ? parseInt(digits, 10) : 0;
+
+        setForm((prev) => ({
+          ...prev,
+          e_importe_sin_iva: digits ? `$${amount.toLocaleString("es-MX")}` : "",
+          e_importe_total: digits
+            ? `$${(amount * 1.16).toLocaleString("es-MX", {
+                minimumFractionDigits: 2,
+              })}`
+            : "",
+        }));
+      }}
+      placeholder="$0.00"
+      className={`${
+        erroresProveedor.e_importe_sin_iva
+          ? "border border-red-500 focus:ring-red-500"
+          : ""
+      }`}
+    />
+
+    {/* 🔴 MENSAJE DE ERROR */}
+    {erroresProveedor.e_importe_sin_iva && (
+      <p className="text-red-500 text-xs mt-1">{erroresProveedor.e_importe_sin_iva}</p>
+    )}
+  </div>
+
+  {/* IMPORTE TOTAL (SOLO LECTURA) */}
+  <div className="flex-1">
+    <Label>Importe total con IVA (16%)</Label>
+    <Input
+      disabled
+      className={`bg-gray-100 text-gray-700 cursor-not-allowed ${
+        erroresProveedor.e_importe_total ? "border border-red-500" : ""
+      }`}
+      value={form.e_importe_total || ""}
+    />
+
+    {/* 🔴 MENSAJE DE ERROR */}
+    {erroresProveedor.e_importe_total && (
+      <p className="text-red-500 text-xs mt-1">{erroresProveedor.e_importe_total}</p>
+    )}
+  </div>
+
+  {/* BOTÓN AÑADIR */}
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="submit"
+          style={{ backgroundColor: "#10c706", color: "white" }}
+          className="h-[38px] px-4 flex-shrink-0"
+        >
+          Añadir proveedor
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        <p>Guarda el proveedor y su monto</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+
+</div>
             </form>
           </div>
 
@@ -3272,13 +3393,28 @@ const handleNext = async () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    type="button"
-                    onClick={handleFinalizarProceso}
-                    className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
-                    style={{ backgroundColor: "#FFBF00" }}
-                  >
-                    Finalizar
-                  </Button>
+                onClick={() => {
+                  // 1️⃣ Si no hay proveedores en absoluto → validar campos
+                  if (proveedores.length === 0) {
+                    if (!validarProveedor()) {
+                      toast.warning("Completa los campos obligatorios antes de finalizar.");
+                      return;
+                    }
+                  }
+
+                  // 2️⃣ Validar que CADA rubro tenga al menos un proveedor
+                  if (!validarRubrosConProveedores()) {
+                    return; // ⛔ Detener proceso
+                  }
+
+                  // 3️⃣ Si todo está correcto → finalizar proceso
+                  handleFinalizarProceso();
+                }}
+                className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
+                style={{ backgroundColor: "#FFBF00" }}
+              >
+                Finalizar
+              </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
                   <p>Finalizar proceso</p>
