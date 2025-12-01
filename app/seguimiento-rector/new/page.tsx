@@ -2540,7 +2540,7 @@ useEffect(() => {
                                   </TableCell>
 
                                   <TableCell className="whitespace-normal break-words">
-                                    <strong>Fundamento:</strong>{" "}
+                                    <strong></strong>{" "}
                                     {fundamentoObj
                                       ? fundamentoObj.descripcion
                                       : "—"}
@@ -2579,10 +2579,31 @@ useEffect(() => {
                                             }`}
                                           </p>
 
-                                          <p>
-                                            <strong>Estatus:</strong>{" "}
-                                            {row.estatus || "—"}
-                                          </p>
+                                        <p className="flex items-center gap-2">
+                                          <strong>Estatus:</strong>
+
+                                          {row.estatus ? (
+                                            <>
+                                              <span
+                                                className="w-2.5 h-2.5 rounded-full"
+                                                style={{
+                                                  backgroundColor:
+                                                    row.estatus === "ADJUDICADO"
+                                                      ? "#22c55e"
+                                                      : row.estatus === "DIFERIMIENTO"
+                                                      ? "#ff8800"
+                                                      : row.estatus === "CANCELADO"
+                                                      ? "#ef4444"
+                                                      : "#939596",
+                                                }}
+                                              ></span>
+
+                                              {row.estatus}
+                                            </>
+                                          ) : (
+                                            "—"
+                                          )}
+                                        </p>
 
                                           <div className="pt-4">
                                             <Button
@@ -2703,7 +2724,7 @@ useEffect(() => {
                                 <strong>Rubro:</strong>
                                 <br />
                                 {partidaObj
-                                  ? `${partidaObj.id_partida} - ${partidaObj.partida} | ${
+                                  ? `${partidaObj.id_partida} | ${
                                       rubroObj
                                         ? `${rubroObj.id_rubro} - ${rubroObj.rubro}`
                                         : "—"
@@ -2723,10 +2744,31 @@ useEffect(() => {
                                 {formatMXN(row.importeTotal)}
                               </p>
 
-                              <p>
-                                <strong>Estatus:</strong>{" "}
-                                {row.estatus || "—"}
-                              </p>
+                             <p className="flex items-center gap-2">
+                              <strong>Estatus:</strong>
+
+                              {row.estatus ? (
+                                <>
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full"
+                                    style={{
+                                      backgroundColor:
+                                        row.estatus === "ADJUDICADO"
+                                          ? "#22c55e"
+                                          : row.estatus === "DIFERIMIENTO"
+                                          ? "#ff8800"
+                                          : row.estatus === "CANCELADO"
+                                          ? "#ef4444"
+                                          : "#939596",
+                                    }}
+                                  ></span>
+
+                                  {row.estatus}
+                                </>
+                              ) : (
+                                "—"
+                              )}
+                            </p>
 
                               <p>
                                 <strong>Fundamento:</strong>{" "}
