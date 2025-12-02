@@ -435,6 +435,22 @@ setPuedeAgregarPartida(true);
   const [entidadQuery, setEntidadQuery] = React.useState("");
   const [mostrarListaEntidades, setMostrarListaEntidades] = React.useState(false);
 
+  const [forzarAutoselect, setForzarAutoselect] = useState(false);
+
+  React.useEffect(() => {
+  if (forzarAutoselect && form.e_rfc_proveedor) {
+    setMostrarLista(false);
+
+    if (rfcInputRef.current) {
+      rfcInputRef.current.value = form.e_rfc_proveedor;
+      rfcInputRef.current.blur();
+    }
+
+    // apagar bandera una vez aplicado
+    setForzarAutoselect(false);
+  }
+}, [forzarAutoselect, form.e_rfc_proveedor]);
+
   // Mantener sincronizado el ID seleccionado
   const selectedEntidadRef = React.useRef<string>("");
   React.useEffect(() => {
@@ -3702,28 +3718,89 @@ return (
     const data = await resp.json();
     if (!resp.ok) throw new Error(JSON.stringify(data));
 
-    toast.success("Proveedor añadido correctamente.");
+   toast.success("Proveedor añadido correctamente.");
 
-    setProveedores(prev => [
-      ...prev,
-      {
-        e_rfc_proveedor: form.e_rfc_proveedor,
-        razon_social: form.razon_social,
-        nombre_comercial: form.nombre_comercial,
-        e_importe_sin_iva: form.e_importe_sin_iva,
-        e_importe_total: form.e_importe_total,
-        p_e_id_rubro_partida: form.p_e_id_rubro_partida,
-        rubro_partida: form.rubro_partida_texto || "",
-        id: data.resultado,
-      },
-    ]);
+// 🔄 1) Recargar catálogo ANTES del autoselect
+// recargar catálogo
+try {
+  const proveedoresResp = await fetch(`${API_BASE}/catalogos/proveedor?p_rfc=-99`);
+  const proveedoresData = await proveedoresResp.json();
 
-    setForm(prev => ({
-      ...prev,
-      e_rfc_proveedor: "",
-      e_importe_sin_iva: "",
-      e_importe_total: "",
-    }));
+  const lista =
+    Array.isArray(proveedoresData)
+      ? proveedoresData
+      : Array.isArray(proveedoresData?.data)
+      ? proveedoresData.data
+      : Array.isArray(proveedoresData?.proveedores)
+      ? proveedoresData.proveedores
+      : [];
+
+  setCatalogoProveedores(lista);
+} catch (err) {
+  console.error("❌ Error recargando catálogo tras crear proveedor:", err);
+}
+
+
+// ====================================================
+// ⭐⭐ AUTORELLENAR AUTOMÁTICAMENTE EN EL STEP 4 ⭐⭐
+// ====================================================
+
+
+// llenar automáticamente el CommandInput del paso 4
+setForm(prev => ({
+  ...prev,
+  e_rfc_proveedor: data.p_rfc,
+  razon_social: data.p_razon_social,
+  nombre_comercial: data.p_nombre_comercial,
+}));
+
+// ocultar la lista del Command
+setMostrarLista(false);
+
+// reflejar valor visual y quitar foco
+if (rfcInputRef.current) {
+  rfcInputRef.current.value = data.p_rfc;
+  rfcInputRef.current.blur();
+}
+
+
+// ⛔ AHORA SÍ PUEDES CERRAR
+setShowNuevoProveedorDialog(false);
+
+// 🔄 2) Agregar a la tabla de proveedores
+setProveedores(prev => [
+  ...prev,
+  {
+    e_rfc_proveedor: form.e_rfc_proveedor,
+    razon_social: form.razon_social,
+    nombre_comercial: form.nombre_comercial,
+    e_importe_sin_iva: form.e_importe_sin_iva,
+    e_importe_total: form.e_importe_total,
+    p_e_id_rubro_partida: form.p_e_id_rubro_partida,
+    rubro_partida: form.rubro_partida_texto || "",
+    id: data.resultado,
+  },
+]);
+
+// 3) Autoseleccionar proveedor recién creado
+setForm(prev => ({
+  ...prev,
+  e_rfc_proveedor: form.e_rfc_proveedor,
+  razon_social: form.razon_social,
+  nombre_comercial: form.nombre_comercial,
+  e_importe_sin_iva: "",
+  e_importe_total: "",
+}));
+
+// 4) Ocultar lista del Command
+setMostrarLista(false);
+
+// 5) Forzar input a mostrar el RFC y quitar foco
+if (rfcInputRef.current) {
+  rfcInputRef.current.value = form.e_rfc_proveedor;
+  rfcInputRef.current.blur();
+}
+
   } catch (err) {
     console.error("❌ Error al añadir proveedor:", err);
     toast.error("Error al añadir proveedor");
@@ -3804,30 +3881,33 @@ return (
                 <div className="relative mt-4">
                   <Command shouldFilter={false}>
                     <CommandInput
-                      ref={rfcInputRef}
-                      placeholder="Escribe RFC..."
-                      value={form.e_rfc_proveedor}
-                      className={`${
-                        erroresProveedor.e_rfc_proveedor
-                          ? "border border-red-500 focus:ring-red-500"
-                          : ""
-                      }`}
-                      onValueChange={(value) => {
-                        // 🔥 eliminar error cuando escriben
-                        setErroresProveedor((prev) => ({ ...prev, e_rfc_proveedor: "" }));
-              
-                        setForm((prev) => ({
-                          ...prev,
-                          e_rfc_proveedor: value,
-                        }));
-              
-                        if (value.trim().length > 0) {
-                          setMostrarLista(true);
-                        } else {
-                          setMostrarLista(false);
-                        }
-                      }}
-                    />
+                    ref={rfcInputRef}
+                    placeholder="Escribe RFC..."
+                    value={form.e_rfc_proveedor}
+                    className={`${erroresProveedor.e_rfc_proveedor ? "border border-red-500" : ""}`}
+                  onValueChange={(value) => {
+
+                    // 🛑 PRIORIDAD MÁXIMA:
+                    // Si estamos autoseleccionando → NO abrir lista, NO actualizar form
+                    if (forzarAutoselect) {
+                      setMostrarLista(false);
+                      setForzarAutoselect(false);
+                      return;
+                    }
+
+                    // Quitar error
+                    setErroresProveedor(prev => ({ ...prev, e_rfc_proveedor: "" }));
+
+                    // Actualizar form normalmente
+                    setForm(prev => ({
+                      ...prev,
+                      e_rfc_proveedor: value,
+                    }));
+
+                    // Mostrar lista solo si el usuario escribe
+                    setMostrarLista(value.trim().length > 0);
+                  }}
+                  />
               
                     {/* Lista de coincidencias RFC */}
                     {form.e_rfc_proveedor.trim().length > 0 && mostrarLista && (
@@ -4206,21 +4286,59 @@ return (
           }
           // ⬆⬆⬆ FIN DEL FIX
 
-          setShowNuevoProveedorDialog(false);
+          // 1) Recargar catálogo actualizado
+try {
+  const proveedoresResp = await fetch(`${API_BASE}/catalogos/proveedor?p_rfc=-99`);
+  const proveedoresData = await proveedoresResp.json();
 
-          const proveedoresResp = await fetch(`${API_BASE}/catalogos/proveedor?p_rfc=-99`);
-          const proveedoresData = await proveedoresResp.json();
+  const lista =
+    Array.isArray(proveedoresData)
+      ? proveedoresData
+      : Array.isArray(proveedoresData?.data)
+      ? proveedoresData.data
+      : Array.isArray(proveedoresData?.proveedores)
+      ? proveedoresData.proveedores
+      : [];
 
-          const lista =
-            Array.isArray(proveedoresData)
-              ? proveedoresData
-              : Array.isArray(proveedoresData?.data)
-              ? proveedoresData.data
-              : Array.isArray(proveedoresData?.proveedores)
-              ? proveedoresData.proveedores
-              : [];
+  setCatalogoProveedores(lista);
+} catch (err) {
+  console.error("❌ Error recargando catálogo tras crear proveedor:", err);
+}
 
-          setCatalogoProveedores(lista);
+// ======================================================
+// ⭐ ACTIVAR AUTORELLENADO ANTES DE LLENAR EL RFC ⭐
+// ======================================================
+setForzarAutoselect(true);
+
+// ======================================================
+// ⭐ AUTOLLENAR AUTOMÁTICAMENTE DESPUÉS DE CREAR ⭐
+// ======================================================
+setForm(prev => ({
+  ...prev,
+  e_rfc_proveedor: data.p_rfc,
+  razon_social: data.p_razon_social,
+  nombre_comercial: data.p_nombre_comercial,
+  e_importe_sin_iva: "",
+  e_importe_total: "",
+}));
+
+// 🔥 Resetea el estado interno del CommandInput COMPLETAMENTE
+setTimeout(() => {
+  if (rfcInputRef.current) {
+    rfcInputRef.current.value = "";  // limpiar internamente
+    rfcInputRef.current.blur();      // quitar foco
+    rfcInputRef.current.value = data.p_rfc; // re-inyectar valor final
+  }
+}, 10);
+
+// reflejar visualmente
+if (rfcInputRef.current) {
+  rfcInputRef.current.value = data.p_rfc;
+  rfcInputRef.current.blur();
+}
+
+// 4) Cerrar modal
+setShowNuevoProveedorDialog(false);
 
         } catch (err) {
           toast.error("Error al agregar proveedor");

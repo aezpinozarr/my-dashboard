@@ -3513,6 +3513,23 @@ const handleNext = async () => {
                 if (!resp.ok) throw new Error(result.detail || "Error en la petición");
       
                 toast.success("Proveedor agregado correctamente");
+
+                // ⭐ Seleccionar automáticamente el proveedor recién creado
+              setForm((prev) => ({
+                ...prev,
+                e_rfc_proveedor: form.rfc.value,
+                razon_social: form.razon_social.value,
+                nombre_comercial: form.nombre_comercial.value,
+              }));
+
+              // ⭐ Ocultar la lista desplegable
+              setMostrarLista(false);
+
+              // ⭐ Forzar a que el input muestre el RFC y quite el foco
+              if (rfcInputRef.current) {
+                rfcInputRef.current.value = form.rfc.value;
+                rfcInputRef.current.blur();
+              }
       
                  // ⬇⬇⬇ AGREGA ESTO AQUÍ MISMO
                 try {
