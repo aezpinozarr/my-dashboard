@@ -3426,6 +3426,203 @@ const handleNext = async () => {
         </CardContent>
       </Card>
 
+      <Dialog open={showVerProveedoresDialog} onOpenChange={setShowVerProveedoresDialog}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Listado de Proveedores</DialogTitle>
+            <p className="text-sm text-gray-500">Consulta los proveedores registrados.</p>
+          </DialogHeader>
+      
+          <Input
+            placeholder="Buscar por RFC o razón social..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="my-3"
+          />
+      
+          <div className="max-h-[400px] overflow-y-auto border rounded-md">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="py-2 px-4 text-left">RFC</th>
+                  <th className="py-2 px-4 text-left">Razón Social</th>
+                  <th className="py-2 px-4 text-left">Correo</th>
+                  <th className="py-2 px-4 text-left">Entidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                {proveedoresDialog
+                  .filter(
+                    (p) =>
+                      p.rfc.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      p.razon_social.toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                  .map((prov) => (
+                    <tr key={prov.rfc} className="border-b">
+                      <td className="py-2 px-4">{prov.rfc}</td>
+                      <td className="py-2 px-4">{prov.razon_social}</td>
+                      <td className="py-2 px-4">{prov.correo_electronico}</td>
+                      <td className="py-2 px-4">{prov.entidad_federativa}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+      
+          <DialogFooter>
+            <Button
+            onClick={() => setShowVerProveedoresDialog(false)}
+            style={{ backgroundColor: "#db200b", color: "white" }}
+            className="hover:brightness-110"
+          >
+            Cerrar
+          </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={showNuevoProveedorDialog} onOpenChange={setShowNuevoProveedorDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Añadir nuevo proveedor</DialogTitle>
+            <p className="text-sm text-gray-500">Completa los datos del proveedor.</p>
+          </DialogHeader>
+      
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+      
+              const form = e.currentTarget;
+              const data = {
+                p_rfc: form.rfc.value,
+                p_razon_social: form.razon_social.value,
+                p_nombre_comercial: form.nombre_comercial.value,
+                p_persona_juridica: form.persona_juridica.value,
+                p_correo_electronico: form.correo_electronico.value,
+                p_id_entidad_federativa: parseInt(selectedEntidadId || "0"),
+              };
+      
+              try {
+                const resp = await fetch(`${API_BASE}/catalogos/sp_cat_proveedor_gestionar_dialog`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(data),
+                });
+                const result = await resp.json();
+                if (!resp.ok) throw new Error(result.detail || "Error en la petición");
+      
+                toast.success("Proveedor agregado correctamente");
+      
+                 // ⬇⬇⬇ AGREGA ESTO AQUÍ MISMO
+                try {
+                  const proveedoresResp = await fetch(`${API_BASE}/catalogos/proveedor?p_rfc=-99`);
+                  const proveedoresData = await proveedoresResp.json();
+      
+                  const lista =
+                    Array.isArray(proveedoresData)
+                      ? proveedoresData
+                      : Array.isArray(proveedoresData?.data)
+                      ? proveedoresData.data
+                      : Array.isArray(proveedoresData?.proveedores)
+                      ? proveedoresData.proveedores
+                      : [];
+      
+                  setCatalogoProveedores(lista);
+                } catch (err) {
+                  console.error("❌ Error recargando catálogo tras crear proveedor:", err);
+                }
+                // ⬆⬆⬆ FIN DEL FIX
+      
+                setShowNuevoProveedorDialog(false);
+      
+                const proveedoresResp = await fetch(`${API_BASE}/catalogos/proveedor?p_rfc=-99`);
+                const proveedoresData = await proveedoresResp.json();
+      
+                const lista =
+                  Array.isArray(proveedoresData)
+                    ? proveedoresData
+                    : Array.isArray(proveedoresData?.data)
+                    ? proveedoresData.data
+                    : Array.isArray(proveedoresData?.proveedores)
+                    ? proveedoresData.proveedores
+                    : [];
+      
+                setCatalogoProveedores(lista);
+      
+              } catch (err) {
+                toast.error("Error al agregar proveedor");
+              }
+            }}
+            className="space-y-3"
+          >
+            <Input name="rfc" placeholder="RFC" required />
+            <Input name="razon_social" placeholder="Razón Social" required />
+            <Input name="nombre_comercial" placeholder="Nombre Comercial" />
+      
+            <div>
+              <Label>Persona Jurídica</Label>
+              <div className="space-y-2 mt-2">
+                <label className="flex items-center space-x-2">
+                  <input type="radio" name="persona_juridica" value="PERSONA FÍSICA" />
+                  <span>PERSONA FÍSICA</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input type="radio" name="persona_juridica" value="PERSONA MORAL" />
+                  <span>PERSONA MORAL</span>
+                </label>
+              </div>
+            </div>
+      
+            <Input name="correo_electronico" placeholder="Correo electrónico" type="email" />
+      
+            <div>
+              <Label>Entidad Federativa</Label>
+              <Command>
+                <CommandInput
+                  placeholder="Buscar entidad..."
+                  value={entidadQuery}
+                  onValueChange={(val) => {
+                    setEntidadQuery(val);
+                    setMostrarListaEntidades(val.trim().length > 0);
+                  }}
+                />
+      
+                {mostrarListaEntidades && entidadQuery.trim().length > 0 && (
+                  <CommandList>
+                    {entidades
+                      .filter((ent) =>
+                        ent.descripcion.toLowerCase().includes(entidadQuery.toLowerCase())
+                      )
+                      .map((ent) => (
+                        <CommandItem
+                          key={ent.id}
+                          onSelect={() => {
+                            setSelectedEntidadId(String(ent.id));
+                            setEntidadQuery(ent.descripcion);
+                            setMostrarListaEntidades(false);
+                          }}
+                        >
+                          {ent.descripcion}
+                        </CommandItem>
+                      ))}
+                  </CommandList>
+                )}
+              </Command>
+            </div>
+      
+            <DialogFooter className="mt-4">
+              <Button
+                type="submit"
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                Guardar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* --- NAVEGACIÓN INFERIOR (YA FUERA DEL CARD) --- */}
       <div className="flex items-center gap-3 w-full mt-6">
 

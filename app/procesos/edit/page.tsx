@@ -4142,7 +4142,13 @@ return (
     </div>
 
     <DialogFooter>
-      <Button onClick={() => setShowVerProveedoresDialog(false)}>Cerrar</Button>
+      <Button
+      onClick={() => setShowVerProveedoresDialog(false)}
+      style={{ backgroundColor: "#db200b", color: "white" }}
+      className="hover:brightness-110"
+    >
+      Cerrar
+    </Button>
     </DialogFooter>
   </DialogContent>
 </Dialog>
