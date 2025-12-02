@@ -138,7 +138,7 @@ useEffect(() => {
     { id: "r_fecha_emision", header: "Fecha de emisión" },
     { id: "r_asunto", header: "Asunto" },
     { id: "r_fecha_y_hora_reunion", header: "Fecha reunión" },
-    { id: "estatus", header: "Estatus" },
+
   ];
 
   // Column definitions for Presupuesto subtable
@@ -1060,12 +1060,42 @@ useEffect(() => {
                           <p><strong>Etiquetado:</strong> {pres.etiquetado || "—"}</p>
                           <p><strong>Fondo:</strong> {pres.fondo || "—"}</p>
                           <p><strong>Ramo:</strong> {pres.ramo || "—"}</p>
-<p>
-  <strong>Rubro:</strong>{" "}
-  {pres.e_id_rubro
-    ? `#${pres.e_id_rubro} - ${pres.rubro ?? "—"}`
-    : pres.rubro ?? "—"}
-</p>
+{/* RUBRO + INDICADOR DE ESTATUS */}
+<div className="flex items-center gap-2 mt-1">
+  <p className="m-0">
+    <strong>Rubro:</strong>{" "}
+    {pres.e_id_rubro
+      ? `#${pres.e_id_rubro} - ${pres.rubro ?? "—"}`
+      : pres.rubro ?? "—"}
+  </p>
+
+  {/* ⭐ Indicador de Estatus tal como en la vista de tabla */}
+  {(() => {
+    const estatus = pres.estatus || "—";
+
+    let color = "#939596"; // gris
+    if (estatus === "ADJUDICADO") color = "#22c55e";
+    if (estatus === "DIFERIMIENTO") color = "#ff8800";
+    if (estatus === "CANCELADO") color = "#ef4444";
+    if (estatus === "PREINGRESO") color = "#4b0082";
+
+    return (
+      <TooltipProvider delayDuration={100}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className="inline-block w-3 h-3 rounded-full cursor-default"
+              style={{ backgroundColor: color }}
+            />
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            {estatus}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  })()}
+</div>
                           <p><strong>Monto Presupuesto Suficiencia:</strong> {formatMXN(pres.e_monto_presupuesto_suficiencia)}</p>
                           <div>
                             <strong>Proveedores:</strong>
