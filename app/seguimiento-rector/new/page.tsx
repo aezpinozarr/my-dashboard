@@ -241,19 +241,19 @@ const getEstatusColor = (estatus: string | undefined) => {
   }
 };
 
-// ⭐ Obtener estatus del rubro incluso si no está abierto
-const getEstatusPorRubroId = (rubroId: number) => {
-  // 1) Si el usuario ya seleccionó un estatus, úsalo
-  if (selectedEstatus[rubroId]) {
-    return selectedEstatus[rubroId];
-  }
+const getEstatusPorRubroId = (idPartida: number, idRubro: number) => {
+  // 1) Estatus seleccionado por el usuario
+  if (selectedEstatus[idRubro]) return selectedEstatus[idRubro];
 
-  // 2) Si ya existe adjudicado en la tabla, úsalo
+  // 2) Si ya está adjudicado en UI local
   const row = rubroProveedorRows.find(
-    (x) => Number(x.rubro) === Number(rubroId)
+    (x) => Number(x.rubro) === Number(idRubro)
   );
+  if (row?.estatus) return row.estatus;
 
-  return row?.estatus || undefined;
+  // 3) Estatus REAL recibido desde backend
+  const key = `${idPartida}-${idRubro}`;
+  return estatusRubrosBackend[key];
 };
 
 
@@ -289,6 +289,37 @@ const getEstatusPorRubroId = (rubroId: number) => {
   const [selectedEstatus, setSelectedEstatus] = useState<{ [key: number]: string }>({});
   const [selectedProveedor, setSelectedProveedor] = useState<{ [key: number]: string }>({});
   const [selectedFundamento, setSelectedFundamento] = useState<{ [key: number]: string }>({});
+
+  // ======================================================
+// ⭐ Cargar estatus reales de los rubros desde backend
+// ======================================================
+const [estatusRubrosBackend, setEstatusRubrosBackend] = useState<{ [key: string]: string }>({});
+
+useEffect(() => {
+  if (!detalle || detalle.length === 0) return;
+
+  async function cargarRubros() {
+    let estatusMap: { [key: string]: string } = {};
+
+    for (const partida of detalle) {
+      const res = await fetch(
+        `${API_BASE}/procesos/editar/seguimiento-partida-rubro?p_id=-99&p_id_seguimiento_partida=${partida.id_partida}`
+      );
+
+      const data = await res.json();
+
+      data.forEach((rubro: any) => {
+      const rubroId = Number(rubro.e_id_rubro); 
+      const key = `${partida.id_partida}-${rubroId}`;
+      estatusMap[key] = rubro.estatus;
+    });
+    }
+
+    setEstatusRubrosBackend(estatusMap);
+  }
+
+  cargarRubros();
+}, [detalle]);
   // Estado para importes ajustados
   const [importes, setImportes] = useState<{ [key: number]: { sinIva: number; total: number } }>({});
   // Estado para las filas agregadas manualmente
@@ -315,23 +346,35 @@ const getEstatusPorRubroId = (rubroId: number) => {
     oficio?: string;
     asunto?: string;
   }>({});
+
+  // Estado para errores del paso 1
+const [formErrors, setFormErrors] = useState({
+  oficio: false,
+  fecha_emision: false,
+  fecha_reunion: false,
+  hora_reunion: false,
+  servidor: false,
+  asunto: false,
+  estatus: false,
+});
+
   // Estado para errores de validación del formulario del paso 1
-  const [formErrors, setFormErrors] = useState<{ [key: string]: boolean }>({});
   // Validación de campos obligatorios del paso 1
-  const validateStep1Fields = () => {
-    const newErrors: { [key: string]: boolean } = {};
-    if (!form.fecha_emision) newErrors.fecha_emision = true;
-    if (!form.fecha_reunion) newErrors.fecha_reunion = true;
-    if (!form.hora_reunion) newErrors.hora_reunion = true;
-    const formEl = document.querySelector('form') as HTMLFormElement | null;
-    if (formEl) {
-      if (!formEl.oficio.value.trim()) newErrors.oficio = true;
-      if (!formEl.asunto.value.trim()) newErrors.asunto = true;
-    }
-    if (!servidorSeleccionado) newErrors.servidor = true;
-    setFormErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+const validateStep1Fields = () => {
+  const errors: any = {};
+
+  if (!form.oficio?.trim()) errors.oficio = true;
+  if (!form.fecha_emision?.trim()) errors.fecha_emision = true;
+  if (!form.fecha_reunion?.trim()) errors.fecha_reunion = true;
+  if (!form.hora_reunion?.trim()) errors.hora_reunion = true;
+
+  if (!servidorSeleccionado) errors.servidor = true;
+  if (!form.asunto?.trim()) errors.asunto = true;
+  if (!estatusGeneral?.trim()) errors.estatus = true;
+
+  setFormErrors(errors);
+  return Object.keys(errors).length === 0;
+};
   // 1️⃣ Cargar servidores públicos por ente (solo ente 0)
 useEffect(() => {
   if (!user?.id_ente) return;
@@ -486,29 +529,42 @@ useEffect(() => {
               }
             });
         }
-
-        // Generar fila adjudicada automáticamente solo si el registro sigue vigente
-        if (
-          ["ADJUDICADO", "DIFERIMIENTO"].includes(d.estatus) &&
-          d.id_seguimiento_partida_rubro_proveedor_adjudicado &&
-          d.id_seguimiento_partida_rubro_proveedor_adjudicado !== 0
-        ) {
+          
+        // Agregar fila SOLO si el rubro debe aparecer en la tabla final
+          if (
+            ["ADJUDICADO", "DIFERIMIENTO", "CANCELADO", "DESIERTO"].includes(d.estatus)
+          ) {
+          // 🔄 Agregar SIEMPRE el rubro, sin importar su estatus
+          // Agregar fila SIEMPRE, sin importar estatus
           adjudicadosRows.push({
             partida: idPartida,
             rubro: idRubro,
-            estatus: d.estatus,
-            fundamento: d.id_fundamento,
-            importeSinIva: d.importe_ajustado_sin_iva,
-            importeTotal: d.importe_ajustado_total,
-            id_seguimiento_partida_rubro_proveedor_adjudicado: d.id_seguimiento_partida_rubro_proveedor_adjudicado,
-            proveedor: {
-              rfc: d.e_rfc_proveedor,
-              razon_social: d.razon_social,
-              nombre_comercial: d.nombre_comercial,
-              persona_juridica: d.persona_juridica,
-              correo_electronico: d.correo_electronico,
-              entidad_federativa: d.entidad_federativa,
-            },
+            estatus: d.estatus ?? "",
+            fundamento: d.id_fundamento ?? null,
+
+            importeSinIva:
+              d.importe_ajustado_sin_iva ??
+              d.e_importe_sin_iva ??
+              0,
+
+            importeTotal:
+              d.importe_ajustado_total ??
+              d.e_importe_total ??
+              0,
+
+            id_seguimiento_partida_rubro_proveedor_adjudicado:
+              d.id_seguimiento_partida_rubro_proveedor_adjudicado ?? null,
+
+            proveedor: d.e_rfc_proveedor
+              ? {
+                  rfc: d.e_rfc_proveedor,
+                  razon_social: d.razon_social,
+                  nombre_comercial: d.nombre_comercial,
+                  persona_juridica: d.persona_juridica,
+                  correo_electronico: d.correo_electronico,
+                  entidad_federativa: d.entidad_federativa,
+                }
+              : null,
           });
         }
       });
@@ -525,12 +581,7 @@ useEffect(() => {
             )
         );
 
-        // 🔍 Filtra solo los que siguen vigentes (estatus ADJUDICADO o DIFERIMIENTO)
-        const adjudicadosVigentes = adjudicadosUnicos.filter((r) =>
-          ["ADJUDICADO", "DIFERIMIENTO"].includes(r.estatus)
-        );
-
-        return adjudicadosVigentes;
+        return adjudicadosRows; 
       });
 
       setDetalleGeneral(data[0]);
@@ -1408,58 +1459,106 @@ useEffect(() => {
 
           <div className="flex flex-wrap items-end justify-between gap-6">
 
-            <div className="flex flex-col min-w-[160px]">
-              <Label className="text-gray-700 font-medium">Oficio</Label>
-              <Input
-                name="oficio"
-                value={form.oficio ?? detalleGeneral?.e_oficio_invitacion ?? ""}
-                onChange={(e) => setForm({ ...form, oficio: e.target.value })}
-                placeholder="Número de oficio"
-                className={`w-[320px] shadow-sm ${formErrors.oficio ? "border-red-500" : ""}`}
-              />
-            </div>
+        <div className="flex flex-col min-w-[160px]">
+          <Label className="text-gray-700 font-medium">Oficio</Label>
+
+         <Input
+        name="oficio"
+        value={form.oficio ?? detalleGeneral?.e_oficio_invitacion ?? ""}
+        onChange={(e) => {
+          setForm({ ...form, oficio: e.target.value });
+
+          // 👉 Limpia el error cuando el usuario escribe
+          if (formErrors.oficio) {
+            setFormErrors((prev) => ({ ...prev, oficio: false }));
+          }
+        }}
+        placeholder="Número de oficio"
+        className={`w-[320px] shadow-sm ${formErrors.oficio ? "border-red-500" : ""}`}
+      />
+
+      {formErrors.oficio && (
+        <p className="text-xs text-red-600 mt-1">Este campo es obligatorio</p>
+      )}
+        </div>
+
+
+      <div className="flex flex-col min-w-[140px]">
+        <Label className="text-gray-700 font-medium">Fecha de Emisión</Label>
+
+        <Input
+        value={form.fecha_emision ?? ""}
+        onChange={(e) => {
+          setForm({ ...form, fecha_emision: formatDateDDMMYYYY(e.target.value) });
+
+          if (formErrors.fecha_emision) {
+            setFormErrors((prev) => ({ ...prev, fecha_emision: false }));
+          }
+        }}
+        placeholder="dd/mm/aaaa"
+        maxLength={10}
+        name="fecha_emision"
+        className={`w-[140px] shadow-sm ${
+          formErrors.fecha_emision ? "border-red-500" : ""
+        }`}
+      />
+
+      {formErrors.fecha_emision && (
+        <p className="text-xs text-red-600 mt-1">Este campo es obligatorio</p>
+      )}
+      </div>
 
             <div className="flex flex-col min-w-[140px]">
-              <Label className="text-gray-700 font-medium">Fecha de Emisión</Label>
-              <Input
-                value={form.fecha_emision ?? ""}
-                onChange={(e) =>
-                  setForm({ ...form, fecha_emision: formatDateDDMMYYYY(e.target.value) })
-                }
-                placeholder="dd/mm/aaaa"
-                maxLength={10}
-                name="fecha_emision"
-                className={`w-[140px] shadow-sm ${errores.fecha_emision || formErrors.fecha_emision ? "border-red-500" : ""}`}
-              />
-            </div>
+            <Label className="text-gray-700 font-medium">Fecha reunión</Label>
 
-            <div className="flex flex-col min-w-[140px]">
-              <Label className="text-gray-700 font-medium">Fecha reunión</Label>
-              <Input
-                value={form.fecha_reunion ?? ""}
-                onChange={(e) =>
-                  setForm({ ...form, fecha_reunion: formatDateDDMMYYYY(e.target.value) })
-                }
-                placeholder="dd/mm/aaaa"
-                maxLength={10}
-                name="fecha_reunion_fecha"
-                className={`w-[140px] shadow-sm ${errores.fecha_reunion || formErrors.fecha_reunion ? "border-red-500" : ""}`}
-              />
-            </div>
+            <Input
+            value={form.fecha_reunion ?? ""}
+            onChange={(e) => {
+              setForm({ ...form, fecha_reunion: formatDateDDMMYYYY(e.target.value) });
+
+              if (formErrors.fecha_reunion) {
+                setFormErrors((prev) => ({ ...prev, fecha_reunion: false }));
+              }
+            }}
+            placeholder="dd/mm/aaaa"
+            maxLength={10}
+            name="fecha_reunion_fecha"
+            className={`w-[140px] shadow-sm ${
+              formErrors.fecha_reunion ? "border-red-500" : ""
+            }`}
+          />
+
+          {formErrors.fecha_reunion && (
+            <p className="text-xs text-red-600 mt-1">Este campo es obligatorio</p>
+          )}
+          </div>
+
+
 
             <div className="flex flex-col min-w-[100px]">
-              <Label className="text-gray-700 font-medium">Hora (24 Hrs)</Label>
-              <Input
-                value={form.hora_reunion ?? ""}
-                onChange={(e) =>
-                  setForm({ ...form, hora_reunion: formatTimeHHMM(e.target.value) })
-                }
-                placeholder="HH:MM"
-                maxLength={5}
-                name="fecha_reunion_hora"
-                className={`w-[100px] shadow-sm ${errores.hora_reunion || formErrors.hora_reunion ? "border-red-500" : ""}`}
-              />
-            </div>
+          <Label className="text-gray-700 font-medium">Hora (24 Hrs)</Label>
+
+         <Input
+          value={form.hora_reunion ?? ""}
+          onChange={(e) => {
+            setForm({ ...form, hora_reunion: formatTimeHHMM(e.target.value) });
+
+            if (formErrors.hora_reunion) {
+              setFormErrors((prev) => ({ ...prev, hora_reunion: false }));
+            }
+          }}
+          placeholder="HH:MM"
+          maxLength={5}
+          name="fecha_reunion_hora"
+          className={`w-[100px] shadow-sm ${
+            formErrors.hora_reunion ? "border-red-500" : ""
+          }`}
+        />
+
+        {formErrors.hora_reunion && (
+          <p className="text-xs text-red-600 mt-1">Este campo es obligatorio</p>
+        )}
+        </div>
 
             <div className="flex flex-col justify-end min-w-[300px]">
               <Label className="mb-1 text-gray-700 font-medium">Estatus General</Label>
@@ -1487,6 +1586,8 @@ useEffect(() => {
               </RadioGroup>
               NOTA: El Estatus se actualiza al finalizar el proceso
             </div>
+
+
           </div>
 
           {estatusGeneral === "REVISADO" && (
@@ -1534,16 +1635,28 @@ useEffect(() => {
           )}
 
           <div>
-            <Label>Asunto</Label>
-            <textarea
-              name="asunto"
-              value={form.asunto ?? detalleGeneral?.e_asunto ?? ""}
-              onChange={(e) => setForm({ ...form, asunto: e.target.value })}
-              placeholder="Escribe el asunto..."
-              className={`w-full border rounded-md p-2 resize-none ${formErrors.asunto ? "border-red-500" : ""}`}
-              rows={2}
-            />
-          </div>
+          <Label>Asunto</Label>
+          <textarea
+          name="asunto"
+          value={form.asunto ?? detalleGeneral?.e_asunto ?? ""}
+          onChange={(e) => {
+            setForm({ ...form, asunto: e.target.value });
+
+            if (formErrors.asunto) {
+              setFormErrors((prev) => ({ ...prev, asunto: false }));
+            }
+          }}
+          placeholder="Escribe el asunto..."
+          className={`w-full border rounded-md p-2 resize-none ${
+            formErrors.asunto ? "border-red-500" : ""
+          }`}
+          rows={2}
+        />
+
+        {formErrors.asunto && (
+          <p className="text-xs text-red-600 mt-1">Este campo es obligatorio</p>
+        )}
+        </div>
 
           <div>
             <Label>Servidor público (asiste)</Label>
@@ -1936,15 +2049,16 @@ useEffect(() => {
             const itemValue = `partida-${p.id_partida}-rubro-${r.id_rubro}`;
             
             // ⭐ Obtener estatus del rubro actual
-            const estatusRubro = getEstatusPorRubroId(r.id_rubro);
+            const estatusRubro = getEstatusPorRubroId(p.id_partida, r.id_rubro);
             const estatusColor = getEstatusColor(estatusRubro);
 
 
             return (
               <AccordionItem key={itemValue} value={itemValue} className="mb-2">
 
-                {/* ------- TRIGGER MODIFICADO CON INDICADOR IZQUIERDA -------- */}
-                <AccordionTrigger
+               {/* ------- TRIGGER MODIFICADO CON INDICADOR IZQUIERDA -------- */}
+              {/* ------- TRIGGER MODIFICADO CON INDICADOR IZQUIERDA -------- */}
+              <AccordionTrigger
                 onClick={() => {
                   setAccordionOpen(itemValue);
                   setSelectedPartidaId(p.id_partida);
@@ -1956,17 +2070,26 @@ useEffect(() => {
                   ${accordionOpen === itemValue ? "bg-[#faf89d]" : "bg-[#c1def7]"}
                 `}
               >
-                {/* IZQUIERDA: Punto de estatus + texto */}
                 <div className="flex items-center gap-2">
 
-                  {/* ⭐ indicador de estatus */}
-                  {estatusColor && (
-                    <span
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: estatusColor }}
-                      title={estatusRubro}
-                    ></span>
-                  )}
+                  {/* 🔥 Obtener estatus REAL desde el backend */}
+                  {(() => {
+                    const estatusRubro = getEstatusPorRubroId(p.id_partida, r.id_rubro);
+                    const estatusColor = getEstatusColor(estatusRubro) || undefined;
+
+                    return (
+                      <>
+                        {/* 🔴🟢 Punto de color */}
+                        {estatusColor && (
+                          <span
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: estatusColor }}
+                            title={estatusRubro || ""}
+                          ></span>
+                        )}
+                      </>
+                    );
+                  })()}
 
                   <span className="font-medium">
                     {p.id_partida} | Rubro #{r.id_rubro} – {r.rubro}
@@ -2315,9 +2438,11 @@ useEffect(() => {
 
                   {/* Botón Guardar / Adjudicar */}
 {(() => {
-  const yaAdjudicado = rubroProveedorRows.some(
-    (row) => Number(row.rubro) === Number(selectedRubroId)
-  );
+const yaAdjudicado = rubroProveedorRows.some(
+  (row) =>
+    Number(row.rubro) === Number(selectedRubroId) &&
+    ["ADJUDICADO", "DIFERIMIENTO", "DESIERTO", "CANCELADO"].includes(row.estatus)
+);
 
   return (
     <Button
@@ -2420,7 +2545,7 @@ useEffect(() => {
       ? "Cancelado"
       : estatusLocal === "DESIERTO"
       ? "Marcado como desierto"
-      : "Ya adjudicado")
+      : "Guardado")
   : ["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)
   ? "Adjudicar"
   : "Guardar"}
@@ -2466,14 +2591,14 @@ useEffect(() => {
                           </TableRow>
                         </TableHeader>
 
-                        <TableBody>
-                          {rubroProveedorRows
-                            .filter(
-                              (row) =>
-                                Number(row.partida) ===
-                                Number(p.id_partida)
-                            )
-                            .map((row, index) => {
+                       <TableBody>
+                      {rubroProveedorRows
+                        .filter(
+                          (row) =>
+                            Number(row.partida) === Number(p.id_partida) &&
+                            Number(row.rubro) === Number(r.id_rubro)
+                        )
+                        .map((row, index) => {
                               const partidaObj = detalle.find(
                                 (partida) =>
                                   partida.id_partida ===
@@ -2531,6 +2656,8 @@ useEffect(() => {
                                               ? "#ff8800"
                                               : row.estatus === "CANCELADO"
                                               ? "#ef4444"
+                                              : row.estatus === "PREINGRESO"
+                                              ? "#4b0082"
                                               : "#939596",
                                         }}
                                       ></span>
@@ -2594,6 +2721,8 @@ useEffect(() => {
                                                       ? "#ff8800"
                                                       : row.estatus === "CANCELADO"
                                                       ? "#ef4444"
+                                                      : row.estatus === "PREINGRESO"
+                                                      ? "#4b0082"
                                                       : "#939596",
                                                 }}
                                               ></span>
@@ -2695,10 +2824,11 @@ useEffect(() => {
                     /* Modo Card */
                     <div className="grid gap-4">
                       {rubroProveedorRows
-                        .filter(
-                          (row) =>
-                            Number(row.partida) === Number(p.id_partida)
-                        )
+                      .filter(
+                        (row) =>
+                          Number(row.partida) === Number(p.id_partida) &&
+                          Number(row.rubro) === Number(r.id_rubro)
+                      )
                         .map((row, index) => {
                           const partidaObj = detalle.find(
                             (partida) =>
@@ -2759,6 +2889,8 @@ useEffect(() => {
                                           ? "#ff8800"
                                           : row.estatus === "CANCELADO"
                                           ? "#ef4444"
+                                            : row.estatus === "PREINGRESO"
+                                          ? "#4b0082"
                                           : "#939596",
                                     }}
                                   ></span>
