@@ -2507,12 +2507,13 @@ const handleNext = async () => {
 
       setPresupuestosRubro((prev) => [...prev, { ...nuevoRubro, id: data.resultado }]);
 
-      setNuevoRubro({
-        p_id_partida_asociada: "",
+      setNuevoRubro(prev => ({
+        ...prev,
         p_e_id_rubro: "",
         rubro_descripcion: "",
         p_e_monto_presupuesto_suficiencia: "",
-      });
+        // NO borrar p_id_partida_asociada
+      }));
 
       toast.success("Rubro añadido correctamente");
     } catch (err) {
@@ -2687,7 +2688,7 @@ const handleNext = async () => {
     const rubro = presupuestosRubro[i];
 
     if (!rubro) return;
-    
+
 
     try {
       // 1) Eliminar en BD si tiene ID
