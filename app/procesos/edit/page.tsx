@@ -2837,43 +2837,46 @@ console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
 const [erroresRubro, setErroresRubro] = React.useState<Record<string, string>>({});
 
   const recargarRubros = async () => {
-    const partidasConId = partidas.filter(p => Number(p.id));
+  const partidasConId = partidas.filter(p => Number(p.id));
 
-    if (partidasConId.length === 0) {
-      setPresupuestosRubro([]);
-      return;
-    }
-
-    const rubrosPorPartida = await Promise.all(
-      partidasConId.map(async (partida) => {
-        const resp = await fetch(
-          `${API_BASE}/procesos/editar/seguimiento-partida-rubro?p_id=-99&p_id_seguimiento_partida=${partida.id}`
-        );
-
-        const data = await resp.json();
-
-return Array.isArray(data)
-  ? data.map(r => {
-      const rubroCatalogo = rubros.find(
-        rb => String(rb.id) === String(r.e_id_rubro)
+  const rubrosPorPartida = await Promise.all(
+    partidasConId.map(async (partida) => {
+      const resp = await fetch(
+        `${API_BASE}/procesos/editar/seguimiento-partida-rubro?p_id=-99&p_id_seguimiento_partida=${partida.id}`
       );
 
-      return {
-        id: Number(r.id),
-        p_e_id_rubro: r.e_id_rubro?.toString(),
-        rubro_descripcion: rubroCatalogo?.descripcion || "",
-        p_e_monto_presupuesto_suficiencia: Number(r.e_monto_presupuesto_suficiencia),
-        p_id_partida_asociada: partida.e_id_partida?.toString(),
-        p_id_seguimiento_partida: Number(partida.id),
-        estatus: r.estatus || "",
-      };
-    })
-  : [];
-      })
-    );
+      const data = await resp.json();
 
-    setPresupuestosRubro(rubrosPorPartida.flat());
-  };
+      return Array.isArray(data)
+        ? data.map((r: any) => {
+            // Buscar rubro en tu catálogo principal
+            const rubroCat = rubros.find(
+              (cat: any) =>
+                String(cat.clave) === String(r.e_id_rubro) ||
+                String(cat.id) === String(r.e_id_rubro)
+            );
+
+            return {
+              id: Number(r.id),
+              p_e_id_rubro: r.e_id_rubro?.toString(),
+              rubro_descripcion:
+                rubroCat?.descripcion ||
+                r.rubro_descripcion ||
+                "",
+              p_e_monto_presupuesto_suficiencia: Number(
+                r.e_monto_presupuesto_suficiencia
+              ),
+              p_id_partida_asociada: partida.e_id_partida?.toString(),
+              p_id_seguimiento_partida: Number(partida.id),
+              estatus: r.estatus || "",
+            };
+          })
+        : [];
+    })
+  );
+
+  setPresupuestosRubro(rubrosPorPartida.flat());
+};
 
 const handleGuardarRubros = async () => {
   const nuevosErrores: Record<string, string> = {};
