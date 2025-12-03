@@ -2687,8 +2687,7 @@ const handleNext = async () => {
     const rubro = presupuestosRubro[i];
 
     if (!rubro) return;
-
-    if (!confirm("¿Seguro que deseas eliminar este rubro?")) return;
+    
 
     try {
       // 1) Eliminar en BD si tiene ID

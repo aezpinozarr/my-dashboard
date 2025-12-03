@@ -2836,6 +2836,45 @@ console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
   // ===== VALIDACIÓN PASO 3 =====
 const [erroresRubro, setErroresRubro] = React.useState<Record<string, string>>({});
 
+  const recargarRubros = async () => {
+    const partidasConId = partidas.filter(p => Number(p.id));
+
+    if (partidasConId.length === 0) {
+      setPresupuestosRubro([]);
+      return;
+    }
+
+    const rubrosPorPartida = await Promise.all(
+      partidasConId.map(async (partida) => {
+        const resp = await fetch(
+          `${API_BASE}/procesos/editar/seguimiento-partida-rubro?p_id=-99&p_id_seguimiento_partida=${partida.id}`
+        );
+
+        const data = await resp.json();
+
+return Array.isArray(data)
+  ? data.map(r => {
+      const rubroCatalogo = rubros.find(
+        rb => String(rb.id) === String(r.e_id_rubro)
+      );
+
+      return {
+        id: Number(r.id),
+        p_e_id_rubro: r.e_id_rubro?.toString(),
+        rubro_descripcion: rubroCatalogo?.descripcion || "",
+        p_e_monto_presupuesto_suficiencia: Number(r.e_monto_presupuesto_suficiencia),
+        p_id_partida_asociada: partida.e_id_partida?.toString(),
+        p_id_seguimiento_partida: Number(partida.id),
+        estatus: r.estatus || "",
+      };
+    })
+  : [];
+      })
+    );
+
+    setPresupuestosRubro(rubrosPorPartida.flat());
+  };
+
 const handleGuardarRubros = async () => {
   const nuevosErrores: Record<string, string> = {};
 
@@ -2908,15 +2947,21 @@ const handleGuardarRubros = async () => {
               if (!resp.ok) return [];
               if (!Array.isArray(data)) return [];
 
-              return data.map((r) => ({
-                id: r.id,
-                p_e_id_rubro: r.e_id_rubro?.toString() || "",
-                rubro_descripcion: r.rubro_descripcion || r.rubro || "",
-                p_e_monto_presupuesto_suficiencia: Number(r.e_monto_presupuesto_suficiencia) || 0,
-                p_id_partida_asociada: partida.e_id_partida?.toString() || "",
-                p_id_seguimiento_partida: Number(partida.id),
-                estatus: r.estatus || "",
-              }));
+return data.map(r => {
+  const rubroCatalogo = rubros.find(
+    rb => String(rb.id) === String(r.e_id_rubro)
+  );
+
+  return {
+    id: Number(r.id),
+    p_e_id_rubro: r.e_id_rubro?.toString(),
+    rubro_descripcion: rubroCatalogo?.descripcion || "",
+    p_e_monto_presupuesto_suficiencia: Number(r.e_monto_presupuesto_suficiencia),
+    p_id_partida_asociada: partida.e_id_partida?.toString(),
+    p_id_seguimiento_partida: Number(partida.id),
+    estatus: r.estatus || "",
+  };
+});
             } catch {
               return [];
             }
@@ -3097,14 +3142,8 @@ return (
                   const data = await resp.json();
                   if (!resp.ok) throw new Error(JSON.stringify(data));
 
-                  setPresupuestosRubro((prev) => [
-                    ...prev,
-                    {
-                      ...nuevoRubro,
-                      id: data.resultado,
-                      p_id_seguimiento_partida: Number(partidaAsociada.id),
-                    },
-                  ]);
+                await recargarRubros();
+                toast.success("Rubro añadido correctamente");
 
                   setNuevoRubro({
                     p_e_id_rubro: "",
@@ -3166,15 +3205,17 @@ return (
                    }
                      placeholder="Escribe ID o nombre…"
                      className={`${erroresRubro.p_e_id_rubro ? "border border-red-500" : ""}`}
-                     onValueChange={(val) => {
-                       setErroresRubro((prev) => ({ ...prev, p_e_id_rubro: "" }));
-                       setNuevoRubro((prev) => ({
-                         ...prev,
-                         p_e_id_rubro: val,
-                         rubro_descripcion: "",
-                       }));
-                       setMostrarRubros(true);
-                     }}
+onValueChange={(val) => {
+  setErroresRubro((prev) => ({ ...prev, p_e_id_rubro: "" }));
+
+  setNuevoRubro((prev) => ({
+    ...prev,
+    p_e_id_rubro: val,
+    rubro_descripcion: val === "" ? "" : prev.rubro_descripcion, 
+  }));
+
+  setMostrarRubros(true);
+}}
                    />
              
                    {mostrarRubros && (
@@ -3302,129 +3343,128 @@ return (
                             <TooltipTrigger asChild>
                               <span className="inline-block">
                                 <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  disabled={r.estatus === "ADJUDICADO"}
-                                  className={
-                                    r.estatus === "ADJUDICADO"
-                                      ? "text-gray-300 cursor-not-allowed"
-                                      : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                                  }
-                                  onClick={async () => {
-                                    if (r.estatus === "ADJUDICADO") {
-                                      toast.error("No puedes eliminar un rubro adjudicado.");
-                                      return;
-                                    }
+  variant="ghost"
+  size="icon"
+  disabled={r.estatus === "ADJUDICADO"}
+  className={
+    r.estatus === "ADJUDICADO"
+      ? "text-gray-300 cursor-not-allowed"
+      : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+  }
+  onClick={async () => {
+    if (r.estatus === "ADJUDICADO") {
+      toast.error("No puedes eliminar un rubro adjudicado.");
+      return;
+    }
 
-                                    if (presupuestosRubro.length === 1) {
-                                      toast.warning("Agrega un rubro antes de eliminar este.");
-                                      return;
-                                    }
+    // Evitar que eliminen el único rubro sin haber agregado otro
+    if (presupuestosRubro.length === 1) {
+      toast.warning("Agrega un rubro antes de eliminar este.");
+      return;
+    }
 
-                                    const rubro = presupuestosRubro[i];
+    const rubro = presupuestosRubro[i];
 
-                                    if (!rubro?.id) {
-                                      toast.warning("Este rubro no tiene ID.");
-                                      setPresupuestosRubro((prev) =>
-                                        prev.filter((_, idx) => idx !== i)
-                                      );
-                                      return;
-                                    }
+    // 🚨 Este error ocurre cuando NO recargabas desde el backend
+    if (!rubro?.id) {
+      toast.error("Este rubro no tiene ID válido. Recargando datos...");
+      await recargarRubros();
+      return;
+    }
 
-                                    try {
-                                      // Obtener proveedores asociados
-                                      const respProv = await fetch(
-                                        `${API_BASE}/procesos/seguimiento/proveedores-por-rubro/${rubro.id}`
-                                      );
+    try {
+      // Buscar proveedores asociados a este rubro
+      const respProv = await fetch(
+        `${API_BASE}/procesos/seguimiento/proveedores-por-rubro/${rubro.id}`
+      );
 
-                                      const proveedoresAsociados = respProv.ok
-                                        ? await respProv.json()
-                                        : [];
+      const proveedoresAsociados = respProv.ok ? await respProv.json() : [];
 
-                                      if (proveedoresAsociados.length > 0) {
-                                        const seguro = confirm(
-                                          `⚠ Este rubro tiene ${proveedoresAsociados.length} proveedor(es) asociado(s).\n` +
-                                            `Si continúas, estos proveedores serán ELIMINADOS.\n\n` +
-                                            `¿Deseas continuar?`
-                                        );
-                                        if (!seguro) return;
+      if (proveedoresAsociados.length > 0) {
+        const seguro = confirm(
+          `⚠ Este rubro tiene ${proveedoresAsociados.length} proveedor(es) asociado(s).\n` +
+            `Si continúas, estos proveedores serán ELIMINADOS.\n\n` +
+            `¿Deseas continuar?`
+        );
+        if (!seguro) return;
 
-                                        for (const prov of proveedoresAsociados) {
-                                          const payloadProveedor = {
-                                            p_accion: "ELIMINAR",
-                                            p_id: prov.id,
-                                            p_id_seguimiento_partida_rubro:
-                                              prov.id_seguimiento_partida_rubro,
-                                            p_e_rfc_proveedor: prov.e_rfc_proveedor,
-                                          };
+        for (const prov of proveedoresAsociados) {
+          const payloadProveedor = {
+            p_accion: "ELIMINAR",
+            p_id: prov.id,
+            p_id_seguimiento_partida_rubro: prov.id_seguimiento_partida_rubro,
+            p_e_rfc_proveedor: prov.e_rfc_proveedor,
+          };
 
-                                          await fetch(
-                                            `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`,
-                                            {
-                                              method: "POST",
-                                              headers: { "Content-Type": "application/json" },
-                                              body: JSON.stringify(payloadProveedor),
-                                            }
-                                          );
-                                        }
+          await fetch(
+            `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payloadProveedor),
+            }
+          );
+        }
 
-                                        toast.info(
-                                          `Se eliminaron ${proveedoresAsociados.length} proveedores asociados.`
-                                        );
-                                      }
+        toast.info(
+          `Se eliminaron ${proveedoresAsociados.length} proveedores asociados.`
+        );
+      }
 
-                                      const partidaAsociada = partidas.find(
-                                        (p) =>
-                                          String(p.e_id_partida) ===
-                                          String(
-                                            rubro.p_id_partida_asociada ??
-                                              rubro.p_id_partida ??
-                                              rubro.e_id_partida
-                                          )
-                                      );
+      // Determinar partida asociada correctamente
+      const partidaAsociada = partidas.find(
+        (p) =>
+          String(p.e_id_partida) ===
+          String(
+            rubro.p_id_partida_asociada ??
+              rubro.p_id_partida ??
+              rubro.e_id_partida
+          )
+      );
 
-                                      if (!partidaAsociada?.id) {
-                                        toast.warning("Partida asociada inválida.");
-                                        return;
-                                      }
+      if (!partidaAsociada?.id) {
+        toast.warning("Partida asociada inválida.");
+        return;
+      }
 
-                                      const payload = {
-                                        p_accion: "ELIMINAR",
-                                        p_id_seguimiento_partida: Number(partidaAsociada.id),
-                                        p_id: Number(rubro.id),
-                                        p_e_id_rubro: rubro.p_e_id_rubro || "0",
-                                        p_e_monto_presupuesto_suficiencia: 0,
-                                      };
+      // Payload para eliminar rubro
+      const payload = {
+        p_accion: "ELIMINAR",
+        p_id_seguimiento_partida: Number(partidaAsociada.id),
+        p_id: Number(rubro.id),
+        p_e_id_rubro: rubro.p_e_id_rubro || "0",
+        p_e_monto_presupuesto_suficiencia: 0,
+      };
 
-                                      const resp = await fetch(
-                                        `${API_BASE}/procesos/editar/ente-seguimiento-partida-rubro-captura`,
-                                        {
-                                          method: "PUT",
-                                          headers: { "Content-Type": "application/json" },
-                                          body: JSON.stringify(payload),
-                                        }
-                                      );
+      const resp = await fetch(
+        `${API_BASE}/procesos/editar/ente-seguimiento-partida-rubro-captura`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
-                                      const data = await resp.json();
+      const data = await resp.json();
 
-                                      if (!resp.ok) {
-                                        console.error("❌ Error al eliminar rubro:", data);
-                                        toast.error("No se pudo eliminar el rubro del servidor.");
-                                        return;
-                                      }
+      if (!resp.ok) {
+        console.error("❌ Error al eliminar rubro:", data);
+        toast.error("No se pudo eliminar el rubro del servidor.");
+        return;
+      }
 
-                                      toast.success("Rubro eliminado correctamente.");
-                                      setPresupuestosRubro((prev) =>
-                                        prev.filter((_, idx) => idx !== i)
-                                      );
-                                    } catch (err) {
-                                      console.error("❌ Error al eliminar rubro:", err);
-                                      toast.error("Error al eliminar rubro");
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="w-5 h-5" />
-                                </Button>
+      // 🔥 Recarga REAL desde backend (evita rubros fantasma e IDs vacíos)
+      await recargarRubros();
+
+      toast.success("Rubro eliminado correctamente.");
+    } catch (err) {
+      console.error("❌ Error al eliminar rubro:", err);
+      toast.error("Error al eliminar rubro");
+    }
+  }}
+>
+  <Trash2 className="w-5 h-5" />
+</Button>
                               </span>
                             </TooltipTrigger>
 
