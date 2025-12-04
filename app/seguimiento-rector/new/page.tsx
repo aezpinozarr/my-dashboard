@@ -877,7 +877,7 @@ const finalizarProceso = async () => {
       return;
     }
 
-    toast.success("✅ Proceso finalizado y estatus actualizado a REVISADO");
+    toast.success("Proceso finalizado y estatus actualizado a REVISADO");
 
     // ✅ Actualizar visualmente el estatus en el frontend
     setEstatusGeneral("REVISADO");
