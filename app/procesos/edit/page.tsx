@@ -2925,61 +2925,53 @@ const handleGuardarRubros = async () => {
   }, [step, handleGuardarRubros]);
 
   // 🟦 Cargar rubros existentes del seguimiento
-  React.useEffect(() => {
-    if (step !== 3 && step !== 4) return;
+React.useEffect(() => {
+  if (step !== 3 && step !== 4) return;
 
-    const partidasConId = partidas.filter((p) => Number(p.id));
-    if (partidasConId.length === 0) {
-      setPresupuestosRubro([]);
-      return;
-    }
+  const partidasConId = partidas.filter((p) => Number(p.id));
+  if (partidasConId.length === 0) {
+    setPresupuestosRubro([]);
+    return;
+  }
 
-    let activo = true;
+  let activo = true;
 
-    (async () => {
-      try {
-        const rubrosPorPartida = await Promise.all(
-          partidasConId.map(async (partida) => {
-            try {
-              const resp = await fetch(
-                `${API_BASE}/procesos/editar/seguimiento-partida-rubro?p_id=-99&p_id_seguimiento_partida=${partida.id}`
-              );
-              const data = await resp.json();
-              console.log("📌 RUBROS QUE REGRESA EL BACKEND:", data);
+  (async () => {
+    try {
+      const rubrosPorPartida = await Promise.all(
+        partidasConId.map(async (partida) => {
+          const resp = await fetch(
+            `${API_BASE}/procesos/editar/seguimiento-partida-rubro?p_id=-99&p_id_seguimiento_partida=${partida.id}`
+          );
 
-              if (!resp.ok) return [];
-              if (!Array.isArray(data)) return [];
+          const data = await resp.json();
+          if (!resp.ok || !Array.isArray(data)) return [];
 
-return data.map(r => {
-  const rubroCatalogo = rubros.find(
-    rb => String(rb.id) === String(r.e_id_rubro)
-  );
+          return data.map((r) => {
+            const rubroCatalogo = rubros.find(
+              (rb) => String(rb.id) === String(r.e_id_rubro)
+            );
 
-  return {
-    id: Number(r.id),
-    p_e_id_rubro: r.e_id_rubro?.toString(),
-    rubro_descripcion: rubroCatalogo?.descripcion || "",
-    p_e_monto_presupuesto_suficiencia: Number(r.e_monto_presupuesto_suficiencia),
-    p_id_partida_asociada: partida.e_id_partida?.toString(),
-    p_id_seguimiento_partida: Number(partida.id),
-    estatus: r.estatus || "",
-  };
-});
-            } catch {
-              return [];
-            }
-          })
-        );
+            return {
+              id: Number(r.id),
+              p_e_id_rubro: r.e_id_rubro?.toString(),
+              rubro_descripcion: rubroCatalogo?.descripcion || "",
+              p_e_monto_presupuesto_suficiencia: Number(r.e_monto_presupuesto_suficiencia),
+              p_id_partida_asociada: partida.e_id_partida?.toString(),
+              p_id_seguimiento_partida: Number(partida.id),
+              estatus: r.estatus || "",
+            };
+          });
+        })
+      );
 
-        if (!activo) return;
-        setPresupuestosRubro(rubrosPorPartida.flat());
-      } catch {}
-    })();
+      if (!activo) return;
+      setPresupuestosRubro(rubrosPorPartida.flat());
+    } catch {}
+  })();
 
-    return () => {
-      activo = false;
-    };
-  }, [step, partidas]);
+  return () => { activo = false };
+}, [step, partidas, rubros]);   // 👈 AGREGADO rubros
 
   if (step !== 3) return null;
 
