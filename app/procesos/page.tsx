@@ -142,17 +142,20 @@ useEffect(() => {
   ];
 
   // Column definitions for Presupuesto subtable
-  const columnsPresupuesto = [
-    { id: "partida", header: "Partida" },
-    { id: "capitulo", header: "Capítulo" },
-    { id: "clasificacion", header: "Clasificación" },
-    { id: "tipo_gasto", header: "Tipo de Gasto" },
-    { id: "f_financiamiento", header: "Fuente Financiamiento" },
-    { id: "rubro", header: "Rubro" },
-    { id: "estatus", header: "Estatus" },
-    { id: "e_monto_presupuesto_suficiencia", header: "Monto" },
-    { id: "proveedores", header: "Proveedores" },
-  ];
+const columnsPresupuesto = [
+  {
+    id: "_estatusIndicator",
+    header: "", // columna fantasma para el punto de color
+  },
+  { id: "partida", header: "Partida" },
+  { id: "capitulo", header: "Capítulo" },
+  { id: "clasificacion", header: "Clasificación" },
+  { id: "tipo_gasto", header: "Tipo de Gasto" },
+  { id: "f_financiamiento", header: "Fuente Financiamiento" },
+  { id: "rubro", header: "Rubro" },
+  { id: "e_monto_presupuesto_suficiencia", header: "Monto" },
+  { id: "proveedores", header: "Proveedores" },
+];
 
   useEffect(() => {
   // Espera a que el user esté completamente cargado
@@ -863,33 +866,32 @@ useEffect(() => {
                                                 .filter(col => columnVisibilityPresupuesto[col.id] ?? true)
                                                 .map(col => (
                                                   <TableCell key={col.id} className="px-2 py-1 text-sm whitespace-nowrap">
-                                                    {col.id === "estatus" ? (
-                                                      // ⭐ Indicador de estatus con tooltip (sin texto)
-                                                      (() => {
-                                                        const estatus = pres.estatus || "—";
+{col.id === "_estatusIndicator" ? (
+  (() => {
+    const estatus = pres.estatus || "—";
 
-                                                        let color = "#939596"; // gris default
-                                                        if (estatus === "ADJUDICADO") color = "#22c55e";
-                                                        if (estatus === "DIFERIMIENTO") color = "#ff8800";
-                                                        if (estatus === "CANCELADO") color = "#ef4444";
-                                                        if (estatus === "PREINGRESO") color = "#4b0082";
+    let color = "#939596"; // gris
+    if (estatus === "ADJUDICADO") color = "#22c55e";
+    if (estatus === "DIFERIMIENTO") color = "#ff8800";
+    if (estatus === "CANCELADO") color = "#ef4444";
+    if (estatus === "PREINGRESO") color = "#4b0082";
 
-                                                        return (
-                                                          <TooltipProvider delayDuration={100}>
-                                                            <Tooltip>
-                                                              <TooltipTrigger asChild>
-                                                                <span
-                                                                  className="w-3 h-3 rounded-full inline-block cursor-default"
-                                                                  style={{ backgroundColor: color }}
-                                                                />
-                                                              </TooltipTrigger>
-                                                              <TooltipContent side="top" className="text-xs">
-                                                                {estatus}
-                                                              </TooltipContent>
-                                                            </Tooltip>
-                                                          </TooltipProvider>
-                                                        );
-                                                      })()
+    return (
+      <TooltipProvider delayDuration={100}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className="inline-block w-3 h-3 rounded-full cursor-default"
+              style={{ backgroundColor: color }}
+            />
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            {estatus}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  })()
                                                     ) : col.id === "e_monto_presupuesto_suficiencia" ? (
                                                       formatMXN((pres as Record<string, any>)[col.id])
                                                     ) : col.id === "proveedores" ? (
