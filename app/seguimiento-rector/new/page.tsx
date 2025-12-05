@@ -1,5 +1,7 @@
 "use client";
 import { Eye, UserPlus, Loader2 } from "lucide-react";
+import { Trash2 } from 'lucide-react';
+
 // eslint-disable-next-line
 import React, { useEffect, useState, Suspense, useMemo } from "react";
 import {
@@ -225,6 +227,8 @@ function RectorForm() {
   const { user } = useUser();
   // Estado para controlar el accordion abierto en el paso 2
   const [accordionOpen, setAccordionOpen] = useState<string | undefined>();
+
+  const [idSeguimientoPartidaRubro, setIdSeguimientoPartidaRubro] = useState<number | null>(null);
 
   // ⭐ Función para obtener color según estatus
 const getEstatusColor = (estatus: string | undefined) => {
@@ -556,6 +560,8 @@ useEffect(() => {
 
             id_seguimiento_partida_rubro_proveedor_adjudicado:
               d.id_seguimiento_partida_rubro_proveedor_adjudicado ?? null,
+
+              id_seguimiento_partida_rubro: d.id_seguimiento_partida_rubro,
 
             proveedor: d.e_rfc_proveedor
               ? {
@@ -1038,6 +1044,11 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
     const data = await res.json().catch(() => null);
     console.log("🛰️ Respuesta del backend:", data);
 
+    const nuevoId =
+    typeof data === "number"
+      ? data
+      : data?.id ?? null;
+
     if (!res.ok) {
       throw new Error(data?.detail || "Error al adjudicar proveedor");
     }
@@ -1074,22 +1085,48 @@ const adjudicarProveedor = async (idRubro: number, idPartida: number) => {
 
     // 🧾 Agregar registro a la grilla inferior (guardar objeto proveedor completo)
 // Agregar fila completa lógica unificada
+
+// 👉 Obtener partida y rubro seleccionados correctamente
+const partidaObj = detalle.find(pp => pp.id_partida === selectedPartidaId);
+
+const rubroObj = partidaObj?.rubros.find(
+  rr => Number(rr.id_rubro) === Number(selectedRubroId)
+);
+
+// 👉 ESTE ya será el ID real correcto
+const idRealSegPR = rubroObj?.id_seguimiento_partida_rubro;
+
+console.log("🔥 ID REAL DEL RUBRO:", idRealSegPR);
+
+// 👉 Guardar la fila en el estado
 setRubroProveedorRows(prev => [
   ...prev.filter(
     row =>
       !(
         Number(row.partida) === Number(selectedPartidaId) &&
-        Number(row.rubro) === Number(idRubro)
+        Number(row.rubro) === Number(selectedRubroId)
       )
   ),
+
   {
     partida: selectedPartidaId,
-    rubro: idRubro,
+    rubro: selectedRubroId,
     estatus,
-    proveedor: prov || null,
+proveedor: prov
+  ? {
+      rfc: prov.rfc ?? "",
+      razon_social: prov.nombre ?? "",
+      nombre_comercial: prov.nombre ?? "",
+    }
+  : null,
     fundamento: fundamentoId,
     importeSinIva: importe?.sinIva ?? 0,
     importeTotal: importe?.total ?? 0,
+
+    id_seguimiento_partida_rubro_proveedor_adjudicado: nuevoId ?? null,
+
+    // ⭐ ESTO es lo que antes salía undefined
+        id_seguimiento_partida_rubro: idRealSegPR,
   },
 ]);
 
@@ -1241,6 +1278,7 @@ const yaAdjudicadoMemo = useMemo(() => {
     return 1;
   })();
 
+    console.log("DETALLE COMPLETO:", JSON.stringify(detalle, null, 2));
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-8">
       {/* Step Indicator visual */}
@@ -2077,7 +2115,6 @@ const yaAdjudicadoMemo = useMemo(() => {
   <CardTitle>Seleccionar proceso de adjudicación</CardTitle>
 
 </CardHeader>
-
     <CardContent className="space-y-6">
       <Accordion
         type="single"
@@ -2091,7 +2128,16 @@ const yaAdjudicadoMemo = useMemo(() => {
           p.rubros.map((r) => {
             const itemValue = `partida-${p.id_partida}-rubro-${r.id_rubro}`;
             
-            // ⭐ Obtener estatus del rubro actual
+               // AGREGA ESTE LOG AQUI:
+              console.log("RUBRO SELECCIONADO:", {
+                id_partida: p.id_partida,
+                id_rubro: r.id_rubro,
+                id_seguimiento_partida_rubro: r.id_seguimiento_partida_rubro,
+                descripcion: r.rubro
+              });
+
+
+            // Obtener estatus del rubro actual
             const estatusRubro = getEstatusPorRubroId(p.id_partida, r.id_rubro);
             const estatusColor = getEstatusColor(estatusRubro);
 
@@ -2101,18 +2147,47 @@ const yaAdjudicadoMemo = useMemo(() => {
 
                {/* ------- TRIGGER MODIFICADO CON INDICADOR IZQUIERDA -------- */}
               {/* ------- TRIGGER MODIFICADO CON INDICADOR IZQUIERDA -------- */}
-              <AccordionTrigger
-                onClick={() => {
-                  setAccordionOpen(itemValue);
-                  setSelectedPartidaId(p.id_partida);
-                  setSelectedRubroId(r.id_rubro);
-                }}
-                className={`
-                  px-3 py-2 transition-colors cursor-pointer
-                  flex flex-row justify-between items-center
-                  ${accordionOpen === itemValue ? "bg-[#faf89d]" : "bg-[#c1def7]"}
-                `}
-              >
+<AccordionTrigger
+  onClick={() => {
+    setAccordionOpen(itemValue);
+    setSelectedPartidaId(p.id_partida);
+    setSelectedRubroId(r.id_rubro);
+
+    // ⭐ Guardar el ID REAL inmediatamente
+    setIdSeguimientoPartidaRubro(r.id_seguimiento_partida_rubro);
+    console.log("🔥 ID FIJADO AL SELECCIONAR:", r.id_seguimiento_partida_rubro);
+
+    // ⭐⭐⭐ REINICIAR ESTADOS PARA ESTE RUBRO ⭐⭐⭐
+
+    // Limpiar estatus mostrado
+    setEstatusLocal("");
+
+    // Limpiar proveedor seleccionado
+    setSelectedProveedorLocal("");
+
+    // Limpiar fundamento de este rubro
+    setSelectedFundamento(prev => {
+      const copy = { ...prev };
+      delete copy[r.id_rubro];
+      return copy;
+    });
+
+    // Limpiar importes calculados para este rubro
+    setImportes(prev => {
+      const copy = { ...prev };
+      delete copy[r.id_rubro];
+      return copy;
+    });
+
+    // Limpiar errores visuales
+    setValidationErrors({});
+  }}
+  className={`
+    px-3 py-2 transition-colors cursor-pointer
+    flex flex-row justify-between items-center
+    ${accordionOpen === itemValue ? "bg-[#faf89d]" : "bg-[#c1def7]"}
+  `}
+>
                 <div className="flex items-center gap-2">
 
                   {/* 🔥 Obtener estatus REAL desde el backend */}
@@ -2169,11 +2244,10 @@ const yaAdjudicadoMemo = useMemo(() => {
                           }
 
                           if (["CANCELADO", "DESIERTO"].includes(val) && selectedRubroId != null) {
-                            setSelectedFundamento((prev) => {
-                              const newState = { ...prev };
-                              delete newState[selectedRubroId];
-                              return newState;
-                            });
+                            setSelectedFundamento(prev => ({
+                              ...prev,
+                              [selectedRubroId]: "", // fundamento vacío, NO rompe tipos
+                            }));
                           }
 
                           setValidationErrors((prev) => ({
@@ -2479,26 +2553,21 @@ const yaAdjudicadoMemo = useMemo(() => {
                     </div>
                   </div>
 
-                 {/* Botón Guardar / Adjudicar */}
+                {/* Botón Guardar / Adjudicar */}
 {(() => {
 
   // Si YA está adjudicado, diferido, cancelado o desierto
-  // mostramos un bloque deshabilitado en vez del botón
   if (yaAdjudicadoMemo) {
     return (
       <div
         className="w-full text-center py-3 rounded-md text-white font-semibold"
         style={{
-          backgroundColor: "#A5B4FC", // Morado claro tipo "botón deshabilitado"
+          backgroundColor: "#A5B4FC",
           opacity: 0.8,
           cursor: "not-allowed",
         }}
       >
-        {estatusLocal === "CANCELADO"
-          ? "Guardado"
-          : estatusLocal === "DESIERTO"
-          ? "Guardado"
-          : "Guardado"}
+        Guardado
       </div>
     );
   }
@@ -2509,22 +2578,18 @@ const yaAdjudicadoMemo = useMemo(() => {
       className="w-full text-white cursor-pointer"
       style={{ backgroundColor: "#2563eb" }}
       onClick={async () => {
+
+        // ---------- VALIDACIONES ----------
         const errors: Record<string, boolean> = {};
 
-        // --- 🔥 VALIDACIÓN CORRECTA ---
         if (!selectedRubroId) errors.rubro = true;
         if (!estatusLocal) errors.estatus = true;
 
-        // 🔥 SOLO pedir proveedor y fundamento si el estatus lo requiere
         if (["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal)) {
           if (!selectedProveedorLocal) errors.proveedor = true;
-
-          if (!selectedFundamento[selectedRubroId ?? 0]) {
-            errors.fundamento = true;
-          }
+          if (!selectedFundamento[selectedRubroId ?? 0]) errors.fundamento = true;
         }
 
-        // 🔥 SI EL ESTATUS ES CANCELADO O DESIERTO → NO PEDIR PROVEEDOR
         if (["CANCELADO", "DESIERTO"].includes(estatusLocal)) {
           delete errors.proveedor;
         }
@@ -2534,9 +2599,11 @@ const yaAdjudicadoMemo = useMemo(() => {
           toast.error("❌ Completa todos los campos obligatorios");
           return;
         }
+        // ------------------------------------
 
         const esAdjudicable = ["ADJUDICADO", "DIFERIMIENTO"].includes(estatusLocal);
 
+        // ADJUDICAR PROVEEDOR
         if (esAdjudicable) {
           if (selectedRubroId == null) {
             toast.error("❌ No se encontró el rubro seleccionado");
@@ -2547,76 +2614,74 @@ const yaAdjudicadoMemo = useMemo(() => {
             Number(selectedRubroId),
             Number(p.id_partida)
           );
+          return;
+        }
 
-        } else {
+        // ---------- GUARDAR DESIERTO / CANCELADO ----------
+        // Obtener el ID REAL de seguimiento_partida_rubro
+        const partidaObj = detalle.find(pp => pp.id_partida === p.id_partida);
+        const rubroObj = partidaObj?.rubros.find(
+          rr => Number(rr.id_rubro) === Number(selectedRubroId)
+        );
 
-          // 🔍 OBTENER EL ID REAL del seguimiento-partida-rubro
-          const partidaObj = detalle.find((pp) => pp.id_partida === p.id_partida);
-          const rubroObj = partidaObj?.rubros.find(
-            (rr) => Number(rr.id_rubro) === Number(selectedRubroId)
+        const idRealSegPR = rubroObj?.id_seguimiento_partida_rubro;
+
+        if (!idRealSegPR) {
+          toast.error("❌ No se encontró id_seguimiento_partida_rubro");
+          return;
+        }
+
+        try {
+          const res = await fetch(
+            `${API_BASE}/rector/seguimiento-gestion-proveedor-adjudicado/`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                p_estatus: estatusLocal,
+                p_id_seguimiento_partida_rubro: idRealSegPR,
+                p_id_seguimiento_partida_rubro_proveedor: 0,
+                p_id: 0,
+                p_importe_ajustado_sin_iva: 0,
+                p_importe_ajustado_total: 0,
+                p_id_fundamento: 0,
+              }),
+            }
           );
 
-          const idRealSegPR = rubroObj?.id_seguimiento_partida_rubro;
+          const data = await res.json();
+          if (!res.ok) throw new Error(data?.detail);
 
-          if (!idRealSegPR) {
-            toast.error("❌ No se encontró id_seguimiento_partida_rubro");
-            return;
-          }
+          // -------- ACTUALIZAR TABLA INFERIOR --------
+          setRubroProveedorRows(prev => [
+            ...prev.filter(row =>
+              !(Number(row.partida) === Number(p.id_partida) &&
+                Number(row.rubro) === Number(selectedRubroId))
+            ),
+            {
+              partida: p.id_partida,
+              rubro: selectedRubroId,
+              estatus: estatusLocal,
+              proveedor: null,
+              fundamento: null,
+              importeSinIva: 0,
+              importeTotal: 0,
+              id_seguimiento_partida_rubro: idRealSegPR,
+              id_seguimiento_partida_rubro_proveedor_adjudicado: null,
+            },
+          ]);
 
-          try {
-            const res = await fetch(
-              `${API_BASE}/rector/seguimiento-gestion-proveedor-adjudicado/`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  p_estatus: estatusLocal,
-                  p_id_seguimiento_partida_rubro: idRealSegPR,
-                  p_id_seguimiento_partida_rubro_proveedor: 0,
-                  p_id: 0,
-                  p_importe_ajustado_sin_iva: 0,
-                  p_importe_ajustado_total: 0,
-                  p_id_fundamento: 0,
-                }),
-              }
-            );
+          // Para bloquear el botón sin cerrar accordion
+          setEstatusPorRubro(prev => ({
+            ...prev,
+            [Number(selectedRubroId)]: estatusLocal,
+          }));
 
-            const data = await res.json();
-            if (!res.ok) throw new Error(data?.detail);
+          toast.success("Estatus guardado correctamente en la base de datos.");
 
-// Agregar fila completa lógica unificada
-setRubroProveedorRows(prev => [
-  ...prev.filter(
-    row =>
-      !(
-        Number(row.partida) === Number(p.id_partida) &&
-        Number(row.rubro) === Number(selectedRubroId)
-      )
-  ),
-  {
-    partida: p.id_partida,
-    rubro: selectedRubroId,
-    estatus: estatusLocal,
-    proveedor: null,
-    fundamento: null,
-    importeSinIva: 0,
-    importeTotal: 0,
-  },
-]);
-
-// ⭐⭐⭐ NECESARIO PARA QUE EL BOTÓN SE DESACTIVE SIN CERRAR EL ACCORDION ⭐⭐⭐
-setEstatusPorRubro(prev => ({
-  ...prev,
-  [Number(selectedRubroId)]: estatusLocal
-}));
-
-toast.success("Estatus guardado correctamente en la base de datos.");
-          } catch (err) {
-            console.error("❌ Error guardando estatus:", err);
-            toast.error("Error al guardar estatus.");
-          }
+        } catch (err) {
+          console.error("❌ Error guardando estatus:", err);
+          toast.error("Error al guardar estatus.");
         }
       }}
     >
@@ -2664,7 +2729,7 @@ toast.success("Estatus guardado correctamente en la base de datos.");
                             <TableHead>Acciones</TableHead>
                           </TableRow>
                         </TableHeader>
-
+                        
                        <TableBody>
                       {rubroProveedorRows
                         .filter(
@@ -2748,145 +2813,85 @@ toast.success("Estatus guardado correctamente en la base de datos.");
                                   </TableCell>
 
                                   <TableCell>
-                                    {/* Botón DETALLES */}
-                                    <Dialog>
-                                      <DialogTrigger asChild>
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          className="cursor-pointer"
-                                        >
-                                          Detalles
-                                        </Button>
-                                      </DialogTrigger>
+<Button
+  size="sm"
+  variant="destructive"
+  className="cursor-pointer flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white"
+  onClick={async () => {
 
-                                      <DialogContent className="max-w-lg">
-                                        <DialogHeader>
-                                          <DialogTitle>
-                                            Detalles del registro
-                                          </DialogTitle>
-                                          <DialogDescription>
-                                            Información adjudicada por el
-                                            rector.
-                                          </DialogDescription>
-                                        </DialogHeader>
+    console.log("ROW COMPLETO:", row);
 
-                                        <div className="space-y-2 text-sm">
-                                          <p>
-                                            <strong>Proveedor:</strong>{" "}
-                                            {`${row.proveedor?.rfc || ""} ${
-                                              row.proveedor
-                                                ?.razon_social || ""
-                                            }`}
-                                          </p>
+    const estatus = row.estatus;
 
-                                        <p className="flex items-center gap-2">
-                                          <strong>Estatus:</strong>
+    let payload = {};
 
-                                          {row.estatus ? (
-                                            <>
-                                              <span
-                                                className="w-2.5 h-2.5 rounded-full"
-                                                style={{
-                                                  backgroundColor:
-                                                    row.estatus === "ADJUDICADO"
-                                                      ? "#22c55e"
-                                                      : row.estatus === "DIFERIMIENTO"
-                                                      ? "#ff8800"
-                                                      : row.estatus === "CANCELADO"
-                                                      ? "#ef4444"
-                                                      : row.estatus === "PREINGRESO"
-                                                      ? "#4b0082"
-                                                      : "#939596",
-                                                }}
-                                              ></span>
+    if (estatus === "ADJUDICADO" || estatus === "DIFERIMIENTO") {
+      // Caso A → revertir adjudicación real
+      payload = {
+        p_id_seguimiento_partida_rubro: row.id_seguimiento_partida_rubro,
+        p_id_proveedor: row.id_seguimiento_partida_rubro_proveedor_adjudicado
+      };
+    } else {
+      // Caso B → DESIERTO / CANCELADO → revertir estatus
+      payload = {
+        p_id_seguimiento_partida_rubro: row.id_seguimiento_partida_rubro,
+        p_id_proveedor: -99
+      };
+    }
 
-                                              {row.estatus}
-                                            </>
-                                          ) : (
-                                            "—"
-                                          )}
-                                        </p>
+    console.log("Payload enviado:", payload);
 
-                                          <div className="pt-4">
-                                            <Button
-                                              className="w-full bg-red-600 hover:bg-red-700 text-white cursor-pointer"
-                                              onClick={async () => {
-                                                const idRegistro =
-                                                  row.id_seguimiento_partida_rubro_proveedor_adjudicado;
+    try {
+      const res = await fetch(
+        `${API_BASE}/rector/seg-partida-rubro-proveedor-deshacer/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
-                                                if (!idRegistro) {
-                                                  toast.error(
-                                                    "❌ No se encontró el ID de adjudicación"
-                                                  );
-                                                  return;
-                                                }
+      const data = await res.json();
 
-                                                if (
-                                                  !confirm(
-                                                    "¿Seguro que deseas revertir esta adjudicación?"
-                                                  )
-                                                )
-                                                  return;
+      if (!res.ok) {
+        throw new Error(data?.detail || "Error al revertir adjudicación");
+      }
 
-                                                try {
-                                                  const res = await fetch(
-                                                    `${API_BASE}/rector/seg-partida-rubro-proveedor-deshacer/`,
-                                                    {
-                                                      method: "POST",
-                                                      headers: {
-                                                        "Content-Type":
-                                                          "application/json",
-                                                      },
-                                                      body: JSON.stringify({
-                                                        p_id: idRegistro,
-                                                      }),
-                                                    }
-                                                  );
+      if (data.resultado === 1) {
+        toast.success("Reversión realizada correctamente");
 
-                                                  const data =
-                                                    await res.json();
+          // 🔥 limpiar estatus memorizados
+          setEstatusPorRubro(prev => {
+            const copy = { ...prev };
+            delete copy[row.rubro];
+            return copy;
+          });
 
-                                                  if (!res.ok) {
-                                                    throw new Error(
-                                                      data?.detail ||
-                                                        "Error al revertir adjudicación"
-                                                    );
-                                                  }
+          setSelectedEstatus(prev => {
+            const copy = { ...prev };
+            delete copy[row.rubro];
+            return copy;
+          });
 
-                                                  if (
-                                                    data.resultado === 1
-                                                  ) {
-                                                    toast.success(
-                                                      "Adjudicación revertida correctamente"
-                                                    );
+          setEstatusLocal("");
 
-                                                    setRubroProveedorRows(
-                                                      (prev) =>
-                                                        prev.filter(
-                                                          (r) =>
-                                                            r.id_seguimiento_partida_rubro_proveedor_adjudicado !==
-                                                            idRegistro
-                                                        )
-                                                    );
-                                                  } else {
-                                                    toast.warning(
-                                                      "No se encontró adjudicación para revertir"
-                                                    );
-                                                  }
-                                                } catch (err) {
-                                                  toast.error(
-                                                    "Error al intentar revertir adjudicación"
-                                                  );
-                                                }
-                                              }}
-                                            >
-                                              Deshacer adjudicación
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      </DialogContent>
-                                    </Dialog>
+        // Remover la fila de la grilla
+        setRubroProveedorRows(prev =>
+          prev.filter(r =>
+            !(Number(r.partida) === Number(row.partida) &&
+              Number(r.rubro) === Number(row.rubro))
+          )
+        );
+      } else {
+        toast.warning("No se encontró registro para revertir");
+      }
+    } catch (err) {
+      toast.error("Error al intentar revertir adjudicación");
+    }
+  }}
+>
+  <Trash2 size={18} />
+</Button>
                                   </TableCell>
                                 </TableRow>
                               );
