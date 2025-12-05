@@ -2602,6 +2602,7 @@ console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
           <table className="min-w-full text-sm">
             <thead>
               <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
+                <th className="px-3 py-2 text-center w-[1%]"></th>
                 <th className="px-3 py-2 text-center">No. Requisición</th>
                 <th className="px-3 py-2 text-center">Partida</th>
                 <th className="px-3 py-2 text-center">Capítulo</th>
@@ -2663,6 +2664,52 @@ console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
                             : "bg-gray-50"
                         } hover:bg-gray-100 transition-colors`}
                       >
+                        <td className="px-3 py-2 text-center w-[1%]">
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {(() => {
+          // Buscar el estatus del rubro basado en los items de la partida
+          const rubrosDeLaPartida = presupuestosRubro.filter(
+            (r) => String(r.p_id_seguimiento_partida) === String(p.id)
+          );
+
+          // Si no hay rubros → gris
+          const estatusRubro = rubrosDeLaPartida[0]?.estatus || "SIN ESTATUS";
+
+          let color = "#939596"; // gris
+          if (estatusRubro === "ADJUDICADO") color = "#22c55e";
+          if (estatusRubro === "DIFERIMIENTO") color = "#ff8800";
+          if (estatusRubro === "CANCELADO") color = "#ef4444";
+          if (estatusRubro === "PREINGRESO") color = "#4b0082";
+
+          return (
+            <span
+              className="inline-block rounded-full"
+              style={{
+                backgroundColor: color,
+                width: "10px",
+                height: "10px",
+                minWidth: "10px",
+                minHeight: "10px",
+                boxShadow: "0 0 2px rgba(0,0,0,0.3)",
+              }}
+            />
+          );
+        })()}
+      </TooltipTrigger>
+
+      <TooltipContent side="top">
+        <p>{(() => {
+          const rubrosDeLaPartida = presupuestosRubro.filter(
+            (r) => String(r.p_id_seguimiento_partida) === String(p.id)
+          );
+          return rubrosDeLaPartida[0]?.estatus || "SIN ESTATUS";
+        })()}</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+</td>
                         <td className="px-3 py-2 text-center">
                           {p.no_requisicion}
                         </td>
@@ -3297,6 +3344,7 @@ onValueChange={(val) => {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
+                  <th className="px-3 py-2 text-center w-[1%]"></th>
                   <th className="px-3 py-2 font-semibold text-center">Partida</th>
                   <th className="px-3 py-2 font-semibold text-center">Clave</th>
                   <th className="px-3 py-2 font-semibold text-center">Rubro</th>
@@ -3306,180 +3354,229 @@ onValueChange={(val) => {
               </thead>
 
               <tbody>
-                {presupuestosRubro.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-3 text-center text-gray-400">
-                      No hay rubros añadidos.
-                    </td>
-                  </tr>
-                ) : (
-                  presupuestosRubro.map((r, i) => (
-                    <tr
-                      key={i}
-                      className={`border-b ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
-                    >
-                      <td className="px-3 py-2 text-center">
-                        {(() => {
-                          const partida = partidas.find(
-                            (p) => String(p.e_id_partida) === String(r.p_id_partida_asociada)
+  {presupuestosRubro.length === 0 ? (
+    <tr>
+      <td colSpan={6} className="py-3 text-center text-gray-400">
+        No hay rubros añadidos.
+      </td>
+    </tr>
+  ) : (
+    presupuestosRubro.map((r, i) => (
+      <tr
+        key={i}
+        className={`border-b ${
+          i % 2 === 0 ? "bg-white" : "bg-gray-50"
+        } hover:bg-gray-100`}
+      >
+
+        {/* ⭐ COLUMNA NUEVA — INDICADOR DE ESTATUS */}
+        <td className="px-3 py-2 text-center w-[1%]">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {(() => {
+                  const estatus = r.estatus || "SIN ESTATUS";
+
+                  let color = "#939596"; // default gris
+                  if (estatus === "ADJUDICADO") color = "#22c55e";
+                  if (estatus === "DIFERIMIENTO") color = "#ff8800";
+                  if (estatus === "CANCELADO") color = "#ef4444";
+                  if (estatus === "PREINGRESO") color = "#4b0082";
+
+                  return (
+                    <span
+                      className="inline-block rounded-full"
+                      style={{
+                        backgroundColor: color,
+                        width: "10px",
+                        height: "10px",
+                        minWidth: "10px",
+                        minHeight: "10px",
+                        boxShadow: "0 0 2px rgba(0,0,0,0.25)",
+                      }}
+                    />
+                  );
+                })()}
+              </TooltipTrigger>
+
+              <TooltipContent side="top" className="text-xs">
+                {r.estatus || "SIN ESTATUS"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </td>
+
+        {/* PARTIDA */}
+        <td className="px-3 py-2 text-center">
+          {(() => {
+            const partida = partidas.find(
+              (p) =>
+                String(p.e_id_partida) ===
+                String(r.p_id_partida_asociada)
+            );
+            return partida
+              ? `${partida.e_id_partida} — ${partida.partida_descripcion}`
+              : "Sin asignar";
+          })()}
+        </td>
+
+        {/* CLAVE */}
+        <td className="px-3 py-2 text-center">{r.p_e_id_rubro}</td>
+
+        {/* RUBRO */}
+        <td className="px-3 py-2 text-center">{r.rubro_descripcion}</td>
+
+        {/* MONTO */}
+        <td className="text-right">
+          {formatMoney(
+            r.p_e_monto_presupuesto_suficiencia.toString()
+          )}
+        </td>
+
+        {/* ACCIÓN (ELIMINAR) */}
+        <td className="px-3 py-2 text-center">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-block">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={r.estatus === "ADJUDICADO"}
+                    className={
+                      r.estatus === "ADJUDICADO"
+                        ? "text-gray-300 cursor-not-allowed"
+                        : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    }
+                    onClick={async () => {
+                      if (r.estatus === "ADJUDICADO") {
+                        toast.error("No puedes eliminar un rubro adjudicado.");
+                        return;
+                      }
+
+                      if (presupuestosRubro.length === 1) {
+                        toast.warning("Agrega un rubro antes de eliminar este.");
+                        return;
+                      }
+
+                      const rubro = presupuestosRubro[i];
+
+                      if (!rubro?.id) {
+                        toast.error("Este rubro no tiene ID válido. Recargando datos...");
+                        await recargarRubros();
+                        return;
+                      }
+
+                      try {
+                        const respProv = await fetch(
+                          `${API_BASE}/procesos/seguimiento/proveedores-por-rubro/${rubro.id}`
+                        );
+
+                        const proveedoresAsociados = respProv.ok
+                          ? await respProv.json()
+                          : [];
+
+                        if (proveedoresAsociados.length > 0) {
+                          const seguro = confirm(
+                            `⚠ Este rubro tiene ${proveedoresAsociados.length} proveedor(es) asociado(s).\n` +
+                              `Si continúas, estos proveedores serán ELIMINADOS.\n\n` +
+                              `¿Deseas continuar?`
                           );
-                          return partida
-                            ? `${partida.e_id_partida} — ${partida.partida_descripcion}`
-                            : "Sin asignar";
-                        })()}
-                      </td>
+                          if (!seguro) return;
 
-                      <td className="px-3 py-2 text-center">{r.p_e_id_rubro}</td>
-                      <td className="px-3 py-2 text-center">{r.rubro_descripcion}</td>
-                      <td className="text-right">{formatMoney(r.p_e_monto_presupuesto_suficiencia.toString())}</td>
+                          for (const prov of proveedoresAsociados) {
+                            const payloadProveedor = {
+                              p_accion: "ELIMINAR",
+                              p_id: prov.id,
+                              p_id_seguimiento_partida_rubro: prov.id_seguimiento_partida_rubro,
+                              p_e_rfc_proveedor: prov.e_rfc_proveedor,
+                            };
 
-                      <td className="px-3 py-2 text-center">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-block">
-                                <Button
-  variant="ghost"
-  size="icon"
-  disabled={r.estatus === "ADJUDICADO"}
-  className={
-    r.estatus === "ADJUDICADO"
-      ? "text-gray-300 cursor-not-allowed"
-      : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-  }
-  onClick={async () => {
-    if (r.estatus === "ADJUDICADO") {
-      toast.error("No puedes eliminar un rubro adjudicado.");
-      return;
-    }
+                            await fetch(
+                              `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`,
+                              {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payloadProveedor),
+                              }
+                            );
+                          }
 
-    // Evitar que eliminen el único rubro sin haber agregado otro
-    if (presupuestosRubro.length === 1) {
-      toast.warning("Agrega un rubro antes de eliminar este.");
-      return;
-    }
+                          toast.info(
+                            `Se eliminaron ${proveedoresAsociados.length} proveedores asociados.`
+                          );
+                        }
 
-    const rubro = presupuestosRubro[i];
+                        const partidaAsociada = partidas.find(
+                          (p) =>
+                            String(p.e_id_partida) ===
+                            String(
+                              rubro.p_id_partida_asociada ??
+                                rubro.p_id_partida ??
+                                rubro.e_id_partida
+                            )
+                        );
 
-    // 🚨 Este error ocurre cuando NO recargabas desde el backend
-    if (!rubro?.id) {
-      toast.error("Este rubro no tiene ID válido. Recargando datos...");
-      await recargarRubros();
-      return;
-    }
+                        if (!partidaAsociada?.id) {
+                          toast.warning("Partida asociada inválida.");
+                          return;
+                        }
 
-    try {
-      // Buscar proveedores asociados a este rubro
-      const respProv = await fetch(
-        `${API_BASE}/procesos/seguimiento/proveedores-por-rubro/${rubro.id}`
-      );
+                        const payload = {
+                          p_accion: "ELIMINAR",
+                          p_id_seguimiento_partida: Number(partidaAsociada.id),
+                          p_id: Number(rubro.id),
+                          p_e_id_rubro: rubro.p_e_id_rubro || "0",
+                          p_e_monto_presupuesto_suficiencia: 0,
+                        };
 
-      const proveedoresAsociados = respProv.ok ? await respProv.json() : [];
+                        const resp = await fetch(
+                          `${API_BASE}/procesos/editar/ente-seguimiento-partida-rubro-captura`,
+                          {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(payload),
+                          }
+                        );
 
-      if (proveedoresAsociados.length > 0) {
-        const seguro = confirm(
-          `⚠ Este rubro tiene ${proveedoresAsociados.length} proveedor(es) asociado(s).\n` +
-            `Si continúas, estos proveedores serán ELIMINADOS.\n\n` +
-            `¿Deseas continuar?`
-        );
-        if (!seguro) return;
+                        const data = await resp.json();
 
-        for (const prov of proveedoresAsociados) {
-          const payloadProveedor = {
-            p_accion: "ELIMINAR",
-            p_id: prov.id,
-            p_id_seguimiento_partida_rubro: prov.id_seguimiento_partida_rubro,
-            p_e_rfc_proveedor: prov.e_rfc_proveedor,
-          };
+                        if (!resp.ok) {
+                          console.error("❌ Error al eliminar rubro:", data);
+                          toast.error("No se pudo eliminar el rubro del servidor.");
+                          return;
+                        }
 
-          await fetch(
-            `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payloadProveedor),
-            }
-          );
-        }
+                        await recargarRubros();
 
-        toast.info(
-          `Se eliminaron ${proveedoresAsociados.length} proveedores asociados.`
-        );
-      }
+                        toast.success("Rubro eliminado correctamente.");
+                      } catch (err) {
+                        console.error("❌ Error al eliminar rubro:", err);
+                        toast.error("Error al eliminar rubro");
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </Button>
+                </span>
+              </TooltipTrigger>
 
-      // Determinar partida asociada correctamente
-      const partidaAsociada = partidas.find(
-        (p) =>
-          String(p.e_id_partida) ===
-          String(
-            rubro.p_id_partida_asociada ??
-              rubro.p_id_partida ??
-              rubro.e_id_partida
-          )
-      );
-
-      if (!partidaAsociada?.id) {
-        toast.warning("Partida asociada inválida.");
-        return;
-      }
-
-      // Payload para eliminar rubro
-      const payload = {
-        p_accion: "ELIMINAR",
-        p_id_seguimiento_partida: Number(partidaAsociada.id),
-        p_id: Number(rubro.id),
-        p_e_id_rubro: rubro.p_e_id_rubro || "0",
-        p_e_monto_presupuesto_suficiencia: 0,
-      };
-
-      const resp = await fetch(
-        `${API_BASE}/procesos/editar/ente-seguimiento-partida-rubro-captura`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      const data = await resp.json();
-
-      if (!resp.ok) {
-        console.error("❌ Error al eliminar rubro:", data);
-        toast.error("No se pudo eliminar el rubro del servidor.");
-        return;
-      }
-
-      // 🔥 Recarga REAL desde backend (evita rubros fantasma e IDs vacíos)
-      await recargarRubros();
-
-      toast.success("Rubro eliminado correctamente.");
-    } catch (err) {
-      console.error("❌ Error al eliminar rubro:", err);
-      toast.error("Error al eliminar rubro");
-    }
-  }}
->
-  <Trash2 className="w-5 h-5" />
-</Button>
-                              </span>
-                            </TooltipTrigger>
-
-                            {r.estatus === "ADJUDICADO" ? (
-                              <TooltipContent side="top">
-                                <p>No puedes eliminar un rubro adjudicado.</p>
-                              </TooltipContent>
-                            ) : (
-                              <TooltipContent side="top">
-                                <p>Eliminar rubro</p>
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        </TooltipProvider>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
+              {r.estatus === "ADJUDICADO" ? (
+                <TooltipContent side="top">
+                  No puedes eliminar un rubro adjudicado.
+                </TooltipContent>
+              ) : (
+                <TooltipContent side="top">
+                  Eliminar rubro
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        </td>
+      </tr>
+    ))
+  )}
+</tbody>
             </table>
           </div>
 
@@ -4065,108 +4162,144 @@ if (rfcInputRef.current) {
 
         {/* ---------------- TABLA DE PROVEEDORES ---------------- */}
 
-        <div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
-                <th className="px-3 py-2 text-center">RUBRO / PARTIDA</th>
-                <th className="px-3 py-2 text-center">RFC</th>
-                <th className="px-3 py-2 text-center">RAZÓN SOCIAL</th>
-                <th className="px-3 py-2 text-center">IMPORTE SIN IVA</th>
-                <th className="px-3 py-2 text-center">IMPORTE TOTAL</th>
-                <th className="px-3 py-2 text-center" style={{ width: "40px" }}></th>
-              </tr>
-            </thead>
+<div className="overflow-hidden rounded-lg shadow-md border border-gray-200">
+  <table className="min-w-full text-sm">
+    <thead>
+      <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase tracking-wide">
 
-            <tbody>
-              {proveedores.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-3 text-center text-gray-400">
-                    No hay proveedores añadidos.
-                  </td>
-                </tr>
-              ) : (
-                proveedores.map((p, index) => (
-                  <tr
-                    key={index}
-                    className={`border-b ${
-                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    } hover:bg-gray-100 transition-colors`}
-                  >
-                    <td className="text-justify px-3 py-2">{p.rubro_partida || "—"}</td>
-                    <td className="text-center px-3 py-2">{p.e_rfc_proveedor}</td>
-                    <td className="text-center px-3 py-2">{p.razon_social}</td>
-                    <td className="text-center px-3 py-2">{p.e_importe_sin_iva}</td>
-                    <td className="text-center px-3 py-2">{p.e_importe_total}</td>
+        {/* ⭐ NUEVA COLUMNA DE ESTATUS */}
+        <th className="px-3 py-2 text-center" style={{ width: "40px" }}></th>
 
-                    {/* === BOTÓN CORREGIDO === */}
-                    <td className="text-center px-3 py-2" style={{ width: "40px" }}>
-  <TooltipProvider>
-    <Tooltip>
+        <th className="px-3 py-2 text-center">RUBRO / PARTIDA</th>
+        <th className="px-3 py-2 text-center">RFC</th>
+        <th className="px-3 py-2 text-center">RAZÓN SOCIAL</th>
+        <th className="px-3 py-2 text-center">IMPORTE SIN IVA</th>
+        <th className="px-3 py-2 text-center">IMPORTE TOTAL</th>
+        <th className="px-3 py-2 text-center" style={{ width: "40px" }}></th>
+      </tr>
+    </thead>
 
-      {/* 🔹 Wrapper para permitir tooltip incluso con botón disabled */}
-      <TooltipTrigger asChild>
-        <span className="inline-block">
-          <Button
-            variant="ghost"
-            size="icon"
-            disabled={(() => {
-              const rubro = presupuestosRubro.find(
-                (r) => Number(r.id) === Number(p.p_e_id_rubro_partida)
-              );
-              return rubro?.estatus === "ADJUDICADO";
-            })()}
-            className={(() => {
-              const rubro = presupuestosRubro.find(
-                (r) => Number(r.id) === Number(p.p_e_id_rubro_partida)
-              );
-              return rubro?.estatus === "ADJUDICADO"
-                ? "text-gray-300 cursor-not-allowed"
-                : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors";
-            })()}
-            onClick={() => {
-              const rubro = presupuestosRubro.find(
-                (r) => Number(r.id) === Number(p.p_e_id_rubro_partida)
-              );
+    <tbody>
+      {proveedores.length === 0 ? (
+        <tr>
+          <td colSpan={7} className="py-3 text-center text-gray-400">
+            No hay proveedores añadidos.
+          </td>
+        </tr>
+      ) : (
+        proveedores.map((p, index) => {
+          const rubro = presupuestosRubro.find(
+            (r) => Number(r.id) === Number(p.p_e_id_rubro_partida)
+          );
 
-              if (rubro?.estatus === "ADJUDICADO") {
-                toast.error("No puedes eliminar un proveedor de un rubro adjudicado.");
-                return;
-              }
+          const estatus = rubro?.estatus || "SIN ESTATUS";
 
-              handleEliminarProveedor(index);
-            }}
-          >
-            <Trash2 className="w-5 h-5" />
-          </Button>
-        </span>
-      </TooltipTrigger>
+          let color = "#939596";
+          if (estatus === "ADJUDICADO") color = "#22c55e";
+          if (estatus === "DIFERIMIENTO") color = "#ff8800";
+          if (estatus === "CANCELADO") color = "#ef4444";
+          if (estatus === "PREINGRESO") color = "#4b0082";
 
-      {/* 🔹 TOOLTIP DIFERENCIADO */}
-      {(() => {
-        const rubro = presupuestosRubro.find(
-          (r) => Number(r.id) === Number(p.p_e_id_rubro_partida)
-        );
+          return (
+            <tr
+              key={index}
+              className={`border-b ${
+                index % 2 === 0 ? "bg-white" : "bg-gray-50"
+              } hover:bg-gray-100 transition-colors`}
+            >
 
-        return rubro?.estatus === "ADJUDICADO" ? (
-          <TooltipContent side="top">
-            <p>Este rubro está adjudicado — No se puede eliminar proveedor.</p>
-          </TooltipContent>
-        ) : (
-          <TooltipContent side="top">
-            <p>Eliminar proveedor</p>
-          </TooltipContent>
-        );
-      })()}
-    </Tooltip>
-  </TooltipProvider>
-</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              {/* ⭐ COLUMNA DE ESTATUS DEL RUBRO */}
+              <td className="px-3 py-2 text-center">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className="inline-block rounded-full"
+                        style={{
+                          width: "10px",
+                          height: "10px",
+                          minWidth: "10px",
+                          minHeight: "10px",
+                          backgroundColor: color,
+                          boxShadow: "0 0 2px rgba(0,0,0,0.25)",
+                          display: "inline-block",
+                        }}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      {estatus}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </td>
+
+              {/* RUBRO / PARTIDA */}
+              <td className="text-justify px-3 py-2">
+                {p.rubro_partida || "—"}
+              </td>
+
+              {/* RFC */}
+              <td className="text-center px-3 py-2">{p.e_rfc_proveedor}</td>
+
+              {/* RAZÓN SOCIAL */}
+              <td className="text-center px-3 py-2">{p.razon_social}</td>
+
+              {/* IMPORTE SIN IVA */}
+              <td className="text-center px-3 py-2">{p.e_importe_sin_iva}</td>
+
+              {/* IMPORTE TOTAL */}
+              <td className="text-center px-3 py-2">{p.e_importe_total}</td>
+
+              {/* BOTÓN ELIMINAR (RESPETANDO ADJUDICADO) */}
+              <td className="text-center px-3 py-2" style={{ width: "40px" }}>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-block">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={estatus === "ADJUDICADO"}
+                          className={
+                            estatus === "ADJUDICADO"
+                              ? "text-gray-300 cursor-not-allowed"
+                              : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          }
+                          onClick={() => {
+                            if (estatus === "ADJUDICADO") {
+                              toast.error(
+                                "No puedes eliminar un proveedor de un rubro adjudicado."
+                              );
+                              return;
+                            }
+                            handleEliminarProveedor(index);
+                          }}
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+
+                    {estatus === "ADJUDICADO" ? (
+                      <TooltipContent side="top">
+                        Este rubro está adjudicado — No se puede eliminar proveedor.
+                      </TooltipContent>
+                    ) : (
+                      <TooltipContent side="top">
+                        Eliminar proveedor
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
+              </td>
+
+            </tr>
+          );
+        })
+      )}
+    </tbody>
+  </table>
+</div>
 
        {/* ---------------- NAVEGACIÓN INFERIOR ---------------- */}
 <div className="flex justify-start items-center gap-3 w-full mt-6">
