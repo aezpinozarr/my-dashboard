@@ -841,31 +841,40 @@ const cargarRegistros = async () => {
   <div className="flex items-center gap-2">
 
     {/* ⭐ Indicador del estatus del RUBRO */}
-    {(() => {
-      const estatusRubro = proveedores[0]?.estatus || "SIN ESTATUS";
+{(() => {
+  const estatusRubro = proveedores[0]?.estatus || "SIN ESTATUS";
 
-      let color = "#939596";
-      if (estatusRubro === "ADJUDICADO") color = "#22c55e";
-      if (estatusRubro === "DIFERIMIENTO") color = "#ff8800";
-      if (estatusRubro === "CANCELADO") color = "#ef4444";
-      if (estatusRubro === "PREINGRESO") color = "#4b0082";
+  let color = "#939596";
+  if (estatusRubro === "ADJUDICADO") color = "#22c55e";
+  if (estatusRubro === "DIFERIMIENTO") color = "#ff8800";
+  if (estatusRubro === "CANCELADO") color = "#ef4444";
+  if (estatusRubro === "PREINGRESO") color = "#4b0082";
 
-      return (
-        <TooltipProvider delayDuration={100}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                className="w-3 h-3 rounded-full inline-block"
-                style={{ backgroundColor: color }}
-              />
-            </TooltipTrigger>
-            <TooltipContent side="top" className="text-xs">
-              {estatusRubro}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    })()}
+  return (
+    <TooltipProvider delayDuration={100}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className="inline-block rounded-full"
+            style={{
+              backgroundColor: color,
+              width: "10px",          // ⭐ Igual que la tabla
+              height: "10px",         // ⭐ Igual que la tabla
+              minWidth: "10px",
+              minHeight: "10px",
+              display: "inline-block",
+              marginRight: "4px",
+              boxShadow: "0 0 2px rgba(0,0,0,0.3)", // ⭐ Mismo efecto de profundidad
+            }}
+          />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {estatusRubro}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+})()}
 
     {/* TEXTO DEL RUBRO */}
     <span>
