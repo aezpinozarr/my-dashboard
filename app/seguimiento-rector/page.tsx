@@ -670,6 +670,11 @@ const cargarRegistros = async () => {
                           <Accordion type="single" collapsible className="space-y-4">
 
   {Object.values(detalleAgrupado).flatMap(({ e_id_partida, partida, items }: any) => {
+    // 🔍 Debug de proveedores por rubro
+    console.log("🟦 DETALLE RUBRO:", {
+      partida: e_id_partida,
+      rubroItems: items,
+    });
 
     // AGRUPAR POR RUBRO
     const rubrosAgrupados = items.reduce((acc: Record<string, any>, item: any) => {
@@ -693,9 +698,41 @@ const cargarRegistros = async () => {
         className="border border-gray-200 rounded-md"
       >
         {/* TÍTULO: PARTIDA + RUBRO */}
-        <AccordionTrigger className="px-4 py-2 font-semibold text-gray-800">
-          {e_id_partida} | Rubro #{e_id_rubro} — {rubro || "Sin descripción"}
-        </AccordionTrigger>
+<AccordionTrigger className="px-4 py-2 font-semibold text-gray-800 flex items-center gap-2">
+
+  {/* ⭐ Indicador del estatus del RUBRO */}
+{(() => {
+  const estatusRubro = proveedores[0]?.estatus || "SIN ESTATUS";
+
+  let color = "#939596";
+  if (estatusRubro === "ADJUDICADO") color = "#22c55e";
+  if (estatusRubro === "DIFERIMIENTO") color = "#ff8800";
+  if (estatusRubro === "CANCELADO") color = "#ef4444";
+  if (estatusRubro === "PREINGRESO") color = "#4b0082";
+
+  return (
+    <TooltipProvider delayDuration={100}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className="w-3 h-3 rounded-full inline-block cursor-default"
+            style={{ backgroundColor: color }}
+          />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {estatusRubro}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+})()}
+
+  {/* TEXTO DEL RUBRO */}
+  <span>
+    {e_id_partida} | Rubro #{e_id_rubro} — {rubro || "Sin descripción"}
+  </span>
+
+</AccordionTrigger>
 
         {/* CONTENIDO */}
         <AccordionContent className="px-4 py-2 space-y-4 bg-gray-50">
@@ -775,6 +812,11 @@ const cargarRegistros = async () => {
                   <Accordion type="single" collapsible className="space-y-4">
 
   {Object.values(detalleAgrupado).flatMap(({ e_id_partida, partida, items }: any) => {
+    // 🔍 Debug de proveedores por rubro
+    console.log("🟦 DETALLE RUBRO:", {
+      partida: e_id_partida,
+      rubroItems: items,
+    });
 
     const rubrosAgrupados = items.reduce((acc: Record<string, any>, item: any) => {
       const key = item.e_id_rubro || "sin_rubro";
@@ -795,9 +837,43 @@ const cargarRegistros = async () => {
         value={`${e_id_partida}_${e_id_rubro}`}
         className="border border-gray-200 rounded-md"
       >
-        <AccordionTrigger className="px-4 py-2 font-semibold text-gray-800">
-          {e_id_partida} | Rubro #{e_id_rubro} — {rubro || "Sin descripción"}
-        </AccordionTrigger>
+<AccordionTrigger className="px-4 py-2 font-semibold text-gray-800 flex items-center justify-between">
+  <div className="flex items-center gap-2">
+
+    {/* ⭐ Indicador del estatus del RUBRO */}
+    {(() => {
+      const estatusRubro = proveedores[0]?.estatus || "SIN ESTATUS";
+
+      let color = "#939596";
+      if (estatusRubro === "ADJUDICADO") color = "#22c55e";
+      if (estatusRubro === "DIFERIMIENTO") color = "#ff8800";
+      if (estatusRubro === "CANCELADO") color = "#ef4444";
+      if (estatusRubro === "PREINGRESO") color = "#4b0082";
+
+      return (
+        <TooltipProvider delayDuration={100}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="w-3 h-3 rounded-full inline-block"
+                style={{ backgroundColor: color }}
+              />
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">
+              {estatusRubro}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    })()}
+
+    {/* TEXTO DEL RUBRO */}
+    <span>
+      {e_id_partida} | Rubro #{e_id_rubro} — {rubro || "Sin descripción"}
+    </span>
+  </div>
+
+</AccordionTrigger>
 
         <AccordionContent className="px-4 py-2 space-y-4 bg-gray-50">
           {proveedores.map((prov: any, i: number) => (
