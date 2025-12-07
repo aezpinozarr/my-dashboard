@@ -292,6 +292,8 @@ function NuevoProcesoPageContent() {
 
   // Paso 2
   const [fuentes, setFuentes] = React.useState<any[]>([]);
+  const [openEliminarPartidaDialog, setOpenEliminarPartidaDialog] = useState(false);
+  const [partidaAEliminar, setPartidaAEliminar] = useState<number | null>(null);
   const [procesoBloqueado, setProcesoBloqueado] = React.useState(false);
   const [catalogoPartidas, setCatalogoPartidas] = React.useState<any[]>([]);
   const [partidas, setPartidas] = React.useState<any[]>([
@@ -411,6 +413,8 @@ setPuedeAgregarPartida(true);
 
   // Paso 3
   const [rubros, setRubros] = React.useState<any[]>([]);
+  const [openEliminarRubroDialog, setOpenEliminarRubroDialog] = useState(false);
+  const [rubroAEliminar, setRubroAEliminar] = useState<number | null>(null);
   const [nuevoRubro, setNuevoRubro] = React.useState({
     p_e_id_rubro: "",
     rubro_descripcion: "",
@@ -426,6 +430,14 @@ setPuedeAgregarPartida(true);
       p_id_partida_asociada: "",
     },
   ]);
+
+
+  React.useEffect(() => {
+  if (step === 4) {
+    recargarRubros();
+  }
+}, [step]);
+
 
   // Paso 4: Proveedores añadidos
   const [proveedores, setProveedores] = React.useState<any[]>([]);
@@ -532,7 +544,6 @@ React.useEffect(() => {
             : Array.isArray(data?.proveedores)
             ? data.proveedores
             : [];
-
         setProveedoresDialog(lista);
       })
       .catch((err) =>
@@ -566,6 +577,52 @@ React.useEffect(() => {
   fetchEntidades();
 }, []);
 
+// 🔥 FUNCIÓN GLOBAL PARA CARGAR RUBROS DESDE EL BACKEND
+const recargarRubros = async () => {
+  const partidasConId = partidas.filter(p => Number(p.id));
+
+  const rubrosPorPartida = await Promise.all(
+    partidasConId.map(async (partida) => {
+      const resp = await fetch(
+        `${API_BASE}/procesos/editar/seguimiento-partida-rubro?p_id=-99&p_id_seguimiento_partida=${partida.id}`
+      );
+
+      const data = await resp.json();
+
+      return Array.isArray(data)
+        ? data.map((r) => {
+            const rubroCat = rubros.find(
+              (cat) =>
+                String(cat.clave) === String(r.e_id_rubro) ||
+                String(cat.id) === String(r.e_id_rubro)
+            );
+
+            return {
+              id: Number(r.id),
+              p_e_id_rubro: r.e_id_rubro?.toString(),
+              rubro_descripcion:
+                rubroCat?.descripcion ||
+                r.rubro_descripcion ||
+                "",
+              p_e_monto_presupuesto_suficiencia: Number(
+                r.e_monto_presupuesto_suficiencia
+              ),
+              p_id_partida_asociada: partida.e_id_partida?.toString(),
+              p_id_seguimiento_partida: Number(partida.id),
+              estatus: r.estatus || "",
+            };
+          })
+        : [];
+    })
+  );
+
+  setPresupuestosRubro(rubrosPorPartida.flat());
+};
+
+
+// ======================================================
+// 4. Cargar rubros y partidas al entrar al Paso 4 (mejorado)
+// ======================================================
   React.useEffect(() => {
     if (step !== 4) return;
 
@@ -2637,9 +2694,12 @@ console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
                         String(p.id)
                     );
 
-                    const tieneRubroAdjudicado = rubrosDeLaPartida.some(
-                      (r) => r.estatus === "ADJUDICADO"
-                    );
+                    const tieneRubroBloqueado = rubrosDeLaPartida.some(
+                    (r) =>
+                      r.estatus === "ADJUDICADO" ||
+                      r.estatus === "DIFERIMIENTO" ||
+                      r.estatus === "CANCELADO"
+                  );
 
                     const tieneProveedorAdjudicado = rubrosDeLaPartida.some(
                       (r) =>
@@ -2652,8 +2712,27 @@ console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
                     );
 
                     const bloquearEliminarPartida =
-                      tieneRubroAdjudicado ||
+                      tieneRubroBloqueado ||
                       tieneProveedorAdjudicado;
+
+                      // Obtener el estatus real del primer rubro encontrado
+                      const estatusRubro = rubrosDeLaPartida[0]?.estatus || null;
+
+                      // Construcción del mensaje dinámico
+                      let mensajeBloqueo = "";
+
+                      if (estatusRubro === "ADJUDICADO") {
+                        mensajeBloqueo = "No se puede eliminar porque el rubro está adjudicado.";
+                      } else if (estatusRubro === "DIFERIMIENTO") {
+                        mensajeBloqueo = "No se puede eliminar porque el rubro está en diferimiento.";
+                      } else if (estatusRubro === "CANCELADO") {
+                        mensajeBloqueo = "No se puede eliminar porque el rubro está cancelado.";
+                      }
+
+                      if (tieneProveedorAdjudicado) {
+                        mensajeBloqueo =
+                          "No se puede eliminar porque tiene proveedores adjudicados.";
+                      }
 
                     return (
                       <tr
@@ -2734,33 +2813,31 @@ console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className="inline-block">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    disabled={bloquearEliminarPartida}
-                                    className={
-                                      bloquearEliminarPartida
-                                        ? "text-gray-300 cursor-not-allowed"
-                                        : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                                    }
-                                    onClick={() => {
-                                      if (bloquearEliminarPartida)
-                                        return;
-                                      handleEliminarPartida(index);
-                                    }}
-                                  >
-                                    <Trash2 className="w-5 h-5" />
-                                  </Button>
+<Button
+  variant="ghost"
+  size="icon"
+  disabled={bloquearEliminarPartida}
+  className={
+    bloquearEliminarPartida
+      ? "text-gray-300 cursor-not-allowed"
+      : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+  }
+  onClick={() => {
+    if (bloquearEliminarPartida) return;
+
+    // 👉 Abrimos el diálogo y guardamos la partida seleccionada
+    setPartidaAEliminar(index);
+    setOpenEliminarPartidaDialog(true);
+  }}
+>
+  <Trash2 className="w-5 h-5" />
+</Button>
                                 </span>
                               </TooltipTrigger>
 
                               {bloquearEliminarPartida ? (
                                 <TooltipContent side="top">
-                                  <p>
-                                    No se puede eliminar porque
-                                    tiene rubros o proveedores
-                                    adjudicados.
-                                  </p>
+                                  <p>{mensajeBloqueo}</p>
                                 </TooltipContent>
                               ) : (
                                 <TooltipContent side="top">
@@ -2777,6 +2854,36 @@ console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
             </tbody>
           </table>
         </div>
+
+        <Dialog open={openEliminarPartidaDialog} onOpenChange={setOpenEliminarPartidaDialog}>
+  <DialogContent className="max-w-sm">
+    <DialogHeader>
+      <DialogTitle>¿Deseas eliminar esta partida?</DialogTitle>
+      <p className="text-sm text-gray-600">Esta acción no se puede deshacer.</p>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 pt-4">
+      <Button
+        onClick={() => setOpenEliminarPartidaDialog(false)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+      >
+        Cancelar
+      </Button>
+
+      <Button
+        style={{ backgroundColor: "#34e004", color: "white" }}
+        onClick={() => {
+          if (partidaAEliminar !== null) {
+            handleEliminarPartida(partidaAEliminar);
+          }
+          setOpenEliminarPartidaDialog(false);
+        }}
+      >
+        Sí
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
         {/* Botones inferiores */}
         <div className="flex justify-between items-center mt-6 w-full">
@@ -2875,6 +2982,7 @@ console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
 )}
 
 
+
 {/* Paso 3 */}
 {(() => {
   const rubroInputRef = React.useRef<any>(null);
@@ -2882,48 +2990,6 @@ console.log("LISTA DE VALORES POSIBLES:", tiposLicitacion.map(t => t.valor));
 
   // ===== VALIDACIÓN PASO 3 =====
 const [erroresRubro, setErroresRubro] = React.useState<Record<string, string>>({});
-
-  const recargarRubros = async () => {
-  const partidasConId = partidas.filter(p => Number(p.id));
-
-  const rubrosPorPartida = await Promise.all(
-    partidasConId.map(async (partida) => {
-      const resp = await fetch(
-        `${API_BASE}/procesos/editar/seguimiento-partida-rubro?p_id=-99&p_id_seguimiento_partida=${partida.id}`
-      );
-
-      const data = await resp.json();
-
-      return Array.isArray(data)
-        ? data.map((r: any) => {
-            // Buscar rubro en tu catálogo principal
-            const rubroCat = rubros.find(
-              (cat: any) =>
-                String(cat.clave) === String(r.e_id_rubro) ||
-                String(cat.id) === String(r.e_id_rubro)
-            );
-
-            return {
-              id: Number(r.id),
-              p_e_id_rubro: r.e_id_rubro?.toString(),
-              rubro_descripcion:
-                rubroCat?.descripcion ||
-                r.rubro_descripcion ||
-                "",
-              p_e_monto_presupuesto_suficiencia: Number(
-                r.e_monto_presupuesto_suficiencia
-              ),
-              p_id_partida_asociada: partida.e_id_partida?.toString(),
-              p_id_seguimiento_partida: Number(partida.id),
-              estatus: r.estatus || "",
-            };
-          })
-        : [];
-    })
-  );
-
-  setPresupuestosRubro(rubrosPorPartida.flat());
-};
 
 const handleGuardarRubros = async () => {
   const nuevosErrores: Record<string, string> = {};
@@ -2971,55 +3037,7 @@ const handleGuardarRubros = async () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [step, handleGuardarRubros]);
 
-  // 🟦 Cargar rubros existentes del seguimiento
-React.useEffect(() => {
-  if (step !== 3 && step !== 4) return;
-
-  const partidasConId = partidas.filter((p) => Number(p.id));
-  if (partidasConId.length === 0) {
-    setPresupuestosRubro([]);
-    return;
-  }
-
-  let activo = true;
-
-  (async () => {
-    try {
-      const rubrosPorPartida = await Promise.all(
-        partidasConId.map(async (partida) => {
-          const resp = await fetch(
-            `${API_BASE}/procesos/editar/seguimiento-partida-rubro?p_id=-99&p_id_seguimiento_partida=${partida.id}`
-          );
-
-          const data = await resp.json();
-          if (!resp.ok || !Array.isArray(data)) return [];
-
-          return data.map((r) => {
-            const rubroCatalogo = rubros.find(
-              (rb) => String(rb.id) === String(r.e_id_rubro)
-            );
-
-            return {
-              id: Number(r.id),
-              p_e_id_rubro: r.e_id_rubro?.toString(),
-              rubro_descripcion: rubroCatalogo?.descripcion || "",
-              p_e_monto_presupuesto_suficiencia: Number(r.e_monto_presupuesto_suficiencia),
-              p_id_partida_asociada: partida.e_id_partida?.toString(),
-              p_id_seguimiento_partida: Number(partida.id),
-              estatus: r.estatus || "",
-            };
-          });
-        })
-      );
-
-      if (!activo) return;
-      setPresupuestosRubro(rubrosPorPartida.flat());
-    } catch {}
-  })();
-
-  return () => { activo = false };
-}, [step, partidas, rubros]);   // 👈 AGREGADO rubros
-
+  
   if (step !== 3) return null;
 
 return (
@@ -3383,6 +3401,8 @@ onValueChange={(val) => {
                   if (estatus === "CANCELADO") color = "#ef4444";
                   if (estatus === "PREINGRESO") color = "#4b0082";
 
+                  
+
                   return (
                     <span
                       className="inline-block rounded-full"
@@ -3432,147 +3452,69 @@ onValueChange={(val) => {
             r.p_e_monto_presupuesto_suficiencia.toString()
           )}
         </td>
+{/* ACCIÓN (ELIMINAR) */}
+<td className="px-3 py-2 text-center">
 
-        {/* ACCIÓN (ELIMINAR) */}
-        <td className="px-3 py-2 text-center">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-block">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={r.estatus === "ADJUDICADO"}
-                    className={
-                      r.estatus === "ADJUDICADO"
-                        ? "text-gray-300 cursor-not-allowed"
-                        : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                    }
-                    onClick={async () => {
-                      if (r.estatus === "ADJUDICADO") {
-                        toast.error("No puedes eliminar un rubro adjudicado.");
-                        return;
-                      }
+  {/* === LÓGICA DE BLOQUEO === */}
+  {(() => {
+    const rubroBloqueado =
+      r.estatus === "ADJUDICADO" ||
+      r.estatus === "DIFERIMIENTO" ||
+      r.estatus === "CANCELADO";
 
-                      if (presupuestosRubro.length === 1) {
-                        toast.warning("Agrega un rubro antes de eliminar este.");
-                        return;
-                      }
+    let tooltipBloqueo = "Eliminar rubro";
 
-                      const rubro = presupuestosRubro[i];
+    if (r.estatus === "ADJUDICADO")
+      tooltipBloqueo = "No puedes eliminar un rubro adjudicado.";
+    else if (r.estatus === "DIFERIMIENTO")
+      tooltipBloqueo = "No puedes eliminar un rubro en diferimiento.";
+    else if (r.estatus === "CANCELADO")
+      tooltipBloqueo = "No puedes eliminar un rubro cancelado.";
 
-                      if (!rubro?.id) {
-                        toast.error("Este rubro no tiene ID válido. Recargando datos...");
-                        await recargarRubros();
-                        return;
-                      }
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-block">
+              <Button
+  variant="ghost"
+  size="icon"
+  disabled={rubroBloqueado}
+  className={
+    rubroBloqueado
+      ? "text-gray-300 cursor-not-allowed"
+      : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+  }
+  onClick={() => {
+    if (rubroBloqueado) {
+      toast.error(tooltipBloqueo);
+      return;
+    }
 
-                      try {
-                        const respProv = await fetch(
-                          `${API_BASE}/procesos/seguimiento/proveedores-por-rubro/${rubro.id}`
-                        );
+    if (presupuestosRubro.length === 1) {
+      toast.warning("Agrega un rubro antes de eliminar este.");
+      return;
+    }
 
-                        const proveedoresAsociados = respProv.ok
-                          ? await respProv.json()
-                          : [];
+    // SOLO ponemos el índice del rubro a eliminar
+    setRubroAEliminar(i);
 
-                        if (proveedoresAsociados.length > 0) {
-                          const seguro = confirm(
-                            `⚠ Este rubro tiene ${proveedoresAsociados.length} proveedor(es) asociado(s).\n` +
-                              `Si continúas, estos proveedores serán ELIMINADOS.\n\n` +
-                              `¿Deseas continuar?`
-                          );
-                          if (!seguro) return;
+    // SOLO abrimos el dialog
+    setOpenEliminarRubroDialog(true);
+  }}
+>
+  <Trash2 className="w-5 h-5" />
+</Button>
+            </span>
+          </TooltipTrigger>
 
-                          for (const prov of proveedoresAsociados) {
-                            const payloadProveedor = {
-                              p_accion: "ELIMINAR",
-                              p_id: prov.id,
-                              p_id_seguimiento_partida_rubro: prov.id_seguimiento_partida_rubro,
-                              p_e_rfc_proveedor: prov.e_rfc_proveedor,
-                            };
-
-                            await fetch(
-                              `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`,
-                              {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify(payloadProveedor),
-                              }
-                            );
-                          }
-
-                          toast.info(
-                            `Se eliminaron ${proveedoresAsociados.length} proveedores asociados.`
-                          );
-                        }
-
-                        const partidaAsociada = partidas.find(
-                          (p) =>
-                            String(p.e_id_partida) ===
-                            String(
-                              rubro.p_id_partida_asociada ??
-                                rubro.p_id_partida ??
-                                rubro.e_id_partida
-                            )
-                        );
-
-                        if (!partidaAsociada?.id) {
-                          toast.warning("Partida asociada inválida.");
-                          return;
-                        }
-
-                        const payload = {
-                          p_accion: "ELIMINAR",
-                          p_id_seguimiento_partida: Number(partidaAsociada.id),
-                          p_id: Number(rubro.id),
-                          p_e_id_rubro: rubro.p_e_id_rubro || "0",
-                          p_e_monto_presupuesto_suficiencia: 0,
-                        };
-
-                        const resp = await fetch(
-                          `${API_BASE}/procesos/editar/ente-seguimiento-partida-rubro-captura`,
-                          {
-                            method: "PUT",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(payload),
-                          }
-                        );
-
-                        const data = await resp.json();
-
-                        if (!resp.ok) {
-                          console.error("❌ Error al eliminar rubro:", data);
-                          toast.error("No se pudo eliminar el rubro del servidor.");
-                          return;
-                        }
-
-                        await recargarRubros();
-
-                        toast.success("Rubro eliminado correctamente.");
-                      } catch (err) {
-                        console.error("❌ Error al eliminar rubro:", err);
-                        toast.error("Error al eliminar rubro");
-                      }
-                    }}
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </Button>
-                </span>
-              </TooltipTrigger>
-
-              {r.estatus === "ADJUDICADO" ? (
-                <TooltipContent side="top">
-                  No puedes eliminar un rubro adjudicado.
-                </TooltipContent>
-              ) : (
-                <TooltipContent side="top">
-                  Eliminar rubro
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
-        </td>
+          {/* Tooltip dinámico */}
+          <TooltipContent side="top">{tooltipBloqueo}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  })()}
+</td>
       </tr>
     ))
   )}
@@ -3677,6 +3619,138 @@ onValueChange={(val) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* DIALOG ELIMINAR RUBRO */}
+<Dialog open={openEliminarRubroDialog} onOpenChange={setOpenEliminarRubroDialog}>
+  <DialogContent className="max-w-sm">
+    <DialogHeader>
+      <DialogTitle>¿Deseas eliminar este rubro?</DialogTitle>
+      <p className="text-sm text-gray-600">
+        Esta acción no se puede deshacer.
+      </p>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 pt-4">
+
+      <Button
+        onClick={() => setOpenEliminarRubroDialog(false)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+      >
+        Cancelar
+      </Button>
+
+      <Button
+        style={{ backgroundColor: "#34e004", color: "white" }}
+        onClick={async () => {
+          if (rubroAEliminar === null) return;
+
+          // 🔥 TU LÓGICA COMPLETA TAL CUAL SIN CAMBIOS 🔥
+          const i = rubroAEliminar;
+          const rubro = presupuestosRubro[i];
+
+          if (!rubro?.id) {
+            toast.error("Este rubro no tiene ID válido. Recargando datos...");
+            await recargarRubros();
+            return;
+          }
+
+          try {
+            // === OBTENER PROVEEDORES ASOCIADOS ===
+            const respProv = await fetch(
+              `${API_BASE}/procesos/seguimiento/proveedores-por-rubro/${rubro.id}`
+            );
+
+            const proveedoresAsociados = respProv.ok
+              ? await respProv.json()
+              : [];
+
+            if (proveedoresAsociados.length > 0) {
+              const seguro = confirm(
+                `⚠ Este rubro tiene ${proveedoresAsociados.length} proveedor(es) asociado(s).\n` +
+                `Si continúas, estos proveedores serán ELIMINADOS.\n\n` +
+                `¿Deseas continuar?`
+              );
+              if (!seguro) return;
+
+              for (const prov of proveedoresAsociados) {
+                const payloadProveedor = {
+                  p_accion: "ELIMINAR",
+                  p_id: prov.id,
+                  p_id_seguimiento_partida_rubro: prov.id_seguimiento_partida_rubro,
+                  p_e_rfc_proveedor: prov.e_rfc_proveedor,
+                };
+
+                await fetch(
+                  `${API_BASE}/procesos/seguimiento/partida-rubro-proveedor-ente-v2/`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payloadProveedor),
+                  }
+                );
+              }
+
+              toast.info(
+                `Se eliminaron ${proveedoresAsociados.length} proveedores asociados.`
+              );
+            }
+
+            const partidaAsociada = partidas.find(
+              (p) =>
+                String(p.e_id_partida) ===
+                String(
+                  rubro.p_id_partida_asociada ??
+                  rubro.p_id_partida ??
+                  rubro.e_id_partida
+                )
+            );
+
+            if (!partidaAsociada?.id) {
+              toast.warning("Partida asociada inválida.");
+              return;
+            }
+
+            const payload = {
+              p_accion: "ELIMINAR",
+              p_id_seguimiento_partida: Number(partidaAsociada.id),
+              p_id: Number(rubro.id),
+              p_e_id_rubro: rubro.p_e_id_rubro || "0",
+              p_e_monto_presupuesto_suficiencia: 0,
+            };
+
+            const resp = await fetch(
+              `${API_BASE}/procesos/editar/ente-seguimiento-partida-rubro-captura`,
+              {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              }
+            );
+
+            const data = await resp.json();
+
+            if (!resp.ok) {
+              console.error("❌ Error al eliminar rubro:", data);
+              toast.error("No se pudo eliminar el rubro del servidor.");
+              return;
+            }
+
+            await recargarRubros();
+            toast.success("Rubro eliminado correctamente.");
+          } catch (err) {
+            console.error("❌ Error al eliminar rubro:", err);
+            toast.error("Error al eliminar rubro");
+          }
+
+          setOpenEliminarRubroDialog(false);
+        }}
+      >
+        Sí, eliminar
+      </Button>
+
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
     </>
   );
 })()}
@@ -3967,6 +4041,8 @@ if (rfcInputRef.current) {
                     const partidaAsociada = partidas.find(
                       (p) => String(p.e_id_partida) === String(r.p_id_partida_asociada)
                     );
+
+                    
                     return (
                       <option key={`${r.p_e_id_rubro}-${idValido}`} value={idValido}>
                         {partidaAsociada ? partidaAsociada.e_id_partida : "Partida"} | Rubro {r.p_e_id_rubro} — {r.rubro_descripcion}
@@ -4200,6 +4276,21 @@ if (rfcInputRef.current) {
           if (estatus === "CANCELADO") color = "#ef4444";
           if (estatus === "PREINGRESO") color = "#4b0082";
 
+          // 🔒 Determinar si debe bloquearse eliminar proveedor
+          const proveedorBloqueado =
+            estatus === "ADJUDICADO" ||
+            estatus === "DIFERIMIENTO" ||
+            estatus === "CANCELADO";
+
+          let tooltipBloqueo = "Eliminar proveedor";
+
+          if (estatus === "ADJUDICADO")
+            tooltipBloqueo = "No puedes eliminar un proveedor de un rubro adjudicado.";
+          else if (estatus === "DIFERIMIENTO")
+            tooltipBloqueo = "No puedes eliminar un proveedor de un rubro en diferimiento.";
+          else if (estatus === "CANCELADO")
+            tooltipBloqueo = "No puedes eliminar un proveedor de un rubro cancelado.";
+
           return (
             <tr
               key={index}
@@ -4252,46 +4343,65 @@ if (rfcInputRef.current) {
 
               {/* BOTÓN ELIMINAR (RESPETANDO ADJUDICADO) */}
               <td className="text-center px-3 py-2" style={{ width: "40px" }}>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-block">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          disabled={estatus === "ADJUDICADO"}
-                          className={
-                            estatus === "ADJUDICADO"
-                              ? "text-gray-300 cursor-not-allowed"
-                              : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                          }
-                          onClick={() => {
-                            if (estatus === "ADJUDICADO") {
-                              toast.error(
-                                "No puedes eliminar un proveedor de un rubro adjudicado."
-                              );
-                              return;
-                            }
-                            handleEliminarProveedor(index);
-                          }}
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-block">
 
-                    {estatus === "ADJUDICADO" ? (
-                      <TooltipContent side="top">
-                        Este rubro está adjudicado — No se puede eliminar proveedor.
-                      </TooltipContent>
-                    ) : (
-                      <TooltipContent side="top">
-                        Eliminar proveedor
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
-              </td>
+          {(() => {
+            // 🔒 BLOQUEO COMPLETO
+            const proveedorBloqueado =
+              estatus === "ADJUDICADO" ||
+              estatus === "DIFERIMIENTO" ||
+              estatus === "CANCELADO";
+
+            let tooltipBloqueo = "Eliminar proveedor";
+
+            if (estatus === "ADJUDICADO")
+              tooltipBloqueo = "No puedes eliminar un proveedor de un rubro adjudicado.";
+            else if (estatus === "DIFERIMIENTO")
+              tooltipBloqueo = "No puedes eliminar un proveedor de un rubro en diferimiento.";
+            else if (estatus === "CANCELADO")
+              tooltipBloqueo = "No puedes eliminar un proveedor de un rubro cancelado.";
+
+            return (
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={proveedorBloqueado}
+                className={
+                  proveedorBloqueado
+                    ? "text-gray-300 cursor-not-allowed"
+                    : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                }
+                onClick={() => {
+                  if (proveedorBloqueado) {
+                    toast.error(tooltipBloqueo);
+                    return;
+                  }
+                  handleEliminarProveedor(index);
+                }}
+              >
+                <Trash2 className="w-5 h-5" />
+              </Button>
+            );
+          })()}
+
+        </span>
+      </TooltipTrigger>
+
+      <TooltipContent side="top">
+        {(() => {
+          if (estatus === "ADJUDICADO") return "Este rubro está adjudicado — No se puede eliminar proveedor.";
+          if (estatus === "DIFERIMIENTO") return "Este rubro está en diferimiento — No se puede eliminar proveedor.";
+          if (estatus === "CANCELADO") return "Este rubro está cancelado — No se puede eliminar proveedor.";
+          return "Eliminar proveedor";
+        })()}
+      </TooltipContent>
+
+    </Tooltip>
+  </TooltipProvider>
+</td>
 
             </tr>
           );
