@@ -446,6 +446,12 @@ setPuedeAgregarPartida(true);
   // Estado para buscar y mostrar entidades federativas
   const [entidadQuery, setEntidadQuery] = React.useState("");
   const [mostrarListaEntidades, setMostrarListaEntidades] = React.useState(false);
+  const [openEliminarProveedorDialog, setOpenEliminarProveedorDialog] = React.useState(false);
+  // 👇 Tipo correcto para evitar errores
+const [proveedorAEliminar, setProveedorAEliminar] = React.useState<{
+  index: number;
+  proveedor: any;
+} | null>(null);
 
   const [forzarAutoselect, setForzarAutoselect] = useState(false);
 
@@ -3745,7 +3751,7 @@ onValueChange={(val) => {
           setOpenEliminarRubroDialog(false);
         }}
       >
-        Sí, eliminar
+        Sí
       </Button>
 
     </DialogFooter>
@@ -4374,13 +4380,14 @@ if (rfcInputRef.current) {
                     ? "text-gray-300 cursor-not-allowed"
                     : "text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                 }
-                onClick={() => {
-                  if (proveedorBloqueado) {
-                    toast.error(tooltipBloqueo);
-                    return;
-                  }
-                  handleEliminarProveedor(index);
-                }}
+               onClick={() => {
+                if (proveedorBloqueado) {
+                  toast.error(tooltipBloqueo);
+                  return;
+                }
+                setProveedorAEliminar({ index, proveedor: p });
+                setOpenEliminarProveedorDialog(true);
+              }}
               >
                 <Trash2 className="w-5 h-5" />
               </Button>
@@ -4410,6 +4417,47 @@ if (rfcInputRef.current) {
     </tbody>
   </table>
 </div>
+
+<Dialog open={openEliminarProveedorDialog} onOpenChange={setOpenEliminarProveedorDialog}>
+  <DialogContent className="max-w-sm">
+    <DialogHeader>
+      <DialogTitle>¿Deseas eliminar este proveedor?</DialogTitle>
+      <p className="text-sm text-gray-600">
+        Esta acción no se puede deshacer.
+      </p>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 pt-4">
+      <Button
+        onClick={() => setOpenEliminarProveedorDialog(false)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="hover:brightness-110"
+        type="button"
+      >
+        Cancelar
+      </Button>
+
+      <Button
+        onClick={() => {
+          if (!proveedorAEliminar) return;
+
+          const { index } = proveedorAEliminar;
+
+          // Ejecutar eliminación original
+          handleEliminarProveedor(index);
+
+          // Cerrar modal
+          setOpenEliminarProveedorDialog(false);
+        }}
+        style={{ backgroundColor: "#34e004", color: "white" }}
+        className="hover:brightness-110"
+        type="button"
+      >
+        Sí
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
        {/* ---------------- NAVEGACIÓN INFERIOR ---------------- */}
 <div className="flex justify-start items-center gap-3 w-full mt-6">
