@@ -223,6 +223,70 @@ function RectorForm() {
   const [showTooltipFinalizar, setShowTooltipFinalizar] = useState(false);
   const [estatusPorRubro, setEstatusPorRubro] = useState<{ [key: number]: string }>({});
 
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [rowToDelete, setRowToDelete] = useState(null);
+
+  // 🔥🔥🔥 AQUÍ — EXACTAMENTE AQUÍ — PEGA ESTA FUNCIÓN 🔥🔥🔥
+const handleDelete = async (row: any) => {
+  console.log("ROW COMPLETO:", row);
+
+  const estatus = row.estatus;
+  let payload = {};
+
+  if (estatus === "ADJUDICADO" || estatus === "DIFERIMIENTO") {
+    payload = {
+      p_id_seguimiento_partida_rubro: row.id_seguimiento_partida_rubro,
+      p_id_proveedor: row.id_seguimiento_partida_rubro_proveedor_adjudicado
+    };
+  } else {
+    payload = {
+      p_id_seguimiento_partida_rubro: row.id_seguimiento_partida_rubro,
+      p_id_proveedor: -99
+    };
+  }
+
+  try {
+    const res = await fetch(
+      `${API_BASE}/rector/seg-partida-rubro-proveedor-deshacer/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.detail);
+
+    toast.success("Reversión realizada correctamente");
+
+    setEstatusPorRubro(prev => {
+      const copy = { ...prev };
+      delete copy[row.rubro];
+      return copy;
+    });
+
+    setSelectedEstatus(prev => {
+      const copy = { ...prev };
+      delete copy[row.rubro];
+      return copy;
+    });
+
+    setEstatusLocal("");
+
+    setRubroProveedorRows(prev =>
+      prev.filter(r =>
+        !(Number(r.partida) === Number(row.partida) &&
+          Number(r.rubro) === Number(row.rubro))
+      )
+    );
+
+  } catch {
+    toast.error("Error al intentar revertir adjudicación");
+  }
+};
+// 🔥🔥🔥 FIN — ESTE ES EL LUGAR CORRECTO 🔥🔥🔥
+
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useUser();
   // Estado para controlar el accordion abierto en el paso 2
@@ -793,7 +857,7 @@ useEffect(() => {
         }
       }
 
-      toast.success("✅ Captura registrada correctamente");
+      toast.success("Captura registrada correctamente");
 
       // ✅ Mantener campos actualizados localmente en detalleGeneral
       setDetalleGeneral((prev: any) => ({
@@ -1230,6 +1294,7 @@ const yaAdjudicadoMemo = useMemo(() => {
   estatusPorRubro   // ✔ este sí
 ]);
 
+
   // Nueva función para guardar fila en la tabla inferior (con validación visual)
   const handleGuardar = () => {
     // Validar campos obligatorios
@@ -1284,43 +1349,177 @@ const yaAdjudicadoMemo = useMemo(() => {
       {/* Step Indicator visual */}
       <StepIndicator step={pasoActual} steps={steps} />
 
-      {/* Card Detalle del Seguimiento SIEMPRE visible */}
-{detalleGeneral && (
-  <Card className="border shadow-sm bg-gray-50">
-    
-    {/* HEADER — AHORA CON EL BOTÓN ARRIBA A LA DERECHA */}
-    <CardHeader className="flex flex-row items-center justify-between">
 
-{/* IZQUIERDA: Flecha + Título + Oficio + Botones superiores */}
-<div className="flex items-center gap-3">
+{/* ============================
+  BOTONES SUPERIORES – PASO 1 – SALIR + AVANZAR/FINALIZAR ALINEADOS
+============================ */}
+{detalleGeneral && pasoActual === 1 && (
+  <div className="flex items-center justify-between mb-3">
 
-{/* Flecha SALIR con Dialog */}
+    {/* 🔴 Flecha SALIR con Dialog */}
+    <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button
+        variant="outline"
+        size="icon"
+        type="button"
+        onClick={() => setOpenSalirDialog(true)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="rounded-md shadow-sm cursor-pointer"
+      >
+        <span className="text-lg">←</span>
+      </Button>
+    </TooltipTrigger>
+
+    {/* 🔥 Tooltip HACIA ARRIBA */}
+    <TooltipContent
+      side="top"
+      align="center"
+      className="text-xs"
+    >
+      Salir
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+          <DialogDescription>
+            Si sales ahora, podrías perder información no guardada.
+          </DialogDescription>
+        </DialogHeader>
+
+        <DialogFooter className="flex justify-end gap-3 mt-4">
+          <Button
+            onClick={() => setOpenSalirDialog(false)}
+            style={{ backgroundColor: "#db200b", color: "white" }}
+          >
+            Cancelar
+          </Button>
+
+          <Button
+            onClick={() => {
+              setOpenSalirDialog(false);
+              router.push("/seguimiento-rector");
+            }}
+            style={{ backgroundColor: "#34e004", color: "white" }}
+          >
+            Sí
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* 🔵 DERECHA – Botones del PASO 1 */}
+    <div className="flex gap-3">
+
+      {/* ⭐ AVANZAR PASO 2 (REVISADO) */}
+      {estatusGeneral === "REVISADO" && (
+<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          if (!validateStep1Fields()) return;
+
+          const formEl = document.querySelector("form");
+          if (formEl) {
+            formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+          }
+
+          setTimeout(() => setStep(2), 500);
+        }}
+        className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 
+                   transition-transform flex items-center gap-1 rounded-full px-4 py-2 cursor-pointer"
+      >
+        <span className="font-bold">2</span>
+        <span className="font-bold">→</span>
+      </Button>
+    </TooltipTrigger>
+
+    {/* 🔥 Tooltip ARRIBA */}
+    <TooltipContent 
+      side="top" 
+      align="center"
+      className="text-xs"
+    >
+      Avanzar al siguiente paso
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+      )}
+
+      {/* ⭐ FINALIZAR PROCESO (CANCELADO) */}
+      {estatusGeneral === "CANCELADO" && (
+<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button
+        type="button"
+        className="text-white hover:brightness-110"
+        style={{ backgroundColor: "#FFBF00" }}
+        onClick={() => {
+          const formEl = document.querySelector("form");
+          if (formEl) {
+            formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+          }
+        }}
+      >
+        Finalizar proceso
+      </Button>
+    </TooltipTrigger>
+
+    {/* 🔥 Tooltip ARRIBA */}
+    <TooltipContent 
+      side="top" 
+      align="center"
+      className="text-xs"
+    >
+      Terminar proceso. No se podrá avanzar a adjudicación.
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+      )}
+
+    </div>
+  </div>
+)}
+
+ {pasoActual === 2 && (
+  <div className="flex justify-start items-center gap-3 mt-10">
+
+{/* Botón rojo SALIR con Tooltip + Dialog */}
 <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
   <TooltipProvider>
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          type="button"
-          onClick={() => setOpenSalirDialog(true)}
-          style={{ backgroundColor: "#db200b", color: "white" }}
-          className="rounded-md shadow-sm cursor-pointer"
-        >
-          <span className="text-lg">←</span>
-        </Button>
+<Button
+  variant="outline"
+  size="icon"
+  type="button"
+  onClick={() => setOpenSalirDialog(true)}
+  style={{ backgroundColor: "#db200b", color: "white" }}
+  className="rounded-md shadow-sm cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+>
+  <span className="text-lg">←</span>
+</Button>
       </TooltipTrigger>
 
-      <TooltipContent side="bottom" className="text-xs">
-        Salir
+      <TooltipContent side="top">
+        <p>Salir</p>
       </TooltipContent>
     </Tooltip>
   </TooltipProvider>
 
-  {/* --- Diálogo --- */}
+  {/* ----- Diálogo de confirmación ----- */}
   <DialogContent className="max-w-sm">
     <DialogHeader>
-      <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+      <DialogTitle>¿Deseas salir?</DialogTitle>
       <DialogDescription>
         Si sales ahora, podrías perder información no guardada.
       </DialogDescription>
@@ -1340,7 +1539,7 @@ const yaAdjudicadoMemo = useMemo(() => {
       <Button
         onClick={() => {
           setOpenSalirDialog(false);
-          router.push("/seguimiento-rector"); // 🔥 tu ruta original
+          router.push("/seguimiento-rector"); // 👈 tu misma ruta del Link original
         }}
         style={{ backgroundColor: "#34e004", color: "white" }}
         className="hover:brightness-110"
@@ -1351,49 +1550,98 @@ const yaAdjudicadoMemo = useMemo(() => {
   </DialogContent>
 </Dialog>
 
-  {/* ⭐ BOTONES SUPERIORES AGREGADOS AQUÍ */}
-  {estatusGeneral === "REVISADO" && pasoActual === 2 && (
-    <div className="flex items-center gap-2">
+    {/* Botones derecha ahora junto al botón salir */}
+    {estatusGeneral === "REVISADO" && (
+      <>
 
-      {/* Botón: Regresar al paso anterior */}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              onClick={() => setStep((prev) => Math.max(prev - 1, 1))}
-              className="cursor-pointer"
-            >
-              ← Regresar al paso anterior
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">
-            Regresar al paso anterior
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+        {/* BOTÓN REGRESAR AL PASO ANTERIOR */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+<Button
+  variant="outline"
+  onClick={() => setStep((prev) => Math.max(prev - 1, 1))}
+  className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+>
+  <span className="text-[#235391] font-bold">← 1</span>
+</Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Regresar al paso anterior</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
-      {/* Botón: Finalizar proceso */}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              onClick={finalizarProceso}
-              style={{ backgroundColor: "#db200b", color: "white" }}
-              className="cursor-pointer hover:brightness-110"
-            >
-              Finalizar proceso
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">
-            Finalizar el proceso
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+        {/* BOTÓN FINALIZAR PROCESO */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={finalizarProceso}
+                style={{ backgroundColor: "#FFBF00", color: "white" }}
+                className="cursor-pointer hover:brightness-110"
+              >
+                Finalizar proceso
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Finalizar el proceso</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
-    </div>
-  )}
+      </>
+    )}
 
+  </div>
+)}
+
+<Dialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
+  <DialogContent className="max-w-sm">
+    <DialogHeader>
+      <DialogTitle>¿Deseas eliminar este registro?</DialogTitle>
+      <DialogDescription>
+        Esta acción no se puede deshacer.
+      </DialogDescription>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 mt-4">
+
+      {/* CANCELAR */}
+      <Button
+        onClick={() => setOpenDeleteDialog(false)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Cancelar
+      </Button>
+
+      {/* CONFIRMAR ELIMINAR */}
+      <Button
+        onClick={async () => {
+          if (!rowToDelete) return;
+
+          await handleDelete(rowToDelete); // 👈 Ejecuta tu lógica que ya tienes
+          setOpenDeleteDialog(false);
+          setRowToDelete(null);
+        }}
+        style={{ backgroundColor: "#34e004", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Sí
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+      {/* Card Detalle del Seguimiento SIEMPRE visible */}
+{detalleGeneral && (
+  <Card className="border shadow-sm bg-gray-50">
+    
+    {/* HEADER — AHORA CON EL BOTÓN ARRIBA A LA DERECHA */}
+    <CardHeader className="flex flex-row items-center justify-between">
+
+{/* IZQUIERDA: Flecha + Título + Oficio + Botones superiores */}
+<div className="flex items-center gap-3">
   {/* Texto */}
   <div className="flex flex-col">
     <CardTitle className="text-gray-700 text-lg">Detalle del Seguimiento</CardTitle>
@@ -1406,69 +1654,6 @@ const yaAdjudicadoMemo = useMemo(() => {
   </div>
 </div>
 
-      {/* DERECHA — BOTÓN (AVANZAR O FINALIZAR) */}
-      <div className="flex items-center">
-
-        {/* AVANZAR AL PASO 2 */}
-        {pasoActual === 1 && estatusGeneral === "REVISADO" && (
-          <div className="relative">
-            <Button
-              type="button"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              onMouseEnter={() => setShowTooltipAvanzarTop(true)}
-              onMouseLeave={() => setShowTooltipAvanzarTop(false)}
-              onClick={(e) => {
-              e.preventDefault();
-              if (!validateStep1Fields()) return;
-
-              const formEl = document.querySelector("form");
-              if (formEl) {
-                formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
-              }
-
-              setTimeout(() => setStep(2), 500);
-            }}
-            >
-              Avanzar al paso 2
-            </Button>
-
-            {showTooltipAvanzarTop && (
-              <div className="absolute bottom-full right-0 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
-                Avanza al siguiente paso
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* FINALIZAR PROCESO */}
-        {estatusGeneral === "CANCELADO" && (
-          <div className="relative">
-            <Button
-              type="button"
-              className="bg-red-600 hover:bg-red-700 text-white"
-              onMouseEnter={() => setShowTooltipFinalizar(true)}
-              onMouseLeave={() => setShowTooltipFinalizar(false)}
-              onClick={(e) => {
-              e.preventDefault();
-              if (!validateStep1Fields()) return;
-
-              const formEl = document.querySelector("form");
-              if (formEl) {
-                formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
-              }
-            }}
-            >
-              Finalizar proceso
-            </Button>
-
-            {showTooltipFinalizar && (
-              <div className="absolute bottom-full right-0 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
-                Terminar proceso. No se podrá avanzar a adjudicación.
-              </div>
-            )}
-          </div>
-        )}
-      </div>
 
     </CardHeader>
 
@@ -1980,66 +2165,6 @@ const yaAdjudicadoMemo = useMemo(() => {
                   </form>
                 </DialogContent>
               </Dialog>
-
-              {/* Botones avanzar/cancelar */}
-              {estatusGeneral === "REVISADO" && (
-                <div className="relative ml-auto">
-                  <Button
-                    type="button"
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    onMouseEnter={() => setShowTooltipAvanzarBottom(true)}
-                    onMouseLeave={() => setShowTooltipAvanzarBottom(false)}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (!validateStep1Fields()) {
-                        toast.error("❌ Completa todos los campos obligatorios antes de avanzar");
-                        return;
-                      }
-
-                      const formEl = document.querySelector("form");
-                      if (formEl) {
-                        formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
-                      }
-
-                      setTimeout(() => setStep(2), 500);
-                    }}
-                  >
-                    Avanzar al paso 2
-                  </Button>
-
-                  {showTooltipAvanzarBottom && (
-                    <div className="absolute bottom-full right-0 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
-                      Avanza al siguiente paso
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {estatusGeneral === "CANCELADO" && (
-                <div className="relative ml-auto">
-                  <Button
-                    type="button"
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                    onMouseEnter={() => setShowTooltipFinalizar(true)}
-                    onMouseLeave={() => setShowTooltipFinalizar(false)}
-                    onClick={() => {
-                      const formEl = document.querySelector("form");
-                      if (formEl) {
-                        formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
-                      }
-                    }}
-                  >
-                    Finalizar proceso
-                  </Button>
-
-                  {showTooltipFinalizar && (
-                    <div className="absolute bottom-full right-0 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs shadow z-50">
-                      Terminar proceso. No se podrá avanzar a adjudicación.
-                    </div>
-                  )}
-                </div>
-              )}
-
             </div>
           </div>
 
@@ -2047,64 +2172,131 @@ const yaAdjudicadoMemo = useMemo(() => {
       </CardContent>
     </Card>
 
-    {/* 🔥 BOTÓN DE SALIR — FUERA DEL CARD */}
-<div className="flex justify-start mb-4">
-  <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
+    {/* ============================
+  BARRA SUPERIOR DE CONTROL (Salir + Avanzar/Finalizar)
+============================ */}
+{pasoActual === 1 && (
+  <div className="flex w-full justify-between items-center mb-4">
+
+    {/* 🔴 BOTÓN DE SALIR */}
+    <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              onClick={() => setOpenSalirDialog(true)}
+              style={{ backgroundColor: "#db200b", color: "white" }}
+              className="cursor-pointer rounded-md shadow-sm"
+              size="icon"
+            >
+              ←
+            </Button>
+          </TooltipTrigger>
+
+          <TooltipContent side="top">
+            <p>Salir</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+          <DialogDescription>
+            Si sales ahora, podrías perder información no guardada.
+          </DialogDescription>
+        </DialogHeader>
+
+        <DialogFooter className="flex justify-end gap-3 mt-4">
           <Button
-            onClick={() => setOpenSalirDialog(true)}
+            onClick={() => setOpenSalirDialog(false)}
             style={{ backgroundColor: "#db200b", color: "white" }}
-            className="cursor-pointer rounded-md shadow-sm"
-            size="icon"
+            className="hover:brightness-110"
           >
-            ←
+            Cancelar
           </Button>
-        </TooltipTrigger>
 
-        <TooltipContent side="top">
-          <p>Salir</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+          <Button
+            onClick={() => {
+              setOpenSalirDialog(false);
+              router.push("/seguimiento-rector");
+            }}
+            style={{ backgroundColor: "#34e004", color: "white" }}
+            className="hover:brightness-110"
+          >
+            Sí
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
-    <DialogContent className="max-w-sm">
-      <DialogHeader>
-        <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
-        <DialogDescription>
-          Si sales ahora, podrías perder información no guardada.
-        </DialogDescription>
-      </DialogHeader>
+    {/* ⭐ CONTENEDOR DE BOTONES DERECHA */}
+    <div className="flex gap-3">
 
-      <DialogFooter className="flex justify-end gap-3 mt-4">
-        
-        {/* Cancelar */}
-        <Button
-          onClick={() => setOpenSalirDialog(false)}
-          style={{ backgroundColor: "#db200b", color: "white" }}
-          className="hover:brightness-110"
-        >
-          Cancelar
-        </Button>
+      {/* ➤ AVANZAR AL PASO 2 (REVISADO) */}
+      {estatusGeneral === "REVISADO" && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+<Button
+  type="button"
+  onClick={(e) => {
+    e.preventDefault();
+    if (!validateStep1Fields()) return;
 
-        {/* Confirmación: redirige igual que tu botón original */}
-        <Button
-          onClick={() => {
-            setOpenSalirDialog(false);
-            router.push("/seguimiento-rector"); // 🔥 MISMA RUTA QUE TENÍAS
-          }}
-          style={{ backgroundColor: "#34e004", color: "white" }}
-          className="hover:brightness-110"
-        >
-          Sí
-        </Button>
+    const formEl = document.querySelector("form");
+    if (formEl) {
+      formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+    }
 
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
-</div>
+    setTimeout(() => setStep(2), 500);
+  }}
+  className="bg-[#235391] text-white hover:bg-[#1e3a8a] hover:scale-105 
+             transition-transform flex items-center gap-1 rounded-full px-4 py-2 cursor-pointer"
+>
+  <span className="font-bold">2</span>
+  <span className="font-bold">→</span>
+</Button>
+            </TooltipTrigger>
 
+            <TooltipContent side="top" className="text-xs">
+              Avanzar al siguiente paso
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+
+      {/* 🔴 FINALIZAR PROCESO (CANCELADO) */}
+      {estatusGeneral === "CANCELADO" && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+            <Button
+              type="button"
+              className="text-white hover:brightness-110"
+              style={{ backgroundColor: "#FFBF00" }}   // ⭐ COLOR NUEVO
+              onClick={() => {
+                const formEl = document.querySelector("form");
+                if (formEl) {
+                  formEl.requestSubmit ? formEl.requestSubmit() : formEl.submit();
+                }
+              }}
+            >
+              Finalizar proceso
+            </Button>
+            </TooltipTrigger>
+
+            <TooltipContent side="top" className="text-xs">
+              Terminar proceso. No se podrá avanzar a adjudicación.
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+
+    </div>
+
+  </div>
+)}
   </>
 )}
 
@@ -2817,77 +3009,9 @@ const yaAdjudicadoMemo = useMemo(() => {
   size="sm"
   variant="destructive"
   className="cursor-pointer flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white"
-  onClick={async () => {
-
-    console.log("ROW COMPLETO:", row);
-
-    const estatus = row.estatus;
-
-    let payload = {};
-
-    if (estatus === "ADJUDICADO" || estatus === "DIFERIMIENTO") {
-      // Caso A → revertir adjudicación real
-      payload = {
-        p_id_seguimiento_partida_rubro: row.id_seguimiento_partida_rubro,
-        p_id_proveedor: row.id_seguimiento_partida_rubro_proveedor_adjudicado
-      };
-    } else {
-      // Caso B → DESIERTO / CANCELADO → revertir estatus
-      payload = {
-        p_id_seguimiento_partida_rubro: row.id_seguimiento_partida_rubro,
-        p_id_proveedor: -99
-      };
-    }
-
-    console.log("Payload enviado:", payload);
-
-    try {
-      const res = await fetch(
-        `${API_BASE}/rector/seg-partida-rubro-proveedor-deshacer/`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.detail || "Error al revertir adjudicación");
-      }
-
-      if (data.resultado === 1) {
-        toast.success("Reversión realizada correctamente");
-
-          // 🔥 limpiar estatus memorizados
-          setEstatusPorRubro(prev => {
-            const copy = { ...prev };
-            delete copy[row.rubro];
-            return copy;
-          });
-
-          setSelectedEstatus(prev => {
-            const copy = { ...prev };
-            delete copy[row.rubro];
-            return copy;
-          });
-
-          setEstatusLocal("");
-
-        // Remover la fila de la grilla
-        setRubroProveedorRows(prev =>
-          prev.filter(r =>
-            !(Number(r.partida) === Number(row.partida) &&
-              Number(r.rubro) === Number(row.rubro))
-          )
-        );
-      } else {
-        toast.warning("No se encontró registro para revertir");
-      }
-    } catch (err) {
-      toast.error("Error al intentar revertir adjudicación");
-    }
+  onClick={() => {
+    setRowToDelete(row);     // Guarda la fila a eliminar
+    setOpenDeleteDialog(true); // Abre dialog
   }}
 >
   <Trash2 size={18} />
@@ -3011,14 +3135,16 @@ const yaAdjudicadoMemo = useMemo(() => {
   <TooltipProvider>
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="outline"
-          style={{ backgroundColor: "#db200b", color: "white" }}
-          className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-          onClick={() => setOpenSalirDialog(true)}
-        >
-          ←
-        </Button>
+<Button
+  variant="outline"
+  size="icon"
+  type="button"
+  onClick={() => setOpenSalirDialog(true)}
+  style={{ backgroundColor: "#db200b", color: "white" }}
+  className="rounded-md shadow-sm cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+>
+  <span className="text-lg">←</span>
+</Button>
       </TooltipTrigger>
 
       <TooltipContent side="top">
@@ -3069,13 +3195,13 @@ const yaAdjudicadoMemo = useMemo(() => {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                onClick={() => setStep((prev) => Math.max(prev - 1, 1))}
-                className="cursor-pointer"
-              >
-                ← Regresar al paso anterior
-              </Button>
+<Button
+  variant="outline"
+  onClick={() => setStep((prev) => Math.max(prev - 1, 1))}
+  className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2"
+>
+  <span className="text-[#235391] font-bold">← 1</span>
+</Button>
             </TooltipTrigger>
             <TooltipContent side="top">
               <p>Regresar al paso anterior</p>
@@ -3089,7 +3215,7 @@ const yaAdjudicadoMemo = useMemo(() => {
             <TooltipTrigger asChild>
               <Button
                 onClick={finalizarProceso}
-                style={{ backgroundColor: "#db200b", color: "white" }}
+                style={{ backgroundColor: "#FFBF00", color: "white" }}
                 className="cursor-pointer hover:brightness-110"
               >
                 Finalizar proceso
@@ -3106,6 +3232,44 @@ const yaAdjudicadoMemo = useMemo(() => {
 
   </div>
 )}
+
+<Dialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
+  <DialogContent className="max-w-sm">
+    <DialogHeader>
+      <DialogTitle>¿Deseas eliminar este registro?</DialogTitle>
+      <DialogDescription>
+        Esta acción no se puede deshacer.
+      </DialogDescription>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 mt-4">
+
+      {/* CANCELAR */}
+      <Button
+        onClick={() => setOpenDeleteDialog(false)}
+        style={{ backgroundColor: "#db200b", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Cancelar
+      </Button>
+
+      {/* CONFIRMAR ELIMINAR */}
+      <Button
+        onClick={async () => {
+          if (!rowToDelete) return;
+
+          await handleDelete(rowToDelete); // 👈 Ejecuta tu lógica que ya tienes
+          setOpenDeleteDialog(false);
+          setRowToDelete(null);
+        }}
+        style={{ backgroundColor: "#34e004", color: "white" }}
+        className="hover:brightness-110"
+      >
+        Sí
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
     </main>
   );
 }
