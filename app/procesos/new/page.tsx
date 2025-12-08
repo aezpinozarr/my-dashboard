@@ -262,6 +262,8 @@ function NuevoProcesoPage() {
   const [fuentes, setFuentes] = React.useState<any[]>([]);
   const [catalogoPartidas, setCatalogoPartidas] = React.useState<any[]>([]);
   const [partidas, setPartidas] = React.useState<any[]>([]);
+  const [partidaAEliminar, setPartidaAEliminar] = useState<number | null>(null);
+  const [openEliminarPartidaDialog, setOpenEliminarPartidaDialog] = useState(false);
   // Estado para habilitar o no el botón "Nueva partida"
   const [puedeAgregarPartida, setPuedeAgregarPartida] = React.useState(false);
   // Paso 2: Guardar la partida actual (por índice) y habilitar "Nueva partida"
@@ -324,6 +326,8 @@ function NuevoProcesoPage() {
   };
 
   // Paso 3
+  const [openEliminarRubroDialog, setOpenEliminarRubroDialog] = useState(false);
+  const [rubroAEliminar, setRubroAEliminar] = useState<number | null>(null);
   const [rubros, setRubros] = React.useState<any[]>([]);
   const [nuevoRubro, setNuevoRubro] = React.useState({
     p_e_id_rubro: "",
@@ -341,6 +345,8 @@ function NuevoProcesoPage() {
   ]);
 
   // Paso 4: Proveedores añadidos
+  const [openEliminarProveedorDialog, setOpenEliminarProveedorDialog] = useState(false);
+  const [proveedorAEliminar, setProveedorAEliminar] = useState<number | null>(null);
   const [proveedores, setProveedores] = React.useState<any[]>([]);
   const [entidades, setEntidades] = React.useState<any[]>([]);
   const [selectedEntidadId, setSelectedEntidadId] = React.useState<string>("");
@@ -2201,14 +2207,27 @@ const handleNext = async () => {
                         <td className="px-3 py-2 text-center">{p.ramo_descripcion}</td>
                         <td className="px-3 py-2 text-center">{p.fondo}</td>
                         <td className="px-3 py-2 text-right w-[1%]">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                            onClick={() => handleEliminarPartida(index)}
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </Button>
+<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+        onClick={() => {
+          setPartidaAEliminar(index);   // ← Guardamos cuál vas a borrar
+          setOpenEliminarPartidaDialog(true); // ← Abrimos el modal
+        }}
+      >
+        <Trash2 className="w-5 h-5" />
+      </Button>
+    </TooltipTrigger>
+
+    <TooltipContent side="top">
+      Eliminar partida
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
                         </td>
                       </tr>
                     );
@@ -2323,6 +2342,44 @@ const handleNext = async () => {
         variant="default"
         className="bg-[#34e004] text-white hover:bg-[#34e004]"
         type="button"
+      >
+        Sí
+      </Button>
+
+    </DialogFooter>
+
+  </DialogContent>
+</Dialog>
+
+<Dialog open={openEliminarPartidaDialog} onOpenChange={setOpenEliminarPartidaDialog}>
+  <DialogContent className="max-w-sm">
+
+    <DialogHeader>
+      <DialogTitle>¿Deseas eliminar esta partida?</DialogTitle>
+      <p className="text-sm text-gray-600">
+        Esta acción no se puede deshacer.
+      </p>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 mt-4">
+      
+      {/* BOTÓN CANCELAR */}
+      <Button
+        onClick={() => setOpenEliminarPartidaDialog(false)}
+        className="bg-[#db200b] text-white hover:bg-[#db200b]"
+      >
+        Cancelar
+      </Button>
+
+      {/* BOTÓN CONFIRMAR */}
+      <Button
+        className="bg-[#34e004] text-white hover:bg-[#34e004]"
+        onClick={() => {
+          if (partidaAEliminar === null) return;
+
+          handleEliminarPartida(partidaAEliminar); //  ← Llamas tu función original
+          setOpenEliminarPartidaDialog(false);
+        }}
       >
         Sí
       </Button>
@@ -2698,65 +2755,27 @@ const handleNext = async () => {
                       {r.p_e_monto_presupuesto_suficiencia}
                     </td>
                     <td className="px-3 py-2 text-center" style={{ width: "40px" }}>
-                   <Button
-  variant="ghost"
-  size="icon"
-  className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-  onClick={async () => {
-    const rubro = presupuestosRubro[i];
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            onClick={() => {
+                              setRubroAEliminar(i);           // Guardamos cuál rubro eliminar
+                              setOpenEliminarRubroDialog(true); // Abrimos modal
+                            }}
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </Button>
+                        </TooltipTrigger>
 
-    if (!rubro) return;
-
-
-    try {
-      // 1) Eliminar en BD si tiene ID
-      if (rubro.id) {
-        const payload = {
-          p_accion: "ELIMINAR",
-          p_id_seguimiento_partida: rubro.p_id_partida_asociada,
-          p_id: rubro.id,
-        };
-
-        const resp = await fetch(
-          `${API_BASE}/procesos/seguimiento/partida-rubro-ente-v2/`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          }
-        );
-
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(JSON.stringify(data));
-      }
-
-      // 2) BORRAR TODOS LOS PROVEEDORES ASOCIADOS A ESTE RUBRO
-      setProveedores((prev) => {
-        const filtrados = prev.filter(
-          (p) => String(p.p_e_id_rubro_partida) !== String(rubro.id)
-        );
-
-        console.log("🔥 PROVEEDORES ELIMINADOS POR RUBRO:", {
-          rubroEliminado: rubro.id,
-          antes: prev.length,
-          despues: filtrados.length,
-        });
-
-        return filtrados;
-      });
-
-      // 3) Quitar rubro del estado local
-      setPresupuestosRubro((prev) => prev.filter((_, idx) => idx !== i));
-
-      toast.success("Rubro eliminado correctamente.");
-    } catch (err) {
-      console.error("❌ Error al eliminar rubro:", err);
-      toast.error("Error al eliminar rubro.");
-    }
-  }}
->
-  <Trash2 className="w-5 h-5" />
-</Button>
+                        <TooltipContent side="top">
+                          <p>Eliminar rubro</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     </td>
                   </tr>
                 ))
@@ -2871,6 +2890,86 @@ const handleNext = async () => {
 
   </Dialog>
 
+<Dialog open={openEliminarRubroDialog} onOpenChange={setOpenEliminarRubroDialog}>
+  <DialogContent className="max-w-sm">
+
+    <DialogHeader>
+      <DialogTitle>¿Deseas eliminar este rubro?</DialogTitle>
+      <DialogDescription>
+        Esta acción no se puede deshacer.
+      </DialogDescription>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 mt-4">
+
+      {/* 🔴 CANCELAR */}
+      <Button
+        onClick={() => setOpenEliminarRubroDialog(false)}
+        className="bg-[#db200b] text-white hover:bg-[#db200b]"
+      >
+        Cancelar
+      </Button>
+
+      {/* 🟢 SÍ, ELIMINAR */}
+      <Button
+        className="bg-[#34e004] text-white hover:bg-[#34e004]"
+        onClick={async () => {
+          if (rubroAEliminar === null) return;
+
+          const rubro = presupuestosRubro[rubroAEliminar];
+          if (!rubro) return;
+
+          try {
+            // 1) Eliminar en BD
+            if (rubro.id) {
+              const payload = {
+                p_accion: "ELIMINAR",
+                p_id_seguimiento_partida: rubro.p_id_partida_asociada,
+                p_id: rubro.id,
+              };
+
+              const resp = await fetch(
+                `${API_BASE}/procesos/seguimiento/partida-rubro-ente-v2/`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(payload),
+                }
+              );
+
+              const data = await resp.json();
+              if (!resp.ok) throw new Error(JSON.stringify(data));
+            }
+
+            // 2) Eliminar proveedores asociados
+            setProveedores((prev) =>
+              prev.filter(
+                (p) =>
+                  String(p.p_e_id_rubro_partida) !== String(rubro.id)
+              )
+            );
+
+            // 3) Quitar rubro del estado local
+            setPresupuestosRubro((prev) =>
+              prev.filter((_, idx) => idx !== rubroAEliminar)
+            );
+
+            toast.success("Rubro eliminado correctamente.");
+          } catch (err) {
+            console.error("❌ Error al eliminar rubro:", err);
+            toast.error("Error al eliminar rubro.");
+          }
+
+          setOpenEliminarRubroDialog(false);
+        }}
+      >
+        Sí
+      </Button>
+
+    </DialogFooter>
+
+  </DialogContent>
+</Dialog>
 </div>
     </div>
   );
@@ -3369,14 +3468,27 @@ const handleNext = async () => {
                       <td className="px-3 py-2 text-center">{p.e_importe_sin_iva}</td>
                       <td className="px-3 py-2 text-center">{p.e_importe_total}</td>
                       <td className="px-3 py-2 text-center" style={{ width: "40px" }}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                          onClick={() => handleEliminarProveedor(index)}
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            onClick={() => {
+                              setProveedorAEliminar(index);
+                              setOpenEliminarProveedorDialog(true);
+                            }}
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </Button>
+                        </TooltipTrigger>
+
+                        <TooltipContent side="top">
+                          <p>Eliminar proveedor</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                       </td>
                     </tr>
                   ))
@@ -3708,6 +3820,46 @@ const handleNext = async () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={openEliminarProveedorDialog} onOpenChange={setOpenEliminarProveedorDialog}>
+  <DialogContent className="max-w-sm">
+
+    <DialogHeader>
+      <DialogTitle>¿Deseas eliminar este proveedor?</DialogTitle>
+      <DialogDescription>
+        Esta acción no se puede deshacer.
+      </DialogDescription>
+    </DialogHeader>
+
+    <DialogFooter className="flex justify-end gap-3 mt-4">
+
+      {/* CANCELAR */}
+      <Button
+        onClick={() => setOpenEliminarProveedorDialog(false)}
+        className="bg-[#db200b] text-white hover:bg-[#db200b]"
+      >
+        Cancelar
+      </Button>
+
+      {/* SÍ, ELIMINAR */}
+      <Button
+        className="bg-[#34e004] text-white hover:bg-[#34e004]"
+        onClick={() => {
+          if (proveedorAEliminar === null) return;
+
+          // Ejecutamos la lógica que ya tienes
+          handleEliminarProveedor(proveedorAEliminar);
+
+          setOpenEliminarProveedorDialog(false);
+        }}
+      >
+        Sí
+      </Button>
+
+    </DialogFooter>
+
+  </DialogContent>
+</Dialog>
       </div>
     </>
   );
