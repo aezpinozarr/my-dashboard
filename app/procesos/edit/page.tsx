@@ -3321,43 +3321,52 @@ onValueChange={(val) => {
                  )}
                </div>
              
-               {/* Monto presupuesto */}
-               <div className="w-full">
-                 <Label>Monto presupuesto suficiencia</Label>
-                 <Input
-                   value={nuevoRubro.p_e_monto_presupuesto_suficiencia}
-                   onChange={(e) => {
-                     setErroresRubro((prev) => ({ ...prev, p_e_monto_presupuesto_suficiencia: "" }));
-                     setNuevoRubro((prev) => ({
-                       ...prev,
-                       p_e_monto_presupuesto_suficiencia: formatMoney(e.target.value),
-                     }));
-                   }}
-                   className={`${erroresRubro.p_e_monto_presupuesto_suficiencia ? "border border-red-500" : ""}`}
-                   placeholder="$0.00"
-                 />
-                 {erroresRubro.p_e_monto_presupuesto_suficiencia && (
-                   <p className="text-red-500 text-xs mt-1">
-                     {erroresRubro.p_e_monto_presupuesto_suficiencia}
-                   </p>
-                 )}
-               </div>
+               {/* Monto + Botón en una sola fila */}
+<div className="grid grid-cols-10 gap-3 w-full">
 
-              {/* AÑADIR BOTÓN */}
-              <div className="flex justify-end">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button style={{ backgroundColor: "#10c706", color: "white" }}>
-                        Añadir rubro
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Agregar un nuevo rubro a la lista</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
+  {/* 70% → 7 columnas */}
+  <div className="col-span-7">
+    <Label>Monto presupuesto suficiencia</Label>
+    <Input
+      value={nuevoRubro.p_e_monto_presupuesto_suficiencia}
+      onChange={(e) => {
+        setErroresRubro((prev) => ({ ...prev, p_e_monto_presupuesto_suficiencia: "" }));
+        setNuevoRubro((prev) => ({
+          ...prev,
+          p_e_monto_presupuesto_suficiencia: formatMoney(e.target.value),
+        }));
+      }}
+      className={`${erroresRubro.p_e_monto_presupuesto_suficiencia ? "border border-red-500" : ""}`}
+      placeholder="$0.00"
+    />
+    {erroresRubro.p_e_monto_presupuesto_suficiencia && (
+      <p className="text-red-500 text-xs mt-1">
+        {erroresRubro.p_e_monto_presupuesto_suficiencia}
+      </p>
+    )}
+  </div>
+
+  {/* 30% → 3 columnas */}
+  <div className="col-span-3 flex items-end">
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="submit"
+            className="w-full"
+            style={{ backgroundColor: "#10c706", color: "white" }}
+          >
+            Añadir rubro
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Agregar un nuevo rubro a la lista</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  </div>
+
+</div>
             </form>
           </div>
 

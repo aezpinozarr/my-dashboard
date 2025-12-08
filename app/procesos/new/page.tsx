@@ -2606,15 +2606,17 @@ const handleNext = async () => {
       <p className="text-red-500 text-xs mt-1">{erroresRubro.p_e_id_rubro}</p>
     )}
   </div>
+{/* Monto + Botón en una sola fila */}
+<div className="w-full grid grid-cols-10 gap-3">
 
-  {/* Monto presupuesto */}
-  <div className="w-full">
+  {/* 70% → 7 columnas */}
+  <div className="col-span-7">
     <Label>Monto presupuesto suficiencia</Label>
     <Input
       value={nuevoRubro.p_e_monto_presupuesto_suficiencia}
       onChange={(e) => {
-        setErroresRubro((prev) => ({ ...prev, p_e_monto_presupuesto_suficiencia: "" }));
-        setNuevoRubro((prev) => ({
+        setErroresRubro(prev => ({ ...prev, p_e_monto_presupuesto_suficiencia: "" }));
+        setNuevoRubro(prev => ({
           ...prev,
           p_e_monto_presupuesto_suficiencia: formatMoney(e.target.value),
         }));
@@ -2629,12 +2631,28 @@ const handleNext = async () => {
     )}
   </div>
 
-  {/* Botón añadir */}
-  <div className="flex justify-end">
-    <Button style={{ backgroundColor: "#10c706", color: "white" }}>
-      Añadir rubro
-    </Button>
-  </div>
+{/* 30% → 3 columnas */}
+<div className="col-span-3 flex items-end">
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="submit"
+          style={{ backgroundColor: "#10c706", color: "white" }}
+          className="w-full"
+        >
+          Añadir rubro
+        </Button>
+      </TooltipTrigger>
+
+      <TooltipContent side="top">
+        <p>Agregar un nuevo rubro a la lista</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+</div>
+
+</div>
 </form>
         </div>
 
