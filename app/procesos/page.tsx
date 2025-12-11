@@ -7,7 +7,7 @@ import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
 import { Button } from "@/components/ui/button";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { CheckCircle, Loader2, LayoutGrid, List, ChevronDown, ChevronUp, Settings2, ChevronRight, Download, PlusCircle, LogOut, EllipsisVertical } from "lucide-react";
+import { CheckCircle, Loader2, LayoutGrid, List, ChevronDown, ChevronUp, Settings2, ChevronRight, Download, PlusCircle, LogOut, EllipsisVertical, RotateCcw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { Input } from "@/components/ui/input";
@@ -127,42 +127,9 @@ useEffect(() => {
   const [openRectorMenu, setOpenRectorMenu] = useState(false);
   const [openPresupuestoMenu, setOpenPresupuestoMenu] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
-    const timer = requestAnimationFrame(() => setIsMounted(true));
-    return () => cancelAnimationFrame(timer);
-  }, []);
-
-  // Column definitions for Rector subtable
-  const columnsRector = [
-    { id: "r_suplencia_oficio_no", header: "Oficio suplencia" },
-    { id: "r_fecha_emision", header: "Fecha de emisión" },
-    { id: "r_asunto", header: "Asunto" },
-    { id: "r_fecha_y_hora_reunion", header: "Fecha reunión" },
-
-  ];
-
-  // Column definitions for Presupuesto subtable
-const columnsPresupuesto = [
-  {
-    id: "_estatusIndicator",
-    header: "", // columna fantasma para el punto de color
-  },
-  { id: "partida", header: "Partida" },
-  { id: "capitulo", header: "Capítulo" },
-  { id: "clasificacion", header: "Clasificación" },
-  { id: "tipo_gasto", header: "Tipo de Gasto" },
-  { id: "f_financiamiento", header: "Fuente Financiamiento" },
-  { id: "rubro", header: "Rubro" },
-  { id: "e_monto_presupuesto_suficiencia", header: "Monto" },
-  { id: "proveedores", header: "Proveedores" },
-];
-
-  useEffect(() => {
-  // Espera a que el user esté completamente cargado
-  if (!userLoaded) return;
-  if (!user) return;
 
   const fetchData = async () => {
+    if (!user) return;
     try {
       let url = "";
 
@@ -251,6 +218,40 @@ const columnsPresupuesto = [
       setLoading(false);
     }
   };
+  useEffect(() => {
+    const timer = requestAnimationFrame(() => setIsMounted(true));
+    return () => cancelAnimationFrame(timer);
+  }, []);
+
+  // Column definitions for Rector subtable
+  const columnsRector = [
+    { id: "r_suplencia_oficio_no", header: "Oficio suplencia" },
+    { id: "r_fecha_emision", header: "Fecha de emisión" },
+    { id: "r_asunto", header: "Asunto" },
+    { id: "r_fecha_y_hora_reunion", header: "Fecha reunión" },
+
+  ];
+
+  // Column definitions for Presupuesto subtable
+const columnsPresupuesto = [
+  {
+    id: "_estatusIndicator",
+    header: "", // columna fantasma para el punto de color
+  },
+  { id: "partida", header: "Partida" },
+  { id: "capitulo", header: "Capítulo" },
+  { id: "clasificacion", header: "Clasificación" },
+  { id: "tipo_gasto", header: "Tipo de Gasto" },
+  { id: "f_financiamiento", header: "Fuente Financiamiento" },
+  { id: "rubro", header: "Rubro" },
+  { id: "e_monto_presupuesto_suficiencia", header: "Monto" },
+  { id: "proveedores", header: "Proveedores" },
+];
+
+  useEffect(() => {
+  // Espera a que el user esté completamente cargado
+  if (!userLoaded) return;
+  if (!user) return;
 
   fetchData();
 }, [userLoaded]);
@@ -515,61 +516,88 @@ const columnsPresupuesto = [
   return (
     <main className="w-full p-6 space-y-6 bg-white min-h-screen">
       {/* ENCABEZADO */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-3">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link href="/dashboard">
-                <Button
-                  variant="outline"
-                  style={{ backgroundColor: "#db200b", color: "white" }}
-                  className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
-                >
-                  ←
-                </Button>
-              </Link>
-            </TooltipTrigger>
+<div className="flex flex-col sm:flex-row justify-between items-center gap-4">
 
-            <TooltipContent side="bottom" className="text-xs">
-              Salir
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-          <div>
-            <h1 className="text-2xl font-bold">
-              Seguimiento de Procesos
-            </h1>
-            <p className="text-gray-600 text-sm">
-              Registros elaborados por tu ente.
-            </p>
-            {data.length > 0 && (
-            <p className="text-muted-foreground text-sm">
-              {search.trim() === "" ? (
-                <>
-                  <span className="font-bold">{data.length}</span> registro
-                  {data.length !== 1 && "s"}.
-                </>
-              ) : (
-                <>
-                  <span className="font-bold">{data.length}</span> registro
-                  {data.length !== 1 && "s"} de{" "}
-                  <span className="font-bold">{originalData.length}</span>.
-                </>
-              )}
-            </p>
+  {/* IZQUIERDA */}
+  <div className="flex items-center gap-3">
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link href="/dashboard">
+            <Button
+              variant="outline"
+              style={{ backgroundColor: "#db200b", color: "white" }}
+              className="cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:brightness-110"
+            >
+              ←
+            </Button>
+          </Link>
+        </TooltipTrigger>
+
+        <TooltipContent side="bottom" className="text-xs">
+          Salir
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+
+    <div>
+      <h1 className="text-2xl font-bold">Seguimiento de Procesos</h1>
+      <p className="text-gray-600 text-sm">Registros elaborados por tu ente.</p>
+
+      {data.length > 0 && (
+        <p className="text-muted-foreground text-sm">
+          {search.trim() === "" ? (
+            <>
+              <span className="font-bold">{data.length}</span> registro
+              {data.length !== 1 && "s"}.
+            </>
+          ) : (
+            <>
+              <span className="font-bold">{data.length}</span> registro
+              {data.length !== 1 && "s"} de{" "}
+              <span className="font-bold">{originalData.length}</span>.
+            </>
           )}
-          </div>
-        </div>
-        <ActionButtonsGroup
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          onExport={() => console.log("Exportar CSV (implementación pendiente)")}
-          showExport={viewMode === "table"}
-          newPath="/procesos/new"
-          table={table} // ✅ pasa la instancia de la tabla
-        />
-      </div>
+        </p>
+      )}
+    </div>
+  </div>
+
+  {/* DERECHA */}
+  <div className="flex items-center gap-3">
+<TooltipProvider delayDuration={100}>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button
+        variant="outline"
+        onClick={fetchData}
+        className="h-9 w-9 flex items-center justify-center rounded-full border border-gray-300 hover:bg-gray-100 transition"
+      >
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin text-gray-700" />
+        ) : (
+          <RotateCcw className="h-4 w-4 text-gray-700" />
+        )}
+      </Button>
+    </TooltipTrigger>
+
+    <TooltipContent side="bottom" className="text-xs">
+      Refrescar datos
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+
+    <ActionButtonsGroup
+      viewMode={viewMode}
+      setViewMode={setViewMode}
+      onExport={() => console.log("Exportar CSV (pendiente)")}
+      showExport={viewMode === "table"}
+      newPath="/procesos/new"
+      table={table}
+    />
+  </div>
+
+</div>  {/* ←←← AQUÍ CIERRA EL DIV PRINCIPAL DEL HEADER */}
 
       {/* 🔍 BARRA DE BÚSQUEDA CON FILTROS */}
       <div className="w-full mt-2 flex gap-2 items-center">
