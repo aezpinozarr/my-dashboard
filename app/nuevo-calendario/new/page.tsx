@@ -32,6 +32,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Eye, UserPlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -530,15 +531,184 @@ return (
                 )}
               </Command>
 
-              <div className="flex gap-4 mt-2">
-                <Button variant="outline" onClick={() => setDialogVerServidores(true)}>
-                  <Eye className="w-4 h-4" /> Ver servidores
-                </Button>
+   <div className="flex gap-4 mt-2">
 
-                <Button variant="outline" onClick={() => setDialogNuevoServidor(true)}>
-                  <UserPlus className="w-4 h-4" /> Añadir servidor
-                </Button>
-              </div>
+      {/* Ver servidores públicos */}
+      <Dialog open={dialogVerServidores} onOpenChange={setDialogVerServidores}>
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            className="border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
+            type="button"
+          >
+            <Eye className="w-4 h-4" />
+            Ver servidores públicos
+          </Button>
+        </DialogTrigger>
+
+        {/* Dialog más pequeño y scrollable */}
+        <DialogContent className="max-w-md max-h-[70vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Servidores públicos del ente</DialogTitle>
+            <DialogDescription>
+              Lista de servidores públicos registrados para este ente.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Contenedor scrollable */}
+          <div className="overflow-y-auto mt-2 border rounded-md max-h-[50vh]">
+            <table className="min-w-full bg-white border-collapse">
+              <thead className="sticky top-0 bg-gray-100 z-10">
+                <tr>
+                  <th className="py-2 px-4 border-b text-left">Nombre</th>
+                  <th className="py-2 px-4 border-b text-left">Cargo</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {servidores
+                  .filter(s => String(s.id_ente) === String(user?.id_ente))
+                  .map((s, idx) => (
+                    <tr key={s.id || idx}>
+                      <td className="py-2 px-4 border-b">{s.nombre}</td>
+                      <td className="py-2 px-4 border-b">{s.cargo}</td>
+                    </tr>
+                  ))}
+
+                {servidores.filter(s => String(s.id_ente) === String(user?.id_ente)).length === 0 && (
+                  <tr>
+                    <td colSpan={2} className="py-2 px-4 text-center text-gray-400">
+                      No hay servidores públicos para este ente.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button
+              onClick={() => setDialogVerServidores(false)}
+              style={{ backgroundColor: "#db200b", color: "white" }}
+              className="hover:brightness-110"
+            >
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Añadir servidor */}
+      <Dialog open={dialogNuevoServidor} onOpenChange={setDialogNuevoServidor}>
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            className="border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
+            type="button"
+          >
+            <UserPlus className="w-4 h-4" /> Añadir servidor
+          </Button>
+        </DialogTrigger>
+
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Añadir nuevo servidor público</DialogTitle>
+            <DialogDescription>
+              Completa los campos para registrar un nuevo servidor público para este ente.
+            </DialogDescription>
+            <p className="text-sm text-gray-500 mt-1">
+              El servidor se asociará automáticamente al ente al que perteneces.
+            </p>
+          </DialogHeader>
+
+          <form
+            className="space-y-4 mt-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!nuevoServidorNombre.trim() || !nuevoServidorCargo.trim()) {
+                toast.warning("Por favor ingresa nombre y cargo.");
+                return;
+              }
+              try {
+                const url = `${API_BASE}/catalogos/ente-y-servidor-publico-gestionar-ambos?p_id_ente=${user?.id_ente}&p_nombre=${encodeURIComponent(
+                  nuevoServidorNombre
+                )}&p_cargo=${encodeURIComponent(nuevoServidorCargo)}`;
+                const resp = await fetch(url, { method: "POST" });
+                if (!resp.ok) {
+                  toast.error("Error al añadir servidor público.");
+                  return;
+                }
+
+                const sResp = await fetch(
+                  `${API_BASE}/catalogos/servidores-publicos-ente?p_id=-99&p_id_ente=${user?.id_ente}`
+                );
+                const nuevosServidores = await sResp.json();
+                setServidores(nuevosServidores);
+
+                const nuevoServidor = nuevosServidores.find(
+                  (s) =>
+                    s.nombre?.toLowerCase() === nuevoServidorNombre.toLowerCase() &&
+                    s.cargo?.toLowerCase() === nuevoServidorCargo.toLowerCase()
+                );
+
+                if (nuevoServidor) {
+                  setServidorSeleccionado(nuevoServidor);
+                  setCargoServidor(nuevoServidor.cargo || "");
+                  setBusquedaServidor(nuevoServidor.nombre);
+                  setMostrarServidores(false);
+                  toast.success(`Servidor "${nuevoServidor.nombre}" seleccionado automáticamente`);
+                }
+
+                setNuevoServidorNombre("");
+                setNuevoServidorCargo("");
+                setDialogNuevoServidor(false);
+              } catch (err) {
+                toast.error("Error al añadir servidor público.");
+              }
+            }}
+          >
+            <div>
+              <Label>Ente perteneciente</Label>
+              <Input
+                value={enteDescripcion || "Cargando..."}
+                disabled
+                className="bg-gray-100 text-gray-700 cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <Label>Nombre</Label>
+              <Input
+                value={nuevoServidorNombre}
+                onChange={(e) => setNuevoServidorNombre(e.target.value)}
+                placeholder="Nombre del servidor público"
+              />
+            </div>
+            <div>
+              <Label>Cargo</Label>
+              <Input
+                value={nuevoServidorCargo}
+                onChange={(e) => setNuevoServidorCargo(e.target.value)}
+                placeholder="Cargo del servidor público"
+              />
+            </div>
+
+            <DialogFooter className="mt-2">
+              <Button
+                type="button"
+                className="bg-[#db200b] text-white hover:bg-[#b81a09]"
+                onClick={() => setDialogNuevoServidor(false)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" className="bg-[#34e004] text-white hover:bg-[#2bc103]">
+                Guardar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+    </div>
               {formErrors.servidor && (
                 <p className="text-red-600 text-xs mt-1">{formErrors.servidor}</p>
               )}
