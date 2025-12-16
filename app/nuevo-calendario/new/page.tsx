@@ -1,3 +1,13 @@
+import { Suspense } from "react";
+
+export default function NuevoCalendarioPageWrapper() {
+  return (
+    <Suspense fallback={<div>Cargando…</div>}>
+      <NuevoCalendarioPage />
+    </Suspense>
+  );
+}
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -133,7 +143,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
    MARCADO PROFESIONAL POR SECCIONES
 ========================================================= */
 
-export default function NuevoCalendarioPage() {
+function NuevoCalendarioPage() {
   const { user, loading: userLoading } = useUser();
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState(1);
