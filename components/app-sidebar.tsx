@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, GalleryVerticalEnd, SquareTerminal } from "lucide-react";
+import { Bot, GalleryVerticalEnd, SquareTerminal, Presentation, NotebookPen, Briefcase, Library, UserLock } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
@@ -85,9 +85,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     },
 
         {
+      title: "Nuevas sesiones",
+      url: "#",
+      icon: Presentation,
+      isActive: openMenus.includes("Sesiones"),
+      items: [
+        { title: "Calendario", url: "/nuevo-calendario/" },
+        { title: "Nueva sesión (Calendario)", url: "/nuevo-calendario/new/" },
+      ],
+    },
+
+        {
       title: "Procesos",
       url: "#",
-      icon: SquareTerminal,
+      icon: NotebookPen,
       isActive: openMenus.includes("Procesos"),
       items: [
         { title: "Seguimiento de procesos", url: "/procesos" },
@@ -102,7 +113,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       {
         title: "Rector",
         url: "#",
-        icon: SquareTerminal,
+        icon: Briefcase,
         isActive: openMenus.includes("Rector"),
         items: [
           { title: "Seguimientos", url: "/seguimiento-rector/seguimientos" },
@@ -116,7 +127,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       {
       title: "Catálogos",
       url: "#",
-      icon: Bot,
+      icon: Library,
       isActive: openMenus.includes("Catálogos"),
       items: [
         { title: "Entes", url: "/catalogos/entes" },
@@ -130,7 +141,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     {
       title: "Seguridad",
       url: "#",
-      icon: Bot,
+      icon: UserLock,
       isActive: openMenus.includes("Seguridad"),
       items: [{ title: "Usuarios", url: "/seguridad/usuarios" }],
     },
