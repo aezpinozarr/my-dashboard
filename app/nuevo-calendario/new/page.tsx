@@ -1,3 +1,4 @@
+"use client";
 import { Suspense } from "react";
 
 export default function NuevoCalendarioPageWrapper() {
@@ -8,7 +9,7 @@ export default function NuevoCalendarioPageWrapper() {
   );
 }
 
-"use client";
+
 
 import React, { useEffect, useState } from "react";
 import { useUser } from "@/context/UserContext";
