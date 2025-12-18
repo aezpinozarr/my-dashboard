@@ -476,7 +476,7 @@ return (
 
             {/* PRESIDENTE */}
             <div className="mb-6">
-              <Label>Presidente(a) del subcomité de compras</Label>
+              <Label>Servidor público (emite)</Label>
 
               <Command>
                 <CommandInput
@@ -1582,8 +1582,9 @@ function Paso3Fechas({ idCalendario, idUsuario, onBack }: Paso3Props) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    onClick={() => {
-                      toast.success("Aquí ejecutarías la lógica de finalizar.");
+                  onClick={() => {
+                    toast.success("Proceso finalizado correctamente.");
+                    router.push("/nuevo-calendario");
                     }}
                     className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
                     style={{ backgroundColor: "#FFBF00" }}
@@ -1734,23 +1735,26 @@ function Paso3Fechas({ idCalendario, idUsuario, onBack }: Paso3Props) {
   </TooltipProvider>
 
   {/* Botón finalizar */}
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          onClick={() => toast.success("Aquí ejecutarías la lógica de finalizar.")}
-          className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
-          style={{ backgroundColor: "#FFBF00" }}
-        >
-          Finalizar
-        </Button>
-      </TooltipTrigger>
+<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button
+        onClick={() => {
+          toast.success("Proceso finalizado correctamente.");
+          router.push("/nuevo-calendario");
+        }}
+        className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
+        style={{ backgroundColor: "#FFBF00" }}
+      >
+        Finalizar
+      </Button>
+    </TooltipTrigger>
 
-      <TooltipContent side="top">
-        Finalizar proceso
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
+    <TooltipContent side="top">
+      Finalizar proceso
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
 </div>
 
 </CardContent>

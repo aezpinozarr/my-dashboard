@@ -2,16 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import { useUser } from "@/context/UserContext";
+import Link from "next/link";
 
+// --- UI Components ---
+import { ActionButtonsGroup } from "@/components/shared/ActionButtonsGroup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent,
-} from "@/components/ui/accordion";
 import {
   Table,
   TableHeader,
@@ -20,6 +17,12 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
 
 import {
   Tooltip,
@@ -28,8 +31,26 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronRight,
+  RotateCcw,
+  Loader2,
+} from "lucide-react";
+
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
+
+// --- TanStack Table ---
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+  ColumnDef,
+  SortingState,
+  VisibilityState,
+} from "@tanstack/react-table";
 
 import { cn } from "@/lib/utils";
 
@@ -44,98 +65,185 @@ const API_BASE =
     : "http://127.0.0.1:8000";
 
 // ------------------------ INTERFACES ------------------------
-interface Calendario {
-  id: number;
-  ente: string;
-  presidente: string | null;
-  cargo_presidente: string | null;
-  acuerdo: string | null;
-  tipo_evento: string | null;
-  tipo_licitacion: string | null;
-  numero_sesion: string | null;
-  usuario_registra: string | null;
-
-  fechas?: CalendarioFecha[];
-  fuentes?: CalendarioFuente[];
-}
-
 interface CalendarioFecha {
   fecha: string;
   hora: string;
 }
 
 interface CalendarioFuente {
-  fuente: string;
-  monto: string | number | null;
+  id_fuente_financiamiento: string;
+  fuente_descripcion: string;
 }
 
-// ------------------------ PÁGINA PRINCIPAL ------------------------
-export default function CalendarioConsultaPage() {
+interface Calendario {
+  id: number;
+  ente: string;
+  presidente: string;
+  cargo_presidente: string;
+  acuerdo: string;
+  tipo_evento: string;
+  tipo_licitacion: string;
+  numero_sesion: string;
+  usuario_registra: string;
+
+  fechas?: CalendarioFecha[];
+  fuentes?: CalendarioFuente[];
+}
+
+function numeroSesionToTexto(num: any): string {
+  const n = Number(num);
+  if (!Number.isFinite(n) || n <= 0) return "—";
+
+  const unidades = [
+    "",
+    "primera",
+    "segunda",
+    "tercera",
+    "cuarta",
+    "quinta",
+    "sexta",
+    "séptima",
+    "octava",
+    "novena",
+  ];
+
+  const decenas = [
+    "",
+    "décima",
+    "vigésima",
+    "trigésima",
+    "cuadragésima",
+    "quincuagésima",
+    "sexagésima",
+    "septuagésima",
+    "octogésima",
+    "nonagésima",
+  ];
+
+  const centenas = [
+    "",
+    "centésima",
+    "ducentésima",
+    "tricentésima",
+    "cuadringentésima",
+    "quingentésima",
+    "sexcentésima",
+    "septingentésima",
+    "octingentésima",
+    "noningentésima",
+  ];
+
+  if (n < 1000) {
+    const c = Math.floor(n / 100);
+    const d = Math.floor((n % 100) / 10);
+    const u = n % 10;
+
+    let texto = "";
+
+    if (c > 0) texto += centenas[c];
+    if (d > 0) texto += (texto ? " " : "") + decenas[d];
+    if (u > 0) texto += (texto ? " " : "") + unidades[u];
+
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+  }
+
+  return `Sesión ${n}`;
+}
+
+// =========================================================================
+// =====================   PAGE COMPONENT   ================================
+// =========================================================================
+
+export default function CalendarioPage() {
   const { user } = useUser();
+
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   const [data, setData] = useState<Calendario[]>([]);
   const [originalData, setOriginalData] = useState<Calendario[]>([]);
 
-  const [openRow, setOpenRow] = useState<Record<number, boolean>>({});
-  const [openSections, setOpenSections] = useState<
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+  const [expandedSections, setExpandedSections] = useState<
     Record<number, { fechas: boolean; fuentes: boolean }>
   >({});
 
-  const [search, setSearch] = useState("");
+  // --- Sorting ---
+  const [sorting, setSorting] = useState<SortingState>([]);
 
-  // ------------------------ FETCH INICIAL ------------------------
+  const [usuariosMap, setUsuariosMap] = useState<Record<string, string>>({});
+
+  // =========================================================================
+  // =========================== FETCH DATA ==================================
+  // =========================================================================
   const fetchAll = async () => {
     setLoading(true);
 
     try {
-      // 1️⃣ --- Calendarios ---
-      const urlCalendarios =
+      const url =
         user?.tipo === "ENTE"
           ? `${API_BASE}/procesos/calendario/consultar?p_id_ente=${user.id_ente}`
           : `${API_BASE}/procesos/calendario/consultar`;
 
-      const res = await fetch(urlCalendarios);
+      const res = await fetch(url);
       const json = await res.json();
+
       const calendarios = json?.calendario || [];
 
-      // Normalizamos a nuestro modelo visual
-    const normalized: Calendario[] = calendarios.map((row: any) => ({
-    id: row.id,
-    ente: row.ente ?? "—",
-    presidente: row.servidor_publico ?? "—",
-    cargo_presidente: row.servidor_publico_cargo ?? "—",
-    acuerdo: row.acuerdo_o_numero_licitacion ?? "—",
-    tipo_evento: row.tipo_evento ?? "—",
-    tipo_licitacion: row.tipo_licitacion ?? "—",
-    numero_sesion: row.tipo_licitacion_no_veces ?? "—",
-    usuario_registra: row.id_usuario_registra ?? "—",
-    fechas: [],
-    fuentes: [],
-    }));
-
-      // 2️⃣ --- Fechas de cada calendario ---
-      for (const cal of normalized) {
-        const resF = await fetch(
-          `${API_BASE}/procesos/calendario/fechas?p_id_calendario=${cal.id}`
-        );
-        const jsonF = await resF.json();
-        cal.fechas = jsonF.calendario_fechas ?? [];
+      // Fetch usuarios
+      try {
+        const resUsers = await fetch(`${API_BASE}/seguridad/usuarios/`);
+        const usuarios = await resUsers.json(); 
+        const map: Record<string, string> = {};
+        usuarios.forEach((u: any) => {
+          map[String(u.id)] = u.nombre_completo ?? u.nombre ?? "";
+        });
+        setUsuariosMap(map);
+      } catch (err) {
+        console.warn("No se pudo cargar usuarios:", err);
       }
 
-      // 3️⃣ --- Fuentes de financiamiento ---
-      for (const cal of normalized) {
-        const resFF = await fetch(
-          `${API_BASE}/procesos/calendario/fuentes-financiamiento?p_id_calendario=${cal.id}`
-        );
-        const jsonFF = await resFF.json();
-        cal.fuentes = jsonFF.calendario_fuentes_financiamiento ?? [];
-      }
+      const normalized: Calendario[] = calendarios.map((c: any) => ({
+        id: c.id,
+        ente: c.ente ?? "—",
+        presidente: c.servidor_publico ?? "—",
+        cargo_presidente: c.servidor_publico_cargo ?? "—",
+        acuerdo: c.acuerdo_o_numero_licitacion ?? "—",
+        tipo_evento: c.tipo_evento ?? "—",
+        tipo_licitacion: c.tipo_licitacion ?? "—",
+        numero_sesion: c.tipo_licitacion_no_veces ?? "—",
+        usuario_registra: c.id_usuario_registra ?? "—",
+        fechas: [],
+        fuentes: [],
+      }));
+
+      // Fetch subtablas en paralelo (optimizado)
+      await Promise.all(
+        normalized.map(async (cal) => {
+          const [f1, f2] = await Promise.all([
+            fetch(
+              `${API_BASE}/procesos/calendario/fechas?p_id_calendario=${cal.id}`
+            ),
+            fetch(
+              `${API_BASE}/procesos/calendario/fuentes-financiamiento?p_id_calendario=${cal.id}`
+            ),
+          ]);
+
+          const fechasJson = await f1.json();
+          const fuentesJson = await f2.json();
+
+          cal.fechas = fechasJson.fechas ?? [];
+          cal.fuentes = fuentesJson.fuentes ?? [];
+        })
+      );
+
+      // Ordenar por ID DESC
+      normalized.sort((a, b) => Number(b.id) - Number(a.id));
 
       setData(normalized);
       setOriginalData(normalized);
-    } catch (error) {
-      console.error("❌ Error cargando calendario:", error);
+    } catch (err) {
+      console.error("❌ Error:", err);
     }
 
     setLoading(false);
@@ -145,72 +253,218 @@ export default function CalendarioConsultaPage() {
     if (user) fetchAll();
   }, [user]);
 
-  // ------------------------ BUSCADOR ------------------------
+  // =========================================================================
+  // ========================= BÚSQUEDA ======================================
+  // =========================================================================
   useEffect(() => {
-    if (search.trim() === "") return setData(originalData);
+    if (search.trim() === "") {
+      setData(originalData);
+      return;
+    }
 
     const lower = search.toLowerCase();
     const filtered = originalData.filter((item) =>
-      Object.values(item).some((v) =>
-        String(v ?? "").toLowerCase().includes(lower)
+      Object.values(item).some((val) =>
+        String(val ?? "").toLowerCase().includes(lower)
       )
     );
+
     setData(filtered);
   }, [search, originalData]);
 
-  // ------------------------ UI LOADING ------------------------
+  // =========================================================================
+  // ========================= COLUMNS (TanStack) =============================
+  // =========================================================================
+  const columns = React.useMemo<ColumnDef<Calendario>[]>(
+    () => [
+      // ===================================================
+      // Columna FANTASMA (expand)
+      // ===================================================
+      {
+        id: "expander",
+        header: "",
+        cell: ({ row }) => (
+          <button
+            className={cn(
+              "transition-colors rounded p-1 text-gray-500 hover:text-blue-700 hover:bg-gray-100",
+              "flex items-center justify-center"
+            )}
+            onClick={() =>
+              setExpandedRows((prev) => ({
+                ...prev,
+                [row.original.id]: !prev[row.original.id],
+              }))
+            }
+          >
+            {expandedRows[row.original.id] ? (
+              <ChevronUp size={18} />
+            ) : (
+              <ChevronDown size={18} />
+            )}
+          </button>
+        ),
+        size: 60,
+      },
+
+      // ===================================================
+      { accessorKey: "id", header: "ID", cell: (info) => info.getValue() ?? "—" },
+      {
+        accessorKey: "ente",
+        header: "Ente",
+        cell: (info) => info.getValue() ?? "—",
+      },
+      {
+        accessorKey: "presidente",
+        header: "Presidente",
+        cell: (info) => info.getValue() ?? "—",
+      },
+      {
+        accessorKey: "cargo_presidente",
+        header: "Cargo",
+        cell: (info) => info.getValue() ?? "—",
+      },
+      {
+        accessorKey: "acuerdo",
+        header: "Acuerdo",
+        cell: (info) => info.getValue() ?? "—",
+      },
+      {
+        accessorKey: "tipo_evento",
+        header: "Tipo Evento",
+        cell: (info) => info.getValue() ?? "—",
+      },
+      {
+        accessorKey: "tipo_licitacion",
+        header: "Tipo Licitación",
+        cell: (info) => info.getValue() ?? "—",
+      },
+      {
+        accessorKey: "numero_sesion",
+        header: "No. Sesión",
+        cell: (info) => numeroSesionToTexto(String(info.getValue() ?? "—")),
+      },
+      {
+        accessorKey: "usuario_registra",
+        header: "Usuario",
+        cell: (info) => usuariosMap[String(info.getValue())] ?? "—",
+      },
+    ],
+    [expandedRows, usuariosMap]
+  );
+
+  // =========================================================================
+  // =========================== TABLE INSTANCE ===============================
+  // =========================================================================
+  const table = useReactTable({
+    data,
+    columns,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  // =========================================================================
+  // =========================== LOADING =====================================
+  // =========================================================================
   if (loading) {
     return (
-      <main className="w-full p-6 space-y-6 bg-white min-h-screen">
+      <main className="w-full p-6 bg-white min-h-screen space-y-4">
         <CardHeader>
-          <CardTitle>Cargando calendario…</CardTitle>
+          <CardTitle>Cargando Calendario...</CardTitle>
         </CardHeader>
+        <Skeleton className="w-full h-10" />
         <Skeleton className="w-full h-10" />
         <Skeleton className="w-full h-10" />
       </main>
     );
   }
 
-  // ------------------------ RENDER PRINCIPAL ------------------------
-  return (
-    <main className="w-full p-6 space-y-6 bg-white min-h-screen">
-      {/* ------------------- HEADER ------------------- */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Calendario</h1>
-          <p className="text-gray-600 text-sm">
-            Consulta los registros creados por tu ente.
-          </p>
+  // =========================================================================
+  // =========================== RENDER PAGE =================================
+  // =========================================================================
 
-          {data.length > 0 && (
-            <p className="text-muted-foreground text-sm mt-1">
-              {data.length} registro{data.length !== 1 && "s"}
+  return (
+    <main className="w-full p-6 bg-white min-h-screen space-y-6">
+      {/* ================================================================
+         ENCABEZADO (idéntico a PROCESOS PAGE)
+      ================================================================ */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+        {/* IZQUIERDA */}
+        <div className="flex items-center gap-3">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/dashboard">
+                  <Button
+                    variant="outline"
+                    style={{ backgroundColor: "#db200b", color: "white" }}
+                    className="hover:brightness-110 hover:scale-105"
+                  >
+                    ←
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Salir</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <div>
+            <h1 className="text-2xl font-bold">Calendario</h1>
+            <p className="text-gray-600 text-sm">
+              Consulta los registros creados por tu ente.
             </p>
-          )}
+
+            {data.length > 0 && (
+              <p className="text-muted-foreground text-sm">
+                <span className="font-bold">{data.length}</span> registro
+                {data.length !== 1 && "s"}
+              </p>
+            )}
+          </div>
         </div>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                onClick={fetchAll}
-                className="h-9 w-9 flex items-center justify-center rounded-full border border-gray-300 hover:bg-gray-100 transition"
-              >
-                <RotateCcw className="h-4 w-4 text-gray-700" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Refrescar</TooltipContent>
-          </Tooltip>
-          <Tooltip />
-        </TooltipProvider>
+        {/* DERECHA */}
+        <div className="flex items-center gap-3">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={fetchAll}
+                  className="h-9 w-9 flex items-center justify-center rounded-full border-gray-300 hover:bg-gray-100"
+                >
+                  {loading ? (
+                    <Loader2 className="animate-spin w-4 h-4" />
+                  ) : (
+                    <RotateCcw className="w-4 h-4 text-gray-700" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Refrescar</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {/* --- BOTÓN NUEVO (igual que en Procesos Page) --- */}
+          <ActionButtonsGroup
+            viewMode="table"
+            setViewMode={() => {}}
+            onExport={() => {}}
+            showExport={false}
+            newPath="/nuevo-calendario/new"
+            table={table}
+          />
+        </div>
       </div>
 
-      {/* ------------------- BUSCADOR ------------------- */}
-      <div className="w-full mt-2 flex gap-2 items-center">
+      {/* ================================================================
+         BARRA DE BÚSQUEDA
+      ================================================================ */}
+      <div className="w-full flex gap-2 items-center">
         <Input
-          type="text"
-          placeholder="Buscar en todas las columnas…"
+          placeholder="Buscar..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full"
@@ -219,109 +473,120 @@ export default function CalendarioConsultaPage() {
         {search.trim() !== "" && (
           <Button
             variant="outline"
-            onClick={() => {
-              setSearch("");
-              setData(originalData);
-            }}
+            onClick={() => setSearch("")}
+            className="whitespace-nowrap"
           >
             Limpiar
           </Button>
         )}
       </div>
 
-      {/* ------------------- TABLA PRINCIPAL ------------------- */}
+      {/* ================================================================
+         TABLA PRINCIPAL (idéntica a Procesos Page)
+      ================================================================ */}
       <div className="w-full overflow-x-auto border rounded-lg bg-white shadow-sm">
         <Table>
           <TableHeader>
-            <TableRow className="bg-[#2563eb] text-white">
-              <TableHead className="text-center py-2">ID</TableHead>
-              <TableHead className="text-center py-2">Ente</TableHead>
-              <TableHead className="text-center py-2">
-                Presidente del subcomité
-              </TableHead>
-              <TableHead className="text-center py-2">Cargo</TableHead>
-              <TableHead className="text-center py-2">Acuerdo</TableHead>
-              <TableHead className="text-center py-2">Tipo de evento</TableHead>
-              <TableHead className="text-center py-2">
-                Tipo de licitación
-              </TableHead>
-              <TableHead className="text-center py-2">No. sesión</TableHead>
-              <TableHead className="text-center py-2">Usuario</TableHead>
-              <TableHead className="text-center py-2"></TableHead>
+            <TableRow>
+              {table.getHeaderGroups()[0].headers.map((header) => (
+                <TableHead
+                  key={header.id}
+                  className={cn(
+                    "py-2 px-3 text-xs font-semibold text-white bg-[#2563eb] text-center",
+                    header.column.getCanSort() && "cursor-pointer select-none"
+                  )}
+                  onClick={
+                    header.column.getCanSort()
+                      ? header.column.getToggleSortingHandler()
+                      : undefined
+                  }
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+                    {header.column.getIsSorted() === "asc" && (
+                      <ChevronUp size={14} />
+                    )}
+                    {header.column.getIsSorted() === "desc" && (
+                      <ChevronDown size={14} />
+                    )}
+                  </div>
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
 
           <TableBody>
-            {data.length === 0 ? (
+            {table.getRowModel().rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-4">
+                <TableCell
+                  colSpan={columns.length}
+                  className="text-center py-4 text-gray-500"
+                >
                   No hay registros.
                 </TableCell>
               </TableRow>
             ) : (
-              data.map((row) => (
-                <React.Fragment key={row.id}>
-                  <TableRow>
-                    <TableCell className="text-center">{row.id}</TableCell>
-                    <TableCell>{row.ente}</TableCell>
-                    <TableCell>{row.presidente}</TableCell>
-                    <TableCell>{row.cargo_presidente}</TableCell>
-                    <TableCell>{row.acuerdo}</TableCell>
-                    <TableCell>{row.tipo_evento}</TableCell>
-                    <TableCell>{row.tipo_licitacion}</TableCell>
-                    <TableCell>{row.numero_sesion}</TableCell>
-                    <TableCell>{row.usuario_registra}</TableCell>
-
-                    {/* Botón expandir */}
-                    <TableCell>
-                      <button
-                        onClick={() =>
-                          setOpenRow((prev) => ({
-                            ...prev,
-                            [row.id]: !prev[row.id],
-                          }))
-                        }
-                        className="p-2 hover:bg-gray-100 rounded"
-                      >
-                        {openRow[row.id] ? (
-                          <ChevronUp size={18} />
-                        ) : (
-                          <ChevronDown size={18} />
+              table.getRowModel().rows.map((row, index) => (
+                <React.Fragment key={row.original.id}>
+                  {/* ==================== FILA PRINCIPAL ==================== */}
+                  <TableRow
+                    className={
+                      index % 2 === 0 ? "bg-white" : "bg-gray-100/60"
+                    }
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className="py-2 px-3 text-center">
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
                         )}
-                      </button>
-                    </TableCell>
+                      </TableCell>
+                    ))}
                   </TableRow>
 
-                  {/* ------------------- FILA EXPANDIDA ------------------- */}
-                  {openRow[row.id] && (
+                  {/* ==================== FILA EXPANDIDA ==================== */}
+                  {expandedRows[row.original.id] && (
                     <TableRow>
-                      <TableCell colSpan={10} className="bg-gray-50">
+                      <TableCell colSpan={columns.length} className="bg-gray-50">
                         <div className="p-3 space-y-4">
-                          {/* --------------------- SUB-ACCORDION FECHAS --------------------- */}
-                          <Accordion
-                            type="single"
-                            collapsible
-                            value={
-                              openSections[row.id]?.fechas ? "fechas" : undefined
-                            }
-                            onValueChange={(val) =>
-                              setOpenSections((prev) => ({
-                                ...prev,
-                                [row.id]: {
-                                  ...(prev[row.id] || {}),
-                                  fechas: val === "fechas",
-                                },
-                              }))
-                            }
-                          >
-                            <AccordionItem value="fechas">
-                              <AccordionTrigger>
+
+                          {/* ==================== SUBTABLA FECHAS ==================== */}
+                          <div className="border rounded-md bg-white">
+                            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b font-semibold">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedSections((prev) => ({
+                                    ...prev,
+                                    [row.original.id]: {
+                                      ...(prev[row.original.id] || {}),
+                                      fechas:
+                                        !prev[row.original.id]?.fechas,
+                                    },
+                                  }))
+                                }
+                                className="flex items-center gap-2"
+                              >
+                                <ChevronRight
+                                  size={16}
+                                  className={cn(
+                                    "transition-transform",
+                                    expandedSections[row.original.id]?.fechas &&
+                                      "rotate-90"
+                                  )}
+                                />
                                 Fechas de la sesión
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                {row.fechas?.length ? (
+                              </button>
+                            </div>
+
+                            {expandedSections[row.original.id]?.fechas && (
+                              <div className="p-3">
+                                {row.original.fechas?.length ? (
                                   <ul className="list-disc pl-6 text-sm text-gray-700">
-                                    {row.fechas.map((f, i) => (
+                                    {row.original.fechas.map((f, i) => (
                                       <li key={i}>
                                         {f.fecha} — {f.hora}
                                       </li>
@@ -332,40 +597,47 @@ export default function CalendarioConsultaPage() {
                                     No hay fechas registradas.
                                   </p>
                                 )}
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
+                              </div>
+                            )}
+                          </div>
 
-                          {/* --------------------- SUB-ACCORDION FUENTES --------------------- */}
-                          <Accordion
-                            type="single"
-                            collapsible
-                            value={
-                              openSections[row.id]?.fuentes
-                                ? "fuentes"
-                                : undefined
-                            }
-                            onValueChange={(val) =>
-                              setOpenSections((prev) => ({
-                                ...prev,
-                                [row.id]: {
-                                  ...(prev[row.id] || {}),
-                                  fuentes: val === "fuentes",
-                                },
-                              }))
-                            }
-                          >
-                            <AccordionItem value="fuentes">
-                              <AccordionTrigger>
-                                Fuentes de financiamiento
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                {row.fuentes?.length ? (
-                                  <ul className="list-disc pl-6 text-sm">
-                                    {row.fuentes.map((f, i) => (
+                          {/* ==================== SUBTABLA FUENTES ==================== */}
+                          <div className="border rounded-md bg-white">
+                            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b font-semibold">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedSections((prev) => ({
+                                    ...prev,
+                                    [row.original.id]: {
+                                      ...(prev[row.original.id] || {}),
+                                      fuentes:
+                                        !prev[row.original.id]?.fuentes,
+                                    },
+                                  }))
+                                }
+                                className="flex items-center gap-2"
+                              >
+                                <ChevronRight
+                                  size={16}
+                                  className={cn(
+                                    "transition-transform",
+                                    expandedSections[row.original.id]?.fuentes &&
+                                      "rotate-90"
+                                  )}
+                                />
+                                Fuente de financiamiento
+                              </button>
+                            </div>
+
+                            {expandedSections[row.original.id]?.fuentes && (
+                              <div className="p-3">
+                                {row.original.fuentes?.length ? (
+                                  <ul className="list-disc pl-6 text-sm text-gray-700">
+                                    {row.original.fuentes.map((f, i) => (
                                       <li key={i}>
-                                        {f.fuente} —{" "}
-                                        {f.monto ?? "Sin monto"}
+                                        {f.id_fuente_financiamiento} —{" "}
+                                        {f.fuente_descripcion}
                                       </li>
                                     ))}
                                   </ul>
@@ -374,9 +646,10 @@ export default function CalendarioConsultaPage() {
                                     No hay fuentes registradas.
                                   </p>
                                 )}
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
+                              </div>
+                            )}
+                          </div>
+
                         </div>
                       </TableCell>
                     </TableRow>
