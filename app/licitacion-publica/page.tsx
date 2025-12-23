@@ -496,8 +496,39 @@ export default function CalendarioPage() {
               <p className="text-sm text-gray-600">Presidente: {item.presidente}</p>
               <p className="text-sm text-gray-600">Evento: {item.tipo_evento}</p>
               <div className="border-t my-3" />
-              <details className="group">
-              </details>
+              <details className="group mt-3">
+  <summary className="cursor-pointer font-medium flex items-center gap-2">
+    <ChevronRight className="group-open:rotate-90 transition-transform" size={16} />
+    Actos seleccionados
+  </summary>
+
+  <div className="mt-2 ml-6 text-sm text-gray-700">
+    {item.actos?.length ? (
+      <ul className="list-disc">
+        {item.actos.map((a, i) => {
+          const fecha = a.fecha
+            ? new Date(a.fecha).toLocaleDateString("es-MX")
+            : "—";
+
+          const hora = a.hora
+            ? a.hora.substring(11, 16)
+            : "—";
+
+          return (
+            <li key={i} className="mb-2">
+              <span className="font-medium">{a.descripcion}</span>
+              <br />
+              <span className="text-gray-600">Fecha: {fecha}</span> —{" "}
+              <span className="text-gray-600">Hora: {hora}</span>
+            </li>
+          );
+        })}
+      </ul>
+    ) : (
+      <p className="text-gray-500">No hay actos registrados.</p>
+    )}
+  </div>
+</details>
               <details className="group mt-3">
                 <summary className="cursor-pointer font-medium flex items-center gap-2">
                   <ChevronRight className="group-open:rotate-90 transition-transform" size={16} />
