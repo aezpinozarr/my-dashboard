@@ -84,7 +84,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       ],
     },
 
-        {
+    {
       title: "Nuevas sesiones",
       url: "#",
       icon: Presentation,
@@ -92,6 +92,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       items: [
         { title: "Calendario", url: "/nuevo-calendario/" },
         { title: "Nueva sesión (Calendario)", url: "/nuevo-calendario/new/" },
+      ],
+    },
+
+        {
+      title: "Licitación pública",
+      url: "#",
+      icon: Presentation,
+      isActive: openMenus.includes("Sesiones"),
+      items: [
+        { title: "Licitaciones públicas", url: "/licitacion-publica/" },
+        { title: "Nueva licitación", url: "/licitacion-publica/new/" },
       ],
     },
 

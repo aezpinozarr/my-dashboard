@@ -86,7 +86,7 @@ interface Calendario {
   numero_sesion: string;
   usuario_registra: string;
 
-  fechas?: CalendarioFecha[];
+  actos?: any[]; 
   fuentes?: CalendarioFuente[];
 }
 
@@ -165,7 +165,7 @@ export default function CalendarioPage() {
 
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [expandedSections, setExpandedSections] = useState<
-    Record<number, { fechas: boolean; fuentes: boolean }>
+    Record<number, { fechas?: boolean; fuentes?: boolean; actos?: boolean }>
   >({});
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
 
@@ -221,28 +221,30 @@ export default function CalendarioPage() {
       // Fetch subtablas en paralelo (optimizado)
       await Promise.all(
         normalized.map(async (cal) => {
-          const [f1, f2] = await Promise.all([
-            fetch(
-              `${API_BASE}/procesos/calendario/fechas?p_id_calendario=${cal.id}`
-            ),
-            fetch(
-              `${API_BASE}/procesos/calendario/fuentes-financiamiento?p_id_calendario=${cal.id}`
-            ),
-          ]);
+        const [f1, f2, f3] = await Promise.all([
+        fetch(`${API_BASE}/procesos/calendario/fechas?p_id_calendario=${cal.id}`),
+        fetch(`${API_BASE}/procesos/calendario/fuentes-financiamiento?p_id_calendario=${cal.id}`),
+        fetch(`${API_BASE}/procesos/calendario/acto-popular?p_id_calendario=${cal.id}&p_id_listado_entregables=-99`)
+        ]);
 
-          const fechasJson = await f1.json();
-          const fuentesJson = await f2.json();
+        const fechasJson = await f1.json();
+        const fuentesJson = await f2.json();
+        const actosJson = await f3.json();
 
-          cal.fechas = fechasJson.fechas ?? [];
-          cal.fuentes = fuentesJson.fuentes ?? [];
+        // Normalización
+        cal.fuentes = fuentesJson.fuentes ?? [];
+        cal.actos = Array.isArray(actosJson.items) ? actosJson.items : [];
         })
       );
 
-      // Ordenar por ID DESC
-      normalized.sort((a, b) => Number(b.id) - Number(a.id));
+    // Filtrar SOLO calendarios con actos seleccionados
+    const conActos = normalized.filter(cal => cal.actos && cal.actos.length > 0);
 
-      setData(normalized);
-      setOriginalData(normalized);
+    // Ordenar por ID DESC
+    conActos.sort((a, b) => Number(b.id) - Number(a.id));
+
+    setData(conActos);
+    setOriginalData(conActos);
     } catch (err) {
       console.error("❌ Error:", err);
     }
@@ -374,7 +376,7 @@ export default function CalendarioPage() {
     return (
       <main className="w-full p-6 bg-white min-h-screen space-y-4">
         <CardHeader>
-          <CardTitle>Cargando Calendario...</CardTitle>
+          <CardTitle>Cargando licitaciones públicas...</CardTitle>
         </CardHeader>
         <Skeleton className="w-full h-10" />
         <Skeleton className="w-full h-10" />
@@ -413,9 +415,9 @@ export default function CalendarioPage() {
           </TooltipProvider>
 
           <div>
-            <h1 className="text-2xl font-bold">Calendario</h1>
+            <h1 className="text-2xl font-bold">Licitaciones públicas</h1>
             <p className="text-gray-600 text-sm">
-              Consulta los registros creados por tu ente.
+              Consulta las licitaciones creadas por tu ente.
             </p>
 
             {data.length > 0 && (
@@ -454,7 +456,7 @@ export default function CalendarioPage() {
             setViewMode={setViewMode}
             onExport={() => {}}
             showExport={false}
-            newPath="/nuevo-calendario/new"
+            newPath="/licitacion-publica/new"
             table={table}
           />
         </div>
@@ -495,21 +497,6 @@ export default function CalendarioPage() {
               <p className="text-sm text-gray-600">Evento: {item.tipo_evento}</p>
               <div className="border-t my-3" />
               <details className="group">
-                <summary className="cursor-pointer font-medium flex items-center gap-2">
-                  <ChevronRight className="group-open:rotate-90 transition-transform" size={16} />
-                  Fechas de la sesión
-                </summary>
-                <div className="mt-2 ml-6 text-sm text-gray-700">
-                  {item.fechas?.length ? (
-                    <ul className="list-disc">
-                      {item.fechas.map((f, i) => (
-                        <li key={i}>{f.fecha} — {f.hora}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-gray-500">No hay fechas registradas.</p>
-                  )}
-                </div>
               </details>
               <details className="group mt-3">
                 <summary className="cursor-pointer font-medium flex items-center gap-2">
@@ -606,52 +593,61 @@ export default function CalendarioPage() {
                         <TableCell colSpan={columns.length} className="bg-gray-50">
                           <div className="p-3 space-y-4">
 
-                            {/* ==================== SUBTABLA FECHAS ==================== */}
+                           {/* ==================== SUBTABLA ACTOS ==================== */}
                             <div className="border rounded-md bg-white">
-                              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b font-semibold">
+                            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b font-semibold">
                                 <button
-                                  type="button"
-                                  onClick={() =>
+                                type="button"
+                                onClick={() =>
                                     setExpandedSections((prev) => ({
-                                      ...prev,
-                                      [row.original.id]: {
+                                    ...prev,
+                                    [row.original.id]: {
                                         ...(prev[row.original.id] || {}),
-                                        fechas:
-                                          !prev[row.original.id]?.fechas,
-                                      },
+                                        actos: !prev[row.original.id]?.actos,
+                                    },
                                     }))
-                                  }
-                                  className="flex items-center gap-2"
+                                }
+                                className="flex items-center gap-2"
                                 >
-                                  <ChevronRight
+                                <ChevronRight
                                     size={16}
                                     className={cn(
-                                      "transition-transform",
-                                      expandedSections[row.original.id]?.fechas &&
-                                        "rotate-90"
+                                    "transition-transform",
+                                    expandedSections[row.original.id]?.actos && "rotate-90"
                                     )}
-                                  />
-                                  Fechas de la sesión
+                                />
+                                Actos seleccionados
                                 </button>
-                              </div>
+                            </div>
 
-                              {expandedSections[row.original.id]?.fechas && (
+                            {expandedSections[row.original.id]?.actos && (
                                 <div className="p-3">
-                                  {row.original.fechas?.length ? (
+                                {row.original.actos?.length ? (
                                     <ul className="list-disc pl-6 text-sm text-gray-700">
-                                      {row.original.fechas.map((f, i) => (
+                                    {row.original.actos.map((a: any, i: number) => {
+                                        const fecha = a.fecha
+                                        ? new Date(a.fecha).toLocaleDateString("es-MX")
+                                        : "—";
+
+                                        const hora = a.hora
+                                        ? a.hora.substring(11, 16)
+                                        : "—";
+
+                                        return (
                                         <li key={i}>
-                                          {f.fecha} — {f.hora}
+                                            <span className="font-medium">{a.descripcion}</span>
+                                            <br />
+                                            <span className="text-gray-600">Fecha: {fecha}</span> —{" "}
+                                            <span className="text-gray-600">Hora: {hora}</span>
                                         </li>
-                                      ))}
+                                        );
+                                    })}
                                     </ul>
-                                  ) : (
-                                    <p className="text-gray-500 text-sm">
-                                      No hay fechas registradas.
-                                    </p>
-                                  )}
+                                ) : (
+                                    <p className="text-gray-500 text-sm">No hay actos registrados.</p>
+                                )}
                                 </div>
-                              )}
+                            )}
                             </div>
 
                             {/* ==================== SUBTABLA FUENTES ==================== */}

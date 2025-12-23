@@ -64,7 +64,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
   const steps = [
     { id: 1, label: "Registro" },
     { id: 2, label: "F. Financiamiento" },
-    { id: 3, label: "Fechas" },
+    { id: 3, label: "Actos" },
   ];
 
   return (
@@ -370,7 +370,7 @@ async function cargarAuxiliares(tipoEventoSeleccionado: string) {
      COMPLETAMENTE MARCADA
   ========================================================= */
 
-// Paso 1: Crear calendario
+// Paso 1: Crear licitación pública 
 return (
   <div className="bg-white min-h-screen">
     <div className="p-4 max-w-6xl mx-auto">
@@ -425,7 +425,7 @@ return (
                   <Button
                     onClick={() => {
                       const from = params.get("from");
-                      router.push(from === "dashboard" ? "/dashboard" : "/nuevo-calendario/");
+                      router.push(from === "dashboard" ? "/dashboard" : "/licitacion-publica/");
                     }}
                     style={{ backgroundColor: "#34e004", color: "white" }}
                   >
@@ -445,7 +445,7 @@ return (
 
             {/* ENCABEZADO: Título + Botón Paso 2 */}
             <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold">Paso 1: Crear calendario</h1>
+              <h1 className="text-2xl font-bold">Paso 1: Crear licitación pública</h1>
 
               {/* Botón Paso 2 */}
               <TooltipProvider>
@@ -733,9 +733,9 @@ return (
               </div>
             )}
 
-            {/* ACUERDO */}
+            {/* NÚMERO DE LICITACIÓN */}
             <div className="mb-6">
-              <Label>Acuerdo</Label>
+              <Label>Número de licitación</Label>
               <Input
                 value={acuerdo}
                 onChange={(e) => {
@@ -931,7 +931,7 @@ return (
                 <Button
                   onClick={() => {
                     const from = params.get("from");
-                    router.push(from === "dashboard" ? "/dashboard" : "/nuevo-calendario/");
+                    router.push(from === "dashboard" ? "/dashboard" : "/licitacion-publica/");
                   }}
                   style={{ backgroundColor: "#34e004", color: "white" }}
                 >
@@ -943,7 +943,7 @@ return (
         </div>
         </>
         )}
-        {/* 🔥 RENDER PASO 2 ABAJO DEL PASO 1 */}
+        {/* RENDER PASO 2 ABAJO DEL PASO 1 */}
         {step === 2 && idCalendario && (
           <div className="mt-2">
             <Paso2FuentesFinanciamiento
@@ -955,15 +955,18 @@ return (
           </div>
         )}
 
-        {step === 3 && idCalendario !== null && (
-          <div className="mt-2">
-            <Paso3Fechas
-              idCalendario={idCalendario}
-              idUsuario={user?.id ?? 0}
-              onBack={() => setStep(2)}
+        {/* 🔥 RENDER PASO 3 ABAJO DEL PASO 2 */}
+        {step === 3 && idCalendario && (
+        <div className="mt-2">
+            <Paso3SeleccionarActos
+            idCalendario={idCalendario}
+            idUsuario={user?.id}
+            onBack={() => setStep(2)}
+            onNext={() => setStep(4)}
             />
-          </div>
+        </div>
         )}
+
         </div>
       </div>
     </div>
@@ -1015,36 +1018,45 @@ function Paso2FuentesFinanciamiento({ idCalendario, idUsuario, onNext, onBack, }
      Añadir fuente
   ============================*/
   async function handleAddFuente() {
-    if (!seleccionFuente) {
-      toast.error("Seleccione una fuente antes de continuar");
-      return;
-    }
+  setErrorFuente("");
+  setErrorListaVacia("");
 
-    const body = {
-      p_accion: "NUEVO",
-      p_id_calendario: idCalendario,
-      p_id_fuente_financiamiento: seleccionFuente.id,
-      p_id_usuario_registra: idUsuario,
-    };
-
-    const r = await fetch(`${API_BASE}/procesos/calendario/fuentes/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    const data = await r.json();
-
-    if (!data?.resultado) {
-      toast.error("No se pudo agregar la fuente");
-      return;
-    }
-
-    setFuentesAgregadas((prev) => [...prev, seleccionFuente]);
-    setSeleccionFuente(null);
-    setBusquedaFuente("");
-    toast.success("Fuente agregada al calendario");
+  if (!seleccionFuente) {
+    setErrorFuente("Este campo es obligatorio");
+    toast.error("Seleccione una fuente antes de continuar");
+    return;
   }
+
+  const body = {
+    p_accion: "NUEVO",
+    p_id_calendario: idCalendario,
+    p_id_fuente_financiamiento: seleccionFuente.id,
+    p_id_usuario_registra: idUsuario,
+  };
+
+  const r = await fetch(`${API_BASE}/procesos/calendario/fuentes/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const data = await r.json();
+
+  if (!data?.resultado) {
+    toast.error("No se pudo agregar la fuente");
+    return;
+  }
+
+  setFuentesAgregadas((prev) => [...prev, seleccionFuente]);
+
+  // limpiar estados
+  setSeleccionFuente(null);
+  setBusquedaFuente("");
+  setErrorFuente("");
+  setErrorListaVacia("");
+
+  toast.success("Fuente agregada al calendario");
+}
 
 /* ===========================
    Eliminar fuente
@@ -1091,223 +1103,45 @@ async function handleEliminarFuente() {
   }
 }
 
-   // Paso 2: Fuentes de financiamiento
-    return (
-      <>
-        <Card>
-          <CardContent className="space-y-4">
-  
-            {/* ENCABEZADO */}
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={onBack}
-                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2 cursor-pointer"
-                  >
-                    <span className="text-[#235391] font-bold">← 1</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Regresar al paso anterior</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-                <h1 className="text-2xl font-bold">Paso 2: Fuentes de financiamiento</h1>
-              </div>
-  
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      onClick={() => {
-                      if (fuentesAgregadas.length === 0) {
-                      setErrorFuente("Este campo es obligatorio"); 
-                      setErrorListaVacia(""); 
-                      toast.error("Debe agregar una fuente antes de continuar");
-                      return;
-                      }
-                        onNext();
-                      }}
-                      className="bg-[#235391] text-white rounded-full px-4 py-2 hover:scale-105"
-                    >
-                      3 →
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">Avanzar al siguiente paso</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+  // Paso 2: Fuentes de financiamiento
+  return (
+    <>
+      <Card>
+        <CardContent className="space-y-4">
+
+          {/* ENCABEZADO */}
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={onBack}
+                  className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2 cursor-pointer"
+                >
+                  <span className="text-[#235391] font-bold">← 1</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Regresar al paso anterior</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+              <h1 className="text-2xl font-bold">Paso 2: Fuentes de financiamiento</h1>
             </div>
-  
-            {/* FORMULARIO DE AGREGAR FUENTE */}
-            <div>
-              <Label>Fuente de financiamiento</Label>
-  
-              <Command>
-              <CommandInput
-              placeholder="Buscar fuente…"
-              value={busquedaFuente}
-              onValueChange={(val) => {
-                  setBusquedaFuente(val);
-                  setSeleccionFuente(null);
-                  setErrorFuente(""); // limpia error
-              }}
-              className={`w-full ${errorFuente ? "border border-red-500" : ""}`}
-              />
-                {errorFuente && (
-              <p className="text-red-600 text-xs mt-1">{errorFuente}</p>
-              )}
-  
-                {Boolean(busquedaFuente.trim()) && !seleccionFuente && (
-                  <CommandList className="max-h-60 overflow-y-auto border rounded-md bg-white z-50">
-  
-                    {fuentesCatalogo
-                      .filter((f) => {
-                        const q = busquedaFuente.toLowerCase();
-                        return (
-                          f.id?.toLowerCase().includes(q) ||
-                          f.descripcion?.toLowerCase().includes(q) ||
-                          f.etiquetado?.toLowerCase().includes(q) ||
-                          f.fondo?.toLowerCase().includes(q) ||
-                          f.ramo?.toLowerCase().includes(q) ||
-                          f.clasificacion?.toLowerCase().includes(q)
-                        );
-                      })
-                      .map((f) => (
-                        <CommandItem
-                          key={f.id}
-                          onSelect={() => {
-                            setSeleccionFuente(f);
-  
-                            // 🔥 Igual que la funcionalidad que quieres
-                            setBusquedaFuente(
-                              `${f.id} – Descripción: ${f.descripcion} – Etiquetado: ${f.etiquetado} – Fondo: ${f.fondo}`
-                            );
-                          }}
-                          className="py-2 cursor-pointer"
-                        >
-                        <span className="text-sm">
-                          {f.id} – Descripción: {f.descripcion} – Etiquetado: {f.etiquetado} – Fondo: {f.fondo}
-                        </span>
-                        </CommandItem>
-                      ))}
-  
-                    <CommandEmpty>No se encontraron fuentes</CommandEmpty>
-                  </CommandList>
-                )}
-              </Command>
-  
-              <div className="flex justify-end mt-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      onClick={handleAddFuente}
-                      type="button"
-                      style={{ backgroundColor: "#10c706", color: "white" }}
-                    >
-                      Añadir fuente
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Agrega la fuente seleccionada al calendario</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              </div>
-            </div>
-  
-            {/* TABLA COMPLETA */}
-          <div className="overflow-hidden rounded-lg shadow-md border border-gray-200 mt-6">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase">
-                  <th className="px-3 py-2 text-center">Fuente Financiamiento</th>
-                  <th className="px-3 py-2 text-center">Etiquetado</th>
-                  <th className="px-3 py-2 text-center">Fondo</th>
-                  <th className="px-3 py-2 text-center">Ramo</th>
-                  <th className="px-3 py-2 text-center"></th>
-                </tr>
-              </thead>
-  
-              <tbody>
-                {fuentesAgregadas.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="text-center py-3 text-gray-400">
-                      No hay fuentes agregadas
-                    </td>
-                  </tr>
-                ) : (
-                  fuentesAgregadas.map((f) => (
-                    <tr key={f.id} className="border-b hover:bg-gray-50">
-                     <td className="px-3 py-2 text-center"> {f.id} – {f.descripcion}</td>
-                      <td className="px-3 py-2 text-center">{f.etiquetado}</td>
-                      <td className="px-3 py-2 text-center">{f.fondo}</td>
-                      <td className="px-3 py-2 text-center">{f.ramo}</td>
-                      <td className="px-3 py-2 text-right">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                            onClick={() => {
-                              setFuenteAEliminar(f);
-                              setOpenEliminarDialog(true);
-                            }}
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          Eliminar fuente
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-           {/* BOTONES DE NAVEGACIÓN INFERIORES */}
-          <div className="flex justify-between items-center mt-6">
-  
-            {/* Botón regresar */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={onBack}
-                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2 cursor-pointer"
-                  >
-                    <span className="text-[#235391] font-bold">← 1</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Regresar al paso anterior</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-  
-            {/* Botón avanzar */}
+
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     onClick={() => {
-                  if (fuentesAgregadas.length === 0) {
-                  setErrorFuente("Este campo es obligatorio");
-                  setErrorListaVacia(""); 
-                  toast.error("Debe agregar una fuente antes de continuar");
-                  return;
-                  }
+                    if (fuentesAgregadas.length === 0) {
+                    setErrorFuente("Este campo es obligatorio"); 
+                    setErrorListaVacia(""); 
+                    toast.error("Debe agregar una fuente antes de continuar");
+                    return;
+                    }
                       onNext();
                     }}
                     className="bg-[#235391] text-white rounded-full px-4 py-2 hover:scale-105"
@@ -1318,522 +1152,241 @@ async function handleEliminarFuente() {
                 <TooltipContent side="top">Avanzar al siguiente paso</TooltipContent>
               </Tooltip>
             </TooltipProvider>
-  
-          </div>       
-          </CardContent>
-        </Card>
-  
-      {/* BOTÓN SALIR INFERIOR (FUERA DEL CARD, MISMO ESTILO QUE EL SUPERIOR) */}
-      <div className="flex justify-start mt-4">
-        <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+          </div>
+
+          {/* FORMULARIO DE AGREGAR FUENTE */}
+          <div>
+            <Label>Fuente de financiamiento</Label>
+
+            <Command>
+            <CommandInput
+            placeholder="Buscar fuente…"
+            value={busquedaFuente}
+            onValueChange={(val) => {
+                setBusquedaFuente(val);
+                setSeleccionFuente(null);
+                setErrorFuente(""); // limpia error
+            }}
+            className={`w-full ${errorFuente ? "border border-red-500" : ""}`}
+            />
+              {errorFuente && (
+            <p className="text-red-600 text-xs mt-1">{errorFuente}</p>
+            )}
+
+              {Boolean(busquedaFuente.trim()) && !seleccionFuente && (
+                <CommandList className="max-h-60 overflow-y-auto border rounded-md bg-white z-50">
+
+                  {fuentesCatalogo
+                    .filter((f) => {
+                      const q = busquedaFuente.toLowerCase();
+                      return (
+                        f.id?.toLowerCase().includes(q) ||
+                        f.descripcion?.toLowerCase().includes(q) ||
+                        f.etiquetado?.toLowerCase().includes(q) ||
+                        f.fondo?.toLowerCase().includes(q) ||
+                        f.ramo?.toLowerCase().includes(q) ||
+                        f.clasificacion?.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((f) => (
+                      <CommandItem
+                        key={f.id}
+                        onSelect={() => {
+                          setSeleccionFuente(f);
+
+                          // 🔥 Igual que la funcionalidad que quieres
+                          setBusquedaFuente(
+                            `${f.id} – Descripción: ${f.descripcion} – Etiquetado: ${f.etiquetado} – Fondo: ${f.fondo}`
+                          );
+                        }}
+                        className="py-2 cursor-pointer"
+                      >
+                      <span className="text-sm">
+                        {f.id} – Descripción: {f.descripcion} – Etiquetado: {f.etiquetado} – Fondo: {f.fondo}
+                      </span>
+                      </CommandItem>
+                    ))}
+
+                  <CommandEmpty>No se encontraron fuentes</CommandEmpty>
+                </CommandList>
+              )}
+            </Command>
+
+            <div className="flex justify-end mt-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleAddFuente}
+                    type="button"
+                    style={{ backgroundColor: "#10c706", color: "white" }}
+                  >
+                    Añadir fuente
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Agrega la fuente seleccionada al calendario</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            </div>
+          </div>
+
+          {/* TABLA COMPLETA */}
+        <div className="overflow-hidden rounded-lg shadow-md border border-gray-200 mt-6">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase">
+                <th className="px-3 py-2 text-center">Fuente Financiamiento</th>
+                <th className="px-3 py-2 text-center">Etiquetado</th>
+                <th className="px-3 py-2 text-center">Fondo</th>
+                <th className="px-3 py-2 text-center">Ramo</th>
+                <th className="px-3 py-2 text-center"></th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {fuentesAgregadas.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-3 text-gray-400">
+                    No hay fuentes agregadas
+                  </td>
+                </tr>
+              ) : (
+                fuentesAgregadas.map((f) => (
+                  <tr key={f.id} className="border-b hover:bg-gray-50">
+                   <td className="px-3 py-2 text-center"> {f.id} – {f.descripcion}</td>
+                    <td className="px-3 py-2 text-center">{f.etiquetado}</td>
+                    <td className="px-3 py-2 text-center">{f.fondo}</td>
+                    <td className="px-3 py-2 text-center">{f.ramo}</td>
+                    <td className="px-3 py-2 text-right">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          onClick={() => {
+                            setFuenteAEliminar(f);
+                            setOpenEliminarDialog(true);
+                          }}
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        Eliminar fuente
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+         {/* BOTONES DE NAVEGACIÓN INFERIORES */}
+        <div className="flex justify-between items-center mt-6">
+
+          {/* Botón regresar */}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={() => setOpenSalirDialog(true)}
-                  style={{ backgroundColor: "#db200b", color: "white" }}
-                  className="cursor-pointer rounded-md"
+                  variant="outline"
+                  onClick={onBack}
+                  className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2 cursor-pointer"
                 >
-                  ←
+                  <span className="text-[#235391] font-bold">← 1</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p>Salir</p>
+                <p>Regresar al paso anterior</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-  
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
-              <DialogDescription>
-                Si sales ahora, perderás cualquier información no guardada.
-              </DialogDescription>
-            </DialogHeader>
-  
-            <DialogFooter className="flex justify-end gap-3 mt-4">
-              <Button
-                onClick={() => setOpenSalirDialog(false)}
-                style={{ backgroundColor: "#db200b", color: "white" }}
-              >
-                Cancelar
-              </Button>
-  
-              <Button
-                onClick={() => router.push("/nuevo-calendario")}
-                style={{ backgroundColor: "#34e004", color: "white" }}
-              >
-                Sí
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-  
-       {/* DIALOG ELIMINAR */}
-        <Dialog open={openEliminarDialog} onOpenChange={setOpenEliminarDialog}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>¿Deseas eliminar esta fuente?</DialogTitle>
-              <DialogDescription>
-                Esta acción no se puede deshacer.
-              </DialogDescription>
-            </DialogHeader>
-  
-            <DialogFooter className="flex justify-end gap-3 mt-6">
-              <Button
-                className="bg-[#db200b] text-white px-5"
-                onClick={() => setOpenEliminarDialog(false)}
-              >
-                Cancelar
-              </Button>
-  
-              <Button
-                className="bg-[#34e004] text-white px-5"
-                onClick={handleEliminarFuente}
-              >
-                Sí
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </>
-    );
-  }
 
-/* =========================================================
-   PASO 3 — FECHAS DEL CALENDARIO
-========================================================= */
-
-interface Paso3Props {
-  idCalendario: number;
-  idUsuario: number;
-  onBack: () => void;
-}
-
-/* =============================
-   FUNCIONES DE FORMATEO Y VALIDACIÓN
-============================= */
-
-// Formatea ddmmaaaa → dd/mm/aaaa
-function formatDateDDMMYYYY(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 8);
-  const dd = digits.slice(0, 2);
-  const mm = digits.slice(2, 4);
-  const yyyy = digits.slice(4, 8);
-  let out = dd;
-  if (mm) out += "/" + mm;
-  if (yyyy) out += "/" + yyyy;
-  return out;
-}
-
-// Formatea hhmm → HH:mm
-function formatTimeHHMM(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 4);
-  const hh = digits.slice(0, 2);
-  const mm = digits.slice(2, 4);
-  let out = hh;
-  if (mm) out += ":" + mm;
-  return out;
-}
-
-// Valida fecha dd/mm/aaaa
-function isValidDateDDMMYYYY(val: string) {
-  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(val)) return false;
-  const [dd, mm, yyyy] = val.split("/").map(Number);
-  const diasMes = [
-    31,
-    yyyy % 4 === 0 && (yyyy % 100 !== 0 || yyyy % 400 === 0) ? 29 : 28,
-    31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
-  ];
-  return mm >= 1 && mm <= 12 && dd >= 1 && dd <= diasMes[mm - 1];
-}
-
-// Valida hora HH:mm
-function isValidTimeHHMM(val: string) {
-  if (!/^(\d{2}):(\d{2})$/.test(val)) return false;
-  const [h, m] = val.split(":").map(Number);
-  return h >= 0 && h <= 23 && m >= 0 && m <= 59;
-}
-
-// Convierte fecha/hora a ISO para postgres
-function toIsoLocalDateTime(dmy: string, hm: string) {
-  const [dd, mm, yyyy] = dmy.split("/");
-  return `${yyyy}-${mm}-${dd}T${hm}:00`;
-}
-
-function Paso3Fechas({ idCalendario, idUsuario, onBack }: Paso3Props) {
-  const [fecha, setFecha] = useState("");
-  const [hora, setHora] = useState("");
-  const [openSalirDialog, setOpenSalirDialog] = useState(false);
-  const router = useRouter();
-  const [fechasAgregadas, setFechasAgregadas] = useState<
-    { fecha: string; hora: string }[]
-  >([]);
-
-  const [openEliminarDialog, setOpenEliminarDialog] = useState(false);
-  const [fechaAEliminar, setFechaAEliminar] =
-    useState<{ fecha: string; hora: string } | null>(null);
-
-  /* ========= FORMATEO DE INPUTS ========= */
-  function handleFechaChange(e: any) {
-    setFecha(formatDateDDMMYYYY(e.target.value));
-  }
-
-  function handleHoraChange(e: any) {
-    setHora(formatTimeHHMM(e.target.value));
-  }
-
-  /* ========= AÑADIR FECHA ========= */
-  async function handleAddFecha() {
-    if (!isValidDateDDMMYYYY(fecha)) {
-      toast.error("La fecha no es válida.");
-      return;
-    }
-    if (!isValidTimeHHMM(hora)) {
-      toast.error("La hora no es válida.");
-      return;
-    }
-
-    const fechaISO = fecha.split("/").reverse().join("-"); // yyyy-mm-dd
-    const horaISO = toIsoLocalDateTime(fecha, hora); // yyyy-mm-ddTHH:mm:ss
-
-    const body = {
-      p_accion: "NUEVO",
-      p_id_calendario: idCalendario,
-      p_fecha: fechaISO,
-      p_hora: horaISO,
-      p_id_usuario_registra: idUsuario,
-    };
-
-    const r = await fetch(`${API_BASE}/procesos/calendario/fechas/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    const data = await r.json();
-
-    if (!data?.resultado) {
-      toast.error("No se pudo agregar la fecha.");
-      return;
-    }
-
-    setFechasAgregadas((prev) => [...prev, { fecha, hora }]);
-    setFecha("");
-    setHora("");
-    toast.success("Fecha agregada.");
-  }
-
-  /* ========= ELIMINAR FECHA ========= */
-  async function handleEliminarFecha() {
-    if (!fechaAEliminar) return;
-
-    const fechaISO = fechaAEliminar.fecha.split("/").reverse().join("-");
-
-    const body = {
-      p_accion: "ELIMINAR",
-      p_id_calendario: idCalendario,
-      p_fecha: fechaISO,
-      p_hora: null,
-      p_id_usuario_registra: idUsuario,
-    };
-
-    const r = await fetch(`${API_BASE}/procesos/calendario/fechas/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    const data = await r.json();
-
-    if (!data?.resultado) {
-      toast.error("No se pudo eliminar la fecha.");
-      return;
-    }
-
-    setFechasAgregadas((prev) =>
-      prev.filter(
-        (f) =>
-          !(
-            f.fecha === fechaAEliminar.fecha &&
-            f.hora === fechaAEliminar.hora
-          )
-      )
-    );
-
-    setOpenEliminarDialog(false);
-    toast.success("Fecha eliminada.");
-  }
-
-
-  // Paso 3: Fechas de la sesión
-  return (
-    <>
-      <Card className="pt-4 pb-6 px-4 shadow-md border rounded-xl flex-1">
-        <CardContent className="space-y-4">
-          {/* ENCABEZADO */}
-          {/* ENCABEZADO */}
-          <div className="flex items-center gap-4 mb-6">
-
-            {/* BOTÓN REGRESAR */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={onBack}
-                    className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2 cursor-pointer"
-                  >
-                    <span className="text-[#235391] font-bold">← 2</span>
-                  </Button>
-                </TooltipTrigger>
-
-                <TooltipContent side="top">
-                  <p>Regresar al paso anterior</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            {/* BOTÓN FINALIZAR */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
+          {/* Botón avanzar */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
                   onClick={() => {
-                    toast.success("Proceso finalizado correctamente.");
-                    router.push("/nuevo-calendario");
-                    }}
-                    className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
-                    style={{ backgroundColor: "#FFBF00" }}
-                  >
-                    Finalizar
-                  </Button>
-                </TooltipTrigger>
+                if (fuentesAgregadas.length === 0) {
+                setErrorFuente("Este campo es obligatorio");
+                setErrorListaVacia(""); 
+                toast.error("Debe agregar una fuente antes de continuar");
+                return;
+                }
+                    onNext();
+                  }}
+                  className="bg-[#235391] text-white rounded-full px-4 py-2 hover:scale-105"
+                >
+                  3 →
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Avanzar al siguiente paso</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-                <TooltipContent side="top">
-                  <p>Finalizar proceso</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+        </div>       
+        </CardContent>
+      </Card>
 
-            {/* TÍTULO ALADO DEL BOTÓN */}
-            <h1 className="text-2xl font-bold">
-              Paso 3: Fechas de la sesión
-            </h1>
+    {/* BOTÓN SALIR INFERIOR (FUERA DEL CARD, MISMO ESTILO QUE EL SUPERIOR) */}
+    <div className="flex justify-start mt-4">
+      <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => setOpenSalirDialog(true)}
+                style={{ backgroundColor: "#db200b", color: "white" }}
+                className="cursor-pointer rounded-md"
+              >
+                ←
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Salir</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
-          </div>
-          {/* FORMULARIO */}
-          <div className="flex items-end gap-4 mt-2">
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+            <DialogDescription>
+              Si sales ahora, perderás cualquier información no guardada.
+            </DialogDescription>
+          </DialogHeader>
 
-            {/* FECHA */}
-            <div className="flex flex-col w-40">
-              <Label>Fecha</Label>
-              <Input
-                value={fecha}
-                onChange={handleFechaChange}
-                placeholder="dd/mm/aaaa"
-                className="h-10"
-              />
-            </div>
+          <DialogFooter className="flex justify-end gap-3 mt-4">
+            <Button
+              onClick={() => setOpenSalirDialog(false)}
+              style={{ backgroundColor: "#db200b", color: "white" }}
+            >
+              Cancelar
+            </Button>
 
-            {/* HORA */}
-            <div className="flex flex-col w-32">
-              <Label>Hora (24 hrs)</Label>
-              <Input
-                value={hora}
-                onChange={handleHoraChange}
-                placeholder="HH:mm"
-                className="h-10"
-              />
-            </div>
+            <Button
+              onClick={() => router.push("/licitacion-publica")}
+              style={{ backgroundColor: "#34e004", color: "white" }}
+            >
+              Sí
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
 
-            {/* BOTÓN AÑADIR */}
-            <div className="pt-[22px]">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      onClick={handleAddFecha}
-                      type="button"
-                      style={{ backgroundColor: "#10c706", color: "white", height: "40px" }}
-                    >
-                      Añadir fecha
-                    </Button>
-                  </TooltipTrigger>
-
-                  <TooltipContent side="top">
-                    <p>Agrega la fecha seleccionada al calendario</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </div>
-
-          {/* TABLA */}
-          <div className="overflow-hidden rounded-lg shadow-md border border-gray-200 mt-6">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="bg-gradient-to-r from-[#1e3a8a] to-[#235391] text-white text-xs uppercase">
-                  <th className="px-3 py-2 text-center">Fecha</th>
-                  <th className="px-3 py-2 text-center">Hora</th>
-                  <th className="px-3 py-2 text-center"></th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {fechasAgregadas.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="text-center py-3 text-gray-400">
-                      No hay fechas agregadas
-                    </td>
-                  </tr>
-                ) : (
-                  fechasAgregadas.map((f, index) => (
-                    <tr
-                      key={index}
-                      className="border-b hover:bg-gray-50"
-                    >
-                      <td className="px-3 py-2 text-center">
-                        {f.fecha}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        {f.hora}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                                onClick={() => {
-                                  setFechaAEliminar(f);
-                                  setOpenEliminarDialog(true);
-                                }}
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </Button>
-                            </TooltipTrigger>
-
-                            <TooltipContent side="top">
-                              Eliminar fecha
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-         {/* BOTONES INFERIORES (JUNTOS, COMO ARRIBA) */}
-<div className="flex items-center gap-4 mt-6">
-
-  {/* Botón regresar */}
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="outline"
-          onClick={onBack}
-          className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2 cursor-pointer"
-        >
-          <span className="text-[#235391] font-bold">← 2</span>
-        </Button>
-      </TooltipTrigger>
-
-      <TooltipContent side="top">
-        Regresar al paso anterior
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-
-  {/* Botón finalizar */}
-<TooltipProvider>
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <Button
-        onClick={() => {
-          toast.success("Proceso finalizado correctamente.");
-          router.push("/nuevo-calendario");
-        }}
-        className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
-        style={{ backgroundColor: "#FFBF00" }}
-      >
-        Finalizar
-      </Button>
-    </TooltipTrigger>
-
-    <TooltipContent side="top">
-      Finalizar proceso
-    </TooltipContent>
-  </Tooltip>
-</TooltipProvider>
-</div>
-
-</CardContent>
-</Card>
-
-{/* BOTÓN SALIR INFERIOR (FUERA DEL CARD, MISMO DISEÑO QUE EL SUPERIOR) */}
-<div className="flex justify-start mt-4">
-  <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
-
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            onClick={() => setOpenSalirDialog(true)}
-            style={{ backgroundColor: "#db200b", color: "white" }}
-            className="cursor-pointer rounded-md"
-          >
-            ←
-          </Button>
-        </TooltipTrigger>
-
-        <TooltipContent side="top">
-          <p>Salir</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-
-    {/* DIALOG SALIR */}
-    <DialogContent className="max-w-sm">
-      <DialogHeader>
-        <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
-        <DialogDescription>
-          Si sales ahora, perderás cualquier información no guardada.
-        </DialogDescription>
-      </DialogHeader>
-
-      <DialogFooter className="flex justify-end gap-3 mt-4">
-        <Button
-          onClick={() => setOpenSalirDialog(false)}
-          style={{ backgroundColor: "#db200b", color: "white" }}
-        >
-          Cancelar
-        </Button>
-
-        <Button
-          onClick={() => router.push("/nuevo-calendario")}
-          style={{ backgroundColor: "#34e004", color: "white" }}
-        >
-          Sí
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-
-  </Dialog>
-</div>
-
-      {/* DIALOG ELIMINAR */}
+     {/* DIALOG ELIMINAR */}
       <Dialog open={openEliminarDialog} onOpenChange={setOpenEliminarDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>¿Eliminar esta fecha?</DialogTitle>
+            <DialogTitle>¿Deseas eliminar esta fuente?</DialogTitle>
             <DialogDescription>
               Esta acción no se puede deshacer.
             </DialogDescription>
@@ -1849,7 +1402,7 @@ function Paso3Fechas({ idCalendario, idUsuario, onBack }: Paso3Props) {
 
             <Button
               className="bg-[#34e004] text-white px-5"
-              onClick={handleEliminarFecha}
+              onClick={handleEliminarFuente}
             >
               Sí
             </Button>
@@ -1859,3 +1412,377 @@ function Paso3Fechas({ idCalendario, idUsuario, onBack }: Paso3Props) {
     </>
   );
 }
+
+// Paso 3: Seleccionar actos 
+
+function toBackendDate(date: string) { 
+  // Convierte 27/02/2025 → 2025-02-27
+  const [dd, mm, yyyy] = date.split("/");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function toBackendTime(time: string) {
+  // Convierte 12:30 → 12:30:00
+  return time.length === 5 ? `${time}:00` : time;
+}
+
+// Convierte "2025-02-27" → "27/02/2025" o mantiene "27/02/2025"
+export function formatDateDDMMYYYY(input: string): string {
+  if (!input) return "";
+
+  // Si viene como yyyy-mm-dd (por el date picker)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    const [yyyy, mm, dd] = input.split("-");
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  // Control manual del usuario (dd/mm/yyyy)
+  const cleaned = input.replace(/[^\d]/g, "");
+  let dd = cleaned.slice(0, 2);
+  let mm = cleaned.slice(2, 4);
+  let yyyy = cleaned.slice(4, 8);
+
+  return [dd, mm, yyyy].filter(Boolean).join("/");
+}
+
+// Convierte entrada manual "1234" → "12:34"
+export function formatTimeHHMM(input: string): string {
+  const cleaned = input.replace(/[^\d]/g, "");
+
+  let hh = cleaned.slice(0, 2);
+  let mm = cleaned.slice(2, 4);
+
+  return [hh, mm].filter(Boolean).join(":");
+}
+
+interface Acto {
+  id: number;
+  descripcion: string;
+  estatus: boolean;
+}
+
+interface Paso3Props {
+  idCalendario: number;
+  idUsuario: number;
+  onBack: () => void;
+  onNext: () => void;
+}
+
+function Paso3SeleccionarActos({
+  idCalendario,
+  idUsuario,
+  onBack,
+  onNext
+}: Paso3Props) {
+
+  const [catalogoActos, setCatalogoActos] = useState<Acto[]>([]);
+  const [seleccionados, setSeleccionados] = useState<{
+    [id: number]: { fecha: string; hora: string };}>({});
+    const [openSalirDialog, setOpenSalirDialog] = useState(false);
+  const [errores, setErrores] = useState<{ [id: number]: { fecha?: string; hora?: string } }>({});
+
+  /* =========================================================
+     Cargar catálogo de actos
+  ========================================================= */
+  useEffect(() => {
+    async function load() {
+      const r = await fetch(
+        `${API_BASE}/sesiones/entregables-popular?p_id=-99&p_id_calendario_sesiones=-99`
+      );
+      const data = await r.json();
+      setCatalogoActos(Array.isArray(data) ? data : []);
+    }
+    load();
+  }, []);
+
+  /* =========================================================
+     Seleccionar / deseleccionar acto
+  ========================================================= */
+  function toggleSeleccion(id: number) {
+    setErrores((prev) => ({ ...prev, [id]: {} }));
+
+    setSeleccionados((prev) => {
+      if (prev[id]) {
+        const copia = { ...prev };
+        delete copia[id];
+        return copia;
+      }
+      return { ...prev, [id]: { fecha: "", hora: "" } };
+    });
+  }
+
+  /* =========================================================
+     Finalizar — Guardar TODOS los actos seleccionados
+  ========================================================= */
+  async function finalizarActos() {
+    const nuevosErrores: any = {};
+    let tieneErrores = false;
+
+    // Validar cada acto
+    Object.entries(seleccionados).forEach(([idStr, valores]) => {
+      const id = Number(idStr);
+      nuevosErrores[id] = {};
+
+      if (!valores.fecha) {
+        nuevosErrores[id].fecha = "Debe ingresar una fecha";
+        tieneErrores = true;
+      }
+      if (!valores.hora) {
+        nuevosErrores[id].hora = "Debe ingresar una hora";
+        tieneErrores = true;
+      }
+    });
+
+    if (tieneErrores) {
+      setErrores(nuevosErrores);
+      toast.error("Debe completar fecha y hora de todos los actos seleccionados");
+      return;
+    }
+
+    // Guardar 1 a 1
+for (const [idStr, valores] of Object.entries(seleccionados)) {
+  const idListado = Number(idStr);
+
+    // ⚠️ Validación adicional por seguridad
+  if (!valores.fecha || !valores.hora) {
+    console.error("❌ Error: falta fecha u hora antes del envío:", valores);
+    continue;
+  }
+  const body = {
+    p_accion: "NUEVO",
+    p_id_calendario: idCalendario,
+    p_id_listado_entregables: idListado,
+    p_fecha: toBackendDate(valores.fecha),
+    p_hora: toBackendTime(valores.hora),
+    p_id_usuario_registra: idUsuario,
+  };
+
+  // AGREGA ESTO AQUÍ
+  console.log("📤 Enviando acto:", body);
+
+  await fetch(`${API_BASE}/procesos/calendario/acto/gestionar`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+    toast.success("Actos guardados correctamente");
+    router.push("/licitacion-publica");
+  }
+
+ /* =========================================================
+     UI DEL PASO 3
+========================================================= */
+
+const router = useRouter(); // 👈 NECESARIO
+
+return (
+  <>
+    <Card className="mt-4 shadow-md">
+      <CardContent className="space-y-6">
+
+        {/* ENCABEZADO SUPERIOR */}
+        <div className="flex items-center gap-4 mb-6">
+
+          {/* BOTÓN REGRESAR */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={onBack}
+                  className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2 cursor-pointer"
+                >
+                  <span className="text-[#235391] font-bold">← 2</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Regresar al paso anterior</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {/* BOTÓN FINALIZAR */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={finalizarActos}
+                  className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
+                  style={{ backgroundColor: "#FFBF00" }}
+                >
+                  Finalizar
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Finalizar proceso</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {/* TÍTULO */}
+          <h1 className="text-2xl font-bold">Paso 3: Seleccionar actos</h1>
+        </div>
+
+        {/* LISTA DE ACTOS */}
+        <div className="space-y-4">
+          {catalogoActos.map((acto) => {
+            const seleccionado = seleccionados[acto.id] || {};
+            const error = errores[acto.id] || {};
+
+            return (
+              <div
+                key={acto.id}
+                className="border rounded-lg p-4 hover:bg-gray-50 transition"
+              >
+                <div className="flex items-center justify-between">
+                  
+                  {/* CHECKBOX */}
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(seleccionados[acto.id])}
+                      onChange={() => toggleSeleccion(acto.id)}
+                    />
+                    <span className="font-medium">{acto.descripcion}</span>
+                  </label>
+
+                  {/* FECHA + HORA */}
+                  {seleccionados[acto.id] && (
+                    <div className="flex items-center gap-6">
+
+                      {/* FECHA */}
+                      <div className="w-32">
+                        <Label>Fecha</Label>
+                        <Input
+                          value={seleccionado.fecha ?? ""}
+                          onChange={(e) => {
+                            const value = formatDateDDMMYYYY(e.target.value);
+                            setErrores((prev) => ({ ...prev, [acto.id]: { ...prev[acto.id], fecha: "" } }));
+                            setSeleccionados((prev) => ({
+                              ...prev,
+                              [acto.id]: { ...prev[acto.id], fecha: value },
+                            }));
+                          }}
+                          placeholder="dd/mm/aaaa"
+                          maxLength={10}
+                          className={`${error.fecha ? "border border-red-500" : ""}`}
+                        />
+                        {error.fecha && <p className="text-red-600 text-xs">{error.fecha}</p>}
+                      </div>
+
+                      {/* HORA */}
+                      <div className="w-28">
+                        <Label>Hora (24 Hrs)</Label>
+                        <Input
+                          value={seleccionado.hora ?? ""}
+                          onChange={(e) => {
+                            const value = formatTimeHHMM(e.target.value);
+                            setErrores((prev) => ({ ...prev, [acto.id]: { ...prev[acto.id], hora: "" } }));
+                            setSeleccionados((prev) => ({
+                              ...prev,
+                              [acto.id]: { ...prev[acto.id], hora: value },
+                            }));
+                          }}
+                          placeholder="HH:MM"
+                          maxLength={5}
+                          className={`${error.hora ? "border border-red-500" : ""}`}
+                        />
+                        {error.hora && <p className="text-red-600 text-xs">{error.hora}</p>}
+                      </div>
+
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* BOTONES INFERIORES */}
+        <div className="flex items-center gap-4 mt-6">
+
+          {/* Botón regresar */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={onBack}
+                  className="hover:scale-105 transition-transform rounded-full px-4 py-2 border border-[#235391] flex items-center gap-2 cursor-pointer"
+                >
+                  <span className="text-[#235391] font-bold">← 2</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Regresar al paso anterior</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {/* Botón finalizar */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={finalizarActos}
+                  className="text-white hover:scale-105 transition-transform rounded-full px-4 py-2"
+                  style={{ backgroundColor: "#FFBF00" }}
+                >
+                  Finalizar
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Finalizar proceso</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+        </div>
+      </CardContent>
+    </Card>
+
+    {/* BOTÓN SALIR INFERIOR */}
+    <div className="flex justify-start mt-4">
+      <Dialog open={openSalirDialog} onOpenChange={setOpenSalirDialog}>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => setOpenSalirDialog(true)}
+                style={{ backgroundColor: "#db200b", color: "white" }}
+                className="cursor-pointer rounded-md"
+              >
+                ←
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Salir</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Deseas salir del proceso?</DialogTitle>
+            <DialogDescription>
+              Si sales ahora, perderás cualquier información no guardada.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex justify-end gap-3 mt-4">
+            <Button
+              onClick={() => setOpenSalirDialog(false)}
+              style={{ backgroundColor: "#db200b", color: "white" }}
+            >
+              Cancelar
+            </Button>
+
+            <Button
+              onClick={() => router.push("/licitacion-publica")}
+              style={{ backgroundColor: "#34e004", color: "white" }}
+            >
+              Sí
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+         </Dialog>
+    </div>
+  </>
+);  // ← CIERRE DEL RETURN DE PASO 3
+}    // ← CIERRE DE LA FUNCIÓN Paso3SeleccionarActos
