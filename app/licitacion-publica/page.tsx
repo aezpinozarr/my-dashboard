@@ -328,7 +328,7 @@ export default function CalendarioPage() {
       },
       {
         accessorKey: "acuerdo",
-        header: "Acuerdo",
+        header: "No. Licitación pública",
         cell: (info) => info.getValue() ?? "—",
       },
       {
