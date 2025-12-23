@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, GalleryVerticalEnd, SquareTerminal, Presentation, NotebookPen, Briefcase, Library, UserLock } from "lucide-react";
+import { Bot, GalleryVerticalEnd, SquareTerminal, Presentation, NotebookPen, Briefcase, Library, UserLock, FileStack } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
@@ -98,7 +98,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {
       title: "Licitación pública",
       url: "#",
-      icon: Presentation,
+      icon: FileStack,
       isActive: openMenus.includes("Sesiones"),
       items: [
         { title: "Licitaciones públicas", url: "/licitacion-publica/" },
