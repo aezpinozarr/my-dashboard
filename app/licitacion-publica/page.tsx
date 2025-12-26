@@ -37,6 +37,7 @@ import {
   ChevronRight,
   RotateCcw,
   Loader2,
+  EllipsisVertical
 } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -53,6 +54,13 @@ import {
 } from "@tanstack/react-table";
 
 import { cn } from "@/lib/utils";
+
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 // ------------------------ API BASE ------------------------
 const API_BASE =
@@ -309,6 +317,47 @@ export default function CalendarioPage() {
         size: 60,
       },
 
+      {
+        id: "options",
+        header: "",
+        size: 60,
+        cell: ({ row }) => {
+            const id = row.original.id;
+
+            return (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                <button
+                    className="p-1 rounded hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition"
+                >
+                    <EllipsisVertical size={18} />
+                </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem asChild>
+                <Link href={`/licitacion-publica/new?idCalendario=${id}&step=1`}>
+                    Editar paso 1: Licitación pública
+                </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem asChild>
+                    <Link href={`/licitacion-publica/new?idCalendario=${id}&step=2`}>
+                    Editar paso 2: Fuentes de financiamiento
+                    </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem asChild>
+                    <Link href={`/licitacion-publica/new?idCalendario=${id}&step=3`}>
+                    Editar paso 3: Actos
+                    </Link>
+                </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+            );
+        },
+        },
+
       // ===================================================
       { accessorKey: "id", header: "ID", cell: (info) => info.getValue() ?? "—" },
       {
@@ -499,7 +548,7 @@ export default function CalendarioPage() {
               <details className="group mt-3">
   <summary className="cursor-pointer font-medium flex items-center gap-2">
     <ChevronRight className="group-open:rotate-90 transition-transform" size={16} />
-    Actos seleccionados
+    Actos
   </summary>
 
   <div className="mt-2 ml-6 text-sm text-gray-700">
@@ -647,7 +696,7 @@ export default function CalendarioPage() {
                                     expandedSections[row.original.id]?.actos && "rotate-90"
                                     )}
                                 />
-                                Actos seleccionados
+                                Actos
                                 </button>
                             </div>
 

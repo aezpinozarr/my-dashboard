@@ -9,8 +9,6 @@ export default function NuevoCalendarioPageWrapper() {
   );
 }
 
-
-
 import React, { useEffect, useState } from "react";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
@@ -78,7 +76,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
         return (
           <div key={step.id} className="flex flex-col items-start">
 
-            {/* 🔵 CÍRCULO + TEXTO */}
+            {/* CÍRCULO + TEXTO */}
             <div className="flex items-center gap-3">
 
               {/* CÍRCULO */}
@@ -87,14 +85,14 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
                   flex items-center justify-center
                   w-10 h-10 rounded-full font-bold text-sm transition-all
 
-                  /* 🔵 Paso activo */
+                  /* Paso activo */
                   ${
                     isActive
                       ? "bg-[#235391] border-[3px] border-[#235391] text-white scale-110"
                       : ""
                   }
 
-                  /* 🔵 Paso completado (borde grueso azul, fondo claro) */
+                  /* Paso completado (borde grueso azul, fondo claro) */
                   ${
                     isCompleted && !isActive
                       ? "bg-[#235391]/20 border-[3px] border-[#235391] text-[#235391]"
@@ -149,6 +147,16 @@ function NuevoCalendarioPage() {
   const { user, loading: userLoading } = useUser();
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState(1);
+  const searchParams = useSearchParams();
+  const stepFromURL = searchParams.get("step");
+  const idFromURL = searchParams.get("idCalendario");
+
+  // Cuando viene idCalendario en URL → asignarlo al estado
+  useEffect(() => {
+    if (idFromURL) {
+      setIdCalendario(Number(idFromURL));
+    }
+  }, [idFromURL]);
 
   /* =========================================================
      PASO 1: ESTADOS / VARIABLES
@@ -215,6 +223,12 @@ const [formErrors, setFormErrors] = useState({
 
         const te = await fetch(`${API_BASE}/procesos/tipos-evento/`);
         setTiposEvento(await te.json());
+        // Auto-seleccionar "LICITACIÓN PUBLICA"
+        const defaultEvento = "LICITACION PUBLICA";
+        setTipoEvento(defaultEvento);
+
+        // Cargar automáticamente los auxiliares correspondientes
+        cargarAuxiliares(defaultEvento);
       } catch (err) {
         console.error("❌ Error al cargar datos:", err);
       }
@@ -224,6 +238,80 @@ const [formErrors, setFormErrors] = useState({
 
     load();
   }, [id_ente]);
+
+// Funciona para cuando damos click en editar paso
+useEffect(() => {
+  if (!idCalendario) return;           // solo depende del id
+  if (servidores.length === 0) return; // ya cargaron
+  if (numerosSesion.length === 0) return;
+
+  async function loadCalendario() {
+    try {
+      const res = await fetch(
+        `${API_BASE}/procesos/calendario/consultar?p_id=${idCalendario}&p_id_ente=-99`
+      );
+      const data = await res.json();
+      const cal = data?.calendario?.[0];
+
+      if (!cal) return;
+
+      // Número de licitación
+      setAcuerdo(cal.acuerdo_o_numero_licitacion);
+
+      // Servidor público
+      const servidor = servidores.find(
+        s => Number(s.id) === Number(cal.id_servidor_publico)
+      );
+
+      if (servidor) {
+        setServidorSeleccionado(servidor);
+        setBusquedaServidor(servidor.nombre);
+        setCargoServidor(servidor.cargo);
+      }
+
+      // Tipo de evento
+      setTipoEvento(cal.tipo_evento);
+
+      // Cargar auxiliares según tipo de evento
+      await cargarAuxiliares(cal.tipo_evento);
+
+      // Tipo de licitación
+      setTipoLicitacion(cal.tipo_licitacion);
+
+      // Sesión
+      const sesion = numerosSesion.find(
+        s => Number(s.id) === Number(cal.tipo_licitacion_no_veces)
+      );
+
+      if (sesion) {
+        setSesionSeleccionada(sesion);
+        setBusquedaSesion(sesion.descripcion);
+      }
+
+      // Ir al paso correcto si viene por URL
+      if (stepFromURL) {
+        setStep(Number(stepFromURL));
+      }
+    } catch (err) {
+      console.error("❌ Error cargando calendario:", err);
+    }
+  }
+
+  loadCalendario();
+}, [idCalendario, servidores, numerosSesion]);
+
+// Cuando venga ?step=2 o ?step=3 → Ir directo al paso indicado
+useEffect(() => {
+  if (!stepFromURL) return;
+
+  // Convertir a número
+  const stepNumber = Number(stepFromURL);
+
+  // Validar que el calendario ya se cargó
+  if (idFromURL && idCalendario) {
+    setStep(stepNumber);
+  }
+}, [stepFromURL, idCalendario]);
 
     /* =========================================================
      CARGA DE SESIONES (PASO 1)
@@ -277,6 +365,12 @@ async function cargarAuxiliares(tipoEventoSeleccionado: string) {
     HANDLER PRINCIPAL DEL PASO 1: CREAR CALENDARIO
   ========================================================= */
   async function crearCalendario() {
+  // Si ya existe un calendario → NO volverlo a crear
+if (idCalendario) {
+  editarCalendario();   // 👈 nuevo
+} else {
+  crearCalendario();
+}
 
   // VALIDACIÓN DE CAMPOS (PEGAR AQUÍ)
   const newErrors: any = {};
@@ -356,7 +450,7 @@ async function cargarAuxiliares(tipoEventoSeleccionado: string) {
     console.log("📥 Respuesta JSON:", data);
 
     if (data?.resultado) {
-    toast.success("Calendario creado correctamente");
+    toast.success("Licitación creada correctamente");
     setIdCalendario(Number(data.id ?? data.resultado));
     setStep(2); // Avanzar al paso 2
     return;
@@ -365,6 +459,64 @@ async function cargarAuxiliares(tipoEventoSeleccionado: string) {
     toast.error("Error al crear calendario");
   }
 
+  /* =========================================================
+  HANDLER PRINCIPAL DEL PASO 1: EDITAR CALENDARIO
+  ========================================================= */
+  async function editarCalendario() {
+  // Validar igual que en creación
+  const newErrors: any = {};
+
+  if (!acuerdo.trim()) newErrors.acuerdo = "Este campo es obligatorio";
+  if (!servidorSeleccionado) newErrors.servidor = "Este campo es obligatorio";
+  if (!cargoServidor.trim()) newErrors.cargo = "Este campo es obligatorio";
+  if (!tipoEvento) newErrors.tipoEvento = "Este campo es obligatorio";
+  if (!tipoLicitacion) newErrors.tipoLicitacion = "Este campo es obligatorio";
+  if (!sesionSeleccionada) newErrors.sesion = "Este campo es obligatorio";
+
+  if (Object.keys(newErrors).length > 0) {
+    setFormErrors(newErrors);
+    toast.error("Complete los campos requeridos.");
+    return;
+  }
+
+  // Payload de actualización
+  const body = {
+    p_accion: "EDITAR",
+    p_id: idCalendario,
+    p_acuerdo_o_numero_licitacion: acuerdo,
+    p_id_ente: Number(id_ente),
+    p_id_servidor_publico: servidorSeleccionado.id,
+    p_servidor_publico_cargo: servidorSeleccionado.cargo,
+    p_tipo_licitacion: tipoLicitacion,
+    p_tipo_licitacion_no_veces: sesionSeleccionada.id,
+    p_tipo_evento: tipoEvento,
+    p_id_usuario_registra: user?.id,
+  };
+
+  console.log("📤 Editando calendario:", body);
+
+  const r = await fetch(`${API_BASE}/procesos/calendario/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  const raw = await r.text();
+  console.log("📥 RAW:", raw);
+
+  let data;
+  try { data = JSON.parse(raw); } catch (err) {
+    toast.error("Error en la respuesta del servidor");
+    return;
+  }
+
+  if (data?.resultado) {
+    toast.success("Calendario actualizado correctamente");
+    setStep(2);
+  } else {
+    toast.error("No se pudo actualizar el calendario");
+  }
+}
     /* =========================================================
      UI DEL PASO 1 (REGISTRO)
      COMPLETAMENTE MARCADA
@@ -378,12 +530,12 @@ return (
       {/* 🟦 CONTENEDOR PRINCIPAL: STEPPER + CARD */}
       <div className="flex gap-10 items-start">
 
-        {/* 📌 STEPPER FUERA DEL CARD */}
+        {/* STEPPER FUERA DEL CARD */}
         <div className="w-56">
           <StepIndicator currentStep={step} />
         </div>
 
-        {/* 📌 COLUMNA DERECHA */}
+        {/* COLUMNA DERECHA */}
         <div className="flex-1">
 
           {/* --- BOTÓN SALIR (ARRIBA DEL TÍTULO) --- */}
@@ -438,21 +590,27 @@ return (
 
           {step === 1 && (
           <>
-          {/* 📌 CARD A LA DERECHA */}
+          {/* CARD A LA DERECHA */}
           <Card className="pt-4 pb-6 px-4 shadow-md border rounded-xl flex-1">
 
           <CardContent>
 
             {/* ENCABEZADO: Título + Botón Paso 2 */}
             <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold">Paso 1: Crear licitación pública</h1>
+              <h1 className="text-2xl font-bold">Paso 1: Licitación pública</h1>
 
               {/* Botón Paso 2 */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
-                      onClick={crearCalendario}
+                <Button
+                  onClick={() => {
+                  if (idCalendario) {
+                    editarCalendario();
+                  } else {
+                    crearCalendario();
+                  }
+                  }}
                       className="bg-[#235391] hover:bg-[#1e3a8a] transition-transform hover:scale-105 rounded-full px-4 py-2"
                     >
                       <div className="flex items-center gap-2">
@@ -755,19 +913,11 @@ return (
               {/* TIPO DE EVENTO */}
               <div>
                 <Label>Tipo de evento</Label>
-                <select
-                  className={`border rounded-md p-2 w-full ${formErrors.tipoEvento ? "border-red-500" : ""}`}
-                  value={tipoEvento}
-                  onChange={async (e) => {
-                    setFormErrors((prev) => ({ ...prev, tipoEvento: "" }));
-                    const value = e.target.value;
-                    setTipoEvento(value);
-                    setErrorTipoLicitacion("");
-
-                    if (value) await cargarAuxiliares(value);
-                    else setTiposLicitacion([]);
-                  }}
-                >
+              <select
+                disabled
+                className="border rounded-md p-2 w-full bg-gray-100 text-gray-500 cursor-not-allowed"
+                value={tipoEvento}
+              >
                   <option value="">Seleccione…</option>
                   {tiposEvento.map((t) => (
                     <option key={t.id} value={t.descripcion}>
@@ -872,8 +1022,14 @@ return (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button
-                        onClick={crearCalendario}
+                  <Button
+                    onClick={() => {
+                    if (idCalendario) {
+                      editarCalendario();
+                    } else {
+                      crearCalendario();
+                    }
+                    }}
                         className="bg-[#235391] hover:bg-[#1e3a8a] transition-transform hover:scale-105 rounded-full px-4 py-2"
                       >
                         <div className="flex items-center gap-2">
@@ -947,8 +1103,10 @@ return (
         {step === 2 && idCalendario && (
           <div className="mt-2">
             <Paso2FuentesFinanciamiento
+              key={step}   // 👈 Fuerza remount
               idCalendario={idCalendario}
               idUsuario={user?.id}
+              numeroLicitacion={acuerdo}   // 👈 AÑADIDO
               onNext={() => setStep(3)}
               onBack={() => setStep(1)}
             />
@@ -961,6 +1119,7 @@ return (
             <Paso3SeleccionarActos
             idCalendario={idCalendario}
             idUsuario={user?.id}
+            numeroLicitacion={acuerdo}
             onBack={() => setStep(2)}
             onNext={() => setStep(4)}
             />
@@ -987,11 +1146,12 @@ interface FuenteFinanciamiento {
 interface Paso2Props {
   idCalendario: number;
   idUsuario: number;
+  numeroLicitacion: string; 
   onNext: () => void;
   onBack: () => void;
 }
 
-function Paso2FuentesFinanciamiento({ idCalendario, idUsuario, onNext, onBack, }: Paso2Props) {
+function Paso2FuentesFinanciamiento({ idCalendario, idUsuario, numeroLicitacion, onNext, onBack, }: Paso2Props) {
   const [openSalirDialog, setOpenSalirDialog] = useState(false);
   const [fuentesCatalogo, setFuentesCatalogo] = useState<FuenteFinanciamiento[]>([]);
   const [busquedaFuente, setBusquedaFuente] = useState("");
@@ -999,6 +1159,41 @@ function Paso2FuentesFinanciamiento({ idCalendario, idUsuario, onNext, onBack, }
   const [errorFuente, setErrorFuente] = useState("");
   const [errorListaVacia, setErrorListaVacia] = useState("");  
   const [fuentesAgregadas, setFuentesAgregadas] = useState<FuenteFinanciamiento[]>([]);
+useEffect(() => {
+  async function cargarFuentesExistentes() {
+    const r = await fetch(
+      `${API_BASE}/procesos/calendario/fuentes-financiamiento?p_id_calendario=${idCalendario}`
+    );
+
+    const data = await r.json();
+
+    const fuentes = data?.fuentes ?? data?.items ?? [];
+
+    // Usamos el catálogo para reconstruir fondo, ramo, etiquetado completo
+    const normalizadas = fuentes.map(f => {
+      const fromCatalog = fuentesCatalogo.find(c => c.id === f.id_fuente_financiamiento);
+
+      return {
+        id: f.id_fuente_financiamiento,
+        descripcion: f.fuente_descripcion,
+
+        // Etiquetado: lo devuelve backend en fecha_y_hora_sistema
+        etiquetado: f.fecha_y_hora_sistema,
+
+        // Fondo y ramo los sacamos del catálogo, porque backend NO los envía
+        fondo: fromCatalog?.fondo ?? "-",
+        ramo: fromCatalog?.ramo ?? "-",
+      };
+    });
+
+    setFuentesAgregadas(normalizadas);
+  }
+
+  // Solo cargar si ya tenemos el catálogo de fuentes disponible
+  if (fuentesCatalogo.length > 0) {
+    cargarFuentesExistentes();
+  }
+}, [idCalendario, fuentesCatalogo]);
   const [openEliminarDialog, setOpenEliminarDialog] = useState(false);
   const [fuenteAEliminar, setFuenteAEliminar] = useState<FuenteFinanciamiento | null>(null);
   const router = useRouter();
@@ -1024,6 +1219,16 @@ function Paso2FuentesFinanciamiento({ idCalendario, idUsuario, onNext, onBack, }
   if (!seleccionFuente) {
     setErrorFuente("Este campo es obligatorio");
     toast.error("Seleccione una fuente antes de continuar");
+    return;
+  }
+
+  // Validar duplicados antes de enviar al backend
+  const yaExiste = fuentesAgregadas.some(
+    (f) => String(f.id) === String(seleccionFuente.id)
+  );
+
+  if (yaExiste) {
+    toast.warning("Ya añadiste esta fuente");
     return;
   }
 
@@ -1094,7 +1299,7 @@ async function handleEliminarFuente() {
     // ✔ Cerrar modal
     setOpenEliminarDialog(false);
 
-    // 🎉 Mostrar toast
+    // Mostrar toast
     toast.success("Fuente eliminada correctamente");
 
   } catch (error) {
@@ -1144,7 +1349,7 @@ async function handleEliminarFuente() {
                     }
                       onNext();
                     }}
-                    className="bg-[#235391] text-white rounded-full px-4 py-2 hover:scale-105"
+                    className="bg-[#235391] hover:bg-[#1e3a8a] transition-transform hover:scale-105 rounded-full px-4 py-2"
                   >
                     3 →
                   </Button>
@@ -1155,6 +1360,16 @@ async function handleEliminarFuente() {
           </div>
 
           {/* FORMULARIO DE AGREGAR FUENTE */}
+          {/* Número de licitación */}
+          <div className="mb-4">
+            <Label>Número de licitación</Label>
+            <Input
+              value={numeroLicitacion}
+              disabled
+              className="bg-gray-100 text-gray-700 !cursor-not-allowed !pointer-events-auto"
+
+            />
+          </div>
           <div>
             <Label>Fuente de financiamiento</Label>
 
@@ -1194,7 +1409,7 @@ async function handleEliminarFuente() {
                         onSelect={() => {
                           setSeleccionFuente(f);
 
-                          // 🔥 Igual que la funcionalidad que quieres
+                          
                           setBusquedaFuente(
                             `${f.id} – Descripción: ${f.descripcion} – Etiquetado: ${f.etiquetado} – Fondo: ${f.fondo}`
                           );
@@ -1245,21 +1460,22 @@ async function handleEliminarFuente() {
               </tr>
             </thead>
 
-            <tbody>
-              {fuentesAgregadas.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-3 text-gray-400">
-                    No hay fuentes agregadas
-                  </td>
-                </tr>
-              ) : (
-                fuentesAgregadas.map((f) => (
-                  <tr key={f.id} className="border-b hover:bg-gray-50">
-                   <td className="px-3 py-2 text-center"> {f.id} – {f.descripcion}</td>
-                    <td className="px-3 py-2 text-center">{f.etiquetado}</td>
-                    <td className="px-3 py-2 text-center">{f.fondo}</td>
-                    <td className="px-3 py-2 text-center">{f.ramo}</td>
-                    <td className="px-3 py-2 text-right">
+          <tbody>
+            {fuentesAgregadas.length === 0 ? (
+              <tr key="sin-fuentes">
+                <td colSpan={8} className="text-center py-3 text-gray-400">
+                  No hay fuentes agregadas
+                </td>
+              </tr>
+            ) : (
+              fuentesAgregadas.map((f) => (
+                <tr key={f.id} className="border-b hover:bg-gray-50">
+                  <td className="px-3 py-2 text-center">{f.id} – {f.descripcion}</td>
+                  <td className="px-3 py-2 text-center">{f.etiquetado}</td>
+                  <td className="px-3 py-2 text-center">{f.fondo}</td>
+                  <td className="px-3 py-2 text-center">{f.ramo}</td>
+
+                  <td className="px-3 py-2 text-right">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -1322,7 +1538,7 @@ async function handleEliminarFuente() {
                 }
                     onNext();
                   }}
-                  className="bg-[#235391] text-white rounded-full px-4 py-2 hover:scale-105"
+                  className="bg-[#235391] hover:bg-[#1e3a8a] transition-transform hover:scale-105 rounded-full px-4 py-2"
                 >
                   3 →
                 </Button>
@@ -1459,11 +1675,14 @@ interface Acto {
   id: number;
   descripcion: string;
   estatus: boolean;
+  fecha?: string;  // <- ya usas este campo también
+  hora?: string;   // <- AÑADE ESTA LÍNEA
 }
 
 interface Paso3Props {
   idCalendario: number;
   idUsuario: number;
+  numeroLicitacion: string;
   onBack: () => void;
   onNext: () => void;
 }
@@ -1471,105 +1690,135 @@ interface Paso3Props {
 function Paso3SeleccionarActos({
   idCalendario,
   idUsuario,
+  numeroLicitacion,
   onBack,
   onNext
 }: Paso3Props) {
 
   const [catalogoActos, setCatalogoActos] = useState<Acto[]>([]);
-  const [seleccionados, setSeleccionados] = useState<{
-    [id: number]: { fecha: string; hora: string };}>({});
-    const [openSalirDialog, setOpenSalirDialog] = useState(false);
+  const [openSalirDialog, setOpenSalirDialog] = useState(false);
   const [errores, setErrores] = useState<{ [id: number]: { fecha?: string; hora?: string } }>({});
+  const [horaGlobal, setHoraGlobal] = useState("");
+  const [tocoFinalizar, setTocoFinalizar] = useState(false);
+  const [ocultarHorasIndividuales, setOcultarHorasIndividuales] = useState(false);
 
-  /* =========================================================
-     Cargar catálogo de actos
-  ========================================================= */
-  useEffect(() => {
-    async function load() {
-      const r = await fetch(
-        `${API_BASE}/sesiones/entregables-popular?p_id=-99&p_id_calendario_sesiones=-99`
-      );
-      const data = await r.json();
-      setCatalogoActos(Array.isArray(data) ? data : []);
-    }
-    load();
-  }, []);
+useEffect(() => {
+  async function loadActos() {
+    // 1️⃣ Cargar catálogo de entregables
+    const r1 = await fetch(
+      `${API_BASE}/sesiones/entregables-popular?p_id=-99&p_id_calendario_sesiones=-99`
+    );
+    const catalogo: any[] = await r1.json();
 
-  /* =========================================================
-     Seleccionar / deseleccionar acto
-  ========================================================= */
-  function toggleSeleccion(id: number) {
-    setErrores((prev) => ({ ...prev, [id]: {} }));
+    // 2️⃣ Cargar actos guardados si estamos editando
+    const r2 = await fetch(
+      `${API_BASE}/procesos/calendario/acto-popular?p_id_calendario=${idCalendario}&p_id_listado_entregables=-99`
+    );
+    const guardados = await r2.json();
+    const itemsGuardados: any[] = guardados?.items ?? [];
 
-    setSeleccionados((prev) => {
-      if (prev[id]) {
-        const copia = { ...prev };
-        delete copia[id];
-        return copia;
-      }
-      return { ...prev, [id]: { fecha: "", hora: "" } };
+    // 3️⃣ Convertir guardados a diccionario
+    const mapGuardados: Record<number, { fecha: string; hora: string }> = {};
+
+    itemsGuardados.forEach((a: any) => {
+      mapGuardados[a.id_listado_entregables] = {
+        fecha: formatDateDDMMYYYY(a.fecha),
+        hora: a.hora ? a.hora.substring(11, 16) : ""
+      };
     });
+
+    // 4️⃣ Fusionar catálogo + valores guardados
+    const fusion = catalogo.map((acto: any) => {
+      const encontrado = mapGuardados[acto.id];
+
+      return {
+        ...acto,
+        fecha: encontrado?.fecha ?? "",
+        hora: encontrado?.hora ?? ""
+      };
+    });
+
+    setCatalogoActos(fusion);
+
+    // 5️⃣ Detectar si todas las horas son iguales → activar horaGlobal
+    const horas: string[] = fusion
+      .map((a: any) => a.hora)
+      .filter((h: string) => h);
+
+    if (horas.length > 0) {
+      const todasIguales = horas.every((h: string) => h === horas[0]);
+      if (todasIguales) {
+        setHoraGlobal(horas[0]);
+        setOcultarHorasIndividuales(true);
+      }
+    }
   }
+
+  if (idCalendario) loadActos();
+}, [idCalendario]);
+
+
 
   /* =========================================================
      Finalizar — Guardar TODOS los actos seleccionados
   ========================================================= */
+
   async function finalizarActos() {
-    const nuevosErrores: any = {};
-    let tieneErrores = false;
+  setTocoFinalizar(true); 
+  const nuevosErrores: any = {};
+  let tieneErrores = false;
 
-    // Validar cada acto
-    Object.entries(seleccionados).forEach(([idStr, valores]) => {
-      const id = Number(idStr);
-      nuevosErrores[id] = {};
 
-      if (!valores.fecha) {
-        nuevosErrores[id].fecha = "Debe ingresar una fecha";
-        tieneErrores = true;
-      }
-      if (!valores.hora) {
-        nuevosErrores[id].hora = "Debe ingresar una hora";
-        tieneErrores = true;
-      }
-    });
+// Validación de horas: si NO hay hora global, entonces TODAS las individuales deben tener hora
+if (!horaGlobal) {
+  const actosSinHora = catalogoActos.some(a => !a.hora || a.hora.trim() === "");
 
-    if (tieneErrores) {
-      setErrores(nuevosErrores);
-      toast.error("Debe completar fecha y hora de todos los actos seleccionados");
-      return;
-    }
-
-    // Guardar 1 a 1
-for (const [idStr, valores] of Object.entries(seleccionados)) {
-  const idListado = Number(idStr);
-
-    // ⚠️ Validación adicional por seguridad
-  if (!valores.fecha || !valores.hora) {
-    console.error("❌ Error: falta fecha u hora antes del envío:", valores);
-    continue;
+  if (actosSinHora) {
+    toast.error("Debe ingresar una hora global o completar la hora de cada acto");
+    return;
   }
+}
+
+  // Validar fechas de cada acto
+  catalogoActos.forEach((acto) => {
+    if (!(acto as any).fecha) {
+      nuevosErrores[acto.id] = { fecha: "Debe ingresar una fecha" };
+      tieneErrores = true;
+    }
+  });
+
+  if (tieneErrores) {
+    setErrores(nuevosErrores);
+    toast.error("Debe completar las fechas antes de continuar");
+    return;
+  }
+
+  // Enviar 1 a 1 al backend
+for (const acto of catalogoActos) {
+  const horaFinal = horaGlobal || acto.hora;
+
   const body = {
     p_accion: "NUEVO",
     p_id_calendario: idCalendario,
-    p_id_listado_entregables: idListado,
-    p_fecha: toBackendDate(valores.fecha),
-    p_hora: toBackendTime(valores.hora),
+    p_id_listado_entregables: acto.id,
+  p_fecha: toBackendDate(acto.fecha!),
+  p_hora: toBackendTime(horaFinal!),
     p_id_usuario_registra: idUsuario,
   };
 
-  // AGREGA ESTO AQUÍ
+
   console.log("📤 Enviando acto:", body);
 
   await fetch(`${API_BASE}/procesos/calendario/acto/gestionar`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(body)
   });
 }
 
-    toast.success("Actos guardados correctamente");
-    router.push("/licitacion-publica");
-  }
+  toast.success("Actos guardados correctamente");
+  router.push("/licitacion-publica");
+}
 
  /* =========================================================
      UI DEL PASO 3
@@ -1624,12 +1873,70 @@ return (
           {/* TÍTULO */}
           <h1 className="text-2xl font-bold">Paso 3: Seleccionar actos</h1>
         </div>
+        {/* NÚMERO DE LICITACIÓN (solo lectura) */}
+        <div className="mb-4">
+          <Label>Número de licitación</Label>
+          <Input
+            value={numeroLicitacion}
+            disabled
+            className="bg-gray-100 text-gray-700 !cursor-not-allowed !pointer-events-auto"
+          />
+        </div>
 
+        {/* HORA GLOBAL */}
+        <div className="mb-4">
+          <Label>Hora (24 hrs)</Label>
+          <Input
+            value={horaGlobal}
+          onChange={(e) => {
+            const nuevaHora = formatTimeHHMM(e.target.value);
+            setHoraGlobal(nuevaHora);
+
+            if (nuevaHora.trim() !== "") {
+              // usuario está escribiendo → ocultamos inputs individuales
+              setOcultarHorasIndividuales(true);
+
+              // actualizamos horas individuales automáticamente
+              setCatalogoActos(prev =>
+                prev.map(a => ({
+                  ...a,
+                  hora: nuevaHora
+                }))
+              );
+            } else {
+              // usuario borró la hora global → mostramos inputs limpios
+              setOcultarHorasIndividuales(false);
+
+              setCatalogoActos(prev =>
+                prev.map(a => ({
+                  ...a,
+                  hora: "" // limpiar horas individuales
+                }))
+              );
+            }
+          }}
+            placeholder="HH:MM"
+            maxLength={5}
+            className={`${
+            tocoFinalizar &&
+            horaGlobal === "" &&
+            catalogoActos.some(a => !a.hora || a.hora.trim() === "")
+              ? "border border-red-500"
+              : ""
+          }`}
+          />
+        {tocoFinalizar &&
+        horaGlobal === "" &&
+        catalogoActos.some(a => !a.hora || a.hora.trim() === "") && (
+          <p className="text-red-600 text-xs">
+            Debe ingresar una hora global o completar todas las horas individuales
+          </p>
+        )}
+        </div>
         {/* LISTA DE ACTOS */}
         <div className="space-y-4">
           {catalogoActos.map((acto) => {
-            const seleccionado = seleccionados[acto.id] || {};
-            const error = errores[acto.id] || {};
+          const error = errores[acto.id] || {};
 
             return (
               <div
@@ -1639,61 +1946,63 @@ return (
                 <div className="flex items-center justify-between">
                   
                   {/* CHECKBOX */}
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(seleccionados[acto.id])}
-                      onChange={() => toggleSeleccion(acto.id)}
+                <span className="font-medium">{acto.descripcion}</span>
+
+              <div className="flex items-center gap-6 mt-4">
+
+                  {/* FECHA */}
+                  <div className="w-32">
+                    <Label>Fecha</Label>
+                    <Input
+                      value={(acto as any).fecha ?? ""}
+                      onChange={(e) => {
+                        const value = formatDateDDMMYYYY(e.target.value);
+
+                        setErrores((prev) => ({
+                          ...prev,
+                          [acto.id]: { fecha: "" }
+                        }));
+
+                        setCatalogoActos((prev) =>
+                          prev.map((a) =>
+                            a.id === acto.id ? { ...a, fecha: value } : a
+                          )
+                        );
+                      }}
+                      placeholder="dd/mm/aaaa"
+                      maxLength={10}
+                      className={`${error.fecha ? "border border-red-500" : ""}`}
                     />
-                    <span className="font-medium">{acto.descripcion}</span>
-                  </label>
+                    {error.fecha && <p className="text-red-600 text-xs">{error.fecha}</p>}
+                  </div>
 
-                  {/* FECHA + HORA */}
-                  {seleccionados[acto.id] && (
-                    <div className="flex items-center gap-6">
+                  {/* HORA INDIVIDUAL */}
+                  <div className="w-24">
+                    <Label>Hora (24 hrs)</Label>
 
-                      {/* FECHA */}
-                      <div className="w-32">
-                        <Label>Fecha</Label>
-                        <Input
-                          value={seleccionado.fecha ?? ""}
-                          onChange={(e) => {
-                            const value = formatDateDDMMYYYY(e.target.value);
-                            setErrores((prev) => ({ ...prev, [acto.id]: { ...prev[acto.id], fecha: "" } }));
-                            setSeleccionados((prev) => ({
-                              ...prev,
-                              [acto.id]: { ...prev[acto.id], fecha: value },
-                            }));
-                          }}
-                          placeholder="dd/mm/aaaa"
-                          maxLength={10}
-                          className={`${error.fecha ? "border border-red-500" : ""}`}
-                        />
-                        {error.fecha && <p className="text-red-600 text-xs">{error.fecha}</p>}
-                      </div>
+                    {!ocultarHorasIndividuales ? (
+                      <Input
+                        type="text"
+                        inputMode="text"
+                        value={acto.hora ?? ""}
+                        onChange={(e) => {
+                          const value = formatTimeHHMM(e.target.value);
+                          setCatalogoActos(prev =>
+                            prev.map(a =>
+                              a.id === acto.id ? { ...a, hora: value } : a
+                            )
+                          );
+                        }}
+                        placeholder="HH:MM"
+                        maxLength={5}
+                      />
+                    ) : (
+                      <p className="text-gray-400 text-sm">Usando hora global</p>
+                    )}
+                  </div>
 
-                      {/* HORA */}
-                      <div className="w-28">
-                        <Label>Hora (24 Hrs)</Label>
-                        <Input
-                          value={seleccionado.hora ?? ""}
-                          onChange={(e) => {
-                            const value = formatTimeHHMM(e.target.value);
-                            setErrores((prev) => ({ ...prev, [acto.id]: { ...prev[acto.id], hora: "" } }));
-                            setSeleccionados((prev) => ({
-                              ...prev,
-                              [acto.id]: { ...prev[acto.id], hora: value },
-                            }));
-                          }}
-                          placeholder="HH:MM"
-                          maxLength={5}
-                          className={`${error.hora ? "border border-red-500" : ""}`}
-                        />
-                        {error.hora && <p className="text-red-600 text-xs">{error.hora}</p>}
-                      </div>
+                </div>
 
-                    </div>
-                  )}
                 </div>
               </div>
             );
@@ -1784,5 +2093,5 @@ return (
          </Dialog>
     </div>
   </>
-);  // ← CIERRE DEL RETURN DE PASO 3
-}    // ← CIERRE DE LA FUNCIÓN Paso3SeleccionarActos
+); 
+}    
