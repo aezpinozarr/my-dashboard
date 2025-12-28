@@ -230,6 +230,11 @@ export default function CalendarioPage() {
         fuentes: [],
       }));
 
+      // FILTRAR SOLO LICITACIONES PÚBLICAS
+    let filtered = normalized.filter(
+    (cal) => String(cal.tipo_evento).toUpperCase() === "LICITACION PUBLICA"
+    );
+
 async function safeJSON(response: Response, label: string) {
   try {
     if (!response.ok) {
@@ -243,8 +248,8 @@ async function safeJSON(response: Response, label: string) {
   }
 }
 
-await Promise.all(
-  normalized.map(async (cal) => {
+  await Promise.all(
+  filtered.map(async (cal) => {
 
     const urlFechas = `${API_BASE}/procesos/calendario/fechas?p_id_calendario=${cal.id}`;
     const urlFuentes = `${API_BASE}/procesos/calendario/fuentes-financiamiento?p_id_calendario=${cal.id}`;
@@ -273,11 +278,11 @@ await Promise.all(
 );
 
     // Ordenar por ID DESC
-    normalized.sort((a, b) => Number(b.id) - Number(a.id));
+    filtered.sort((a, b) => Number(b.id) - Number(a.id));
 
-    // GUARDAR DESPUÉS de llenar actos/fuentes/fechas
-    setData(normalized);
-    setOriginalData(normalized);
+    // GUARDAR LOS FILTRADOS — NO normalized
+    setData(filtered);
+    setOriginalData(filtered);
     } catch (err) {
       console.error("❌ Error:", err);
     }
@@ -596,29 +601,61 @@ await Promise.all(
         key={item.id}
         className="relative border rounded-lg shadow-sm p-4 bg-white hover:shadow-md transition cursor-pointer space-y-2"
       >
-          {/* INDICADOR DE ESTATUS */}
-  <div className="absolute top-3 right-3">
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div
-            className={`w-4 h-4 rounded-full cursor-default ${
-              item.estatus === "PREREGISTRADO"
-                ? "bg-yellow-400"
-                : item.estatus === "REGISTRADO"
-                ? "bg-green-500"
-                : item.estatus === "CANCELADO"
-                ? "bg-red-500"
-                : item.estatus === "EN_PROCESO"
-                ? "bg-blue-500"
-                : "bg-gray-400"
-            }`}
-          ></div>
-        </TooltipTrigger>
-        <TooltipContent>{item.estatus}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  </div>
+        {/* CABECERA: ESTATUS + MENÚ DE OPCIONES */}
+        <div className="absolute top-3 right-3 flex items-center gap-3">
+
+        {/* Indicador de estatus */}
+        <TooltipProvider>
+            <Tooltip>
+            <TooltipTrigger asChild>
+                <div
+                className={`w-4 h-4 rounded-full cursor-default ${
+                    item.estatus === "PREREGISTRADO"
+                    ? "bg-yellow-400"
+                    : item.estatus === "REGISTRADO"
+                    ? "bg-green-500"
+                    : item.estatus === "CANCELADO"
+                    ? "bg-red-500"
+                    : item.estatus === "EN_PROCESO"
+                    ? "bg-blue-500"
+                    : "bg-gray-400"
+                }`}
+                ></div>
+            </TooltipTrigger>
+            <TooltipContent>{item.estatus}</TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+
+        {/* Menú ⋮ */}
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+            <button className="p-1 rounded hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition">
+                <EllipsisVertical size={18} />
+            </button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem asChild>
+                <Link href={`/licitacion-publica/new?idCalendario=${item.id}&step=1`}>
+                Editar paso 1: Licitación pública
+                </Link>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem asChild>
+                <Link href={`/licitacion-publica/new?idCalendario=${item.id}&step=2`}>
+                Editar paso 2: Fuentes de financiamiento
+                </Link>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem asChild>
+                <Link href={`/licitacion-publica/new?idCalendario=${item.id}&step=3`}>
+                Editar paso 3: Actos
+                </Link>
+            </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+
+        </div>
         {/* TÍTULO */}
         <h2 className="text-lg font-bold">
           Licitación Pública #{item.id}
