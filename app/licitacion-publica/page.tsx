@@ -93,7 +93,7 @@ interface Calendario {
   tipo_licitacion: string;
   numero_sesion: string;
   usuario_registra: string;
-
+  estatus?: string;  
   fechas?: CalendarioFecha[];
   actos?: any[]; 
   fuentes?: CalendarioFuente[];
@@ -223,6 +223,8 @@ export default function CalendarioPage() {
         tipo_licitacion: c.tipo_licitacion ?? "—",
         numero_sesion: c.tipo_licitacion_no_veces ?? "—",
         usuario_registra: c.id_usuario_registra ?? "—",
+        estatus: c.estatus ?? "PREREGISTRADO",   
+
         fechas: [],
         actos: [], 
         fuentes: [],
@@ -340,6 +342,37 @@ await Promise.all(
         size: 60,
       },
 
+      {
+        id: "estatus",
+        header: "",
+        size: 60,
+        cell: ({ row }) => {
+            const estatus = row.original.estatus ?? "—";
+
+            // COLORES según el estatus
+            const colores: Record<string, string> = {
+            PREREGISTRADO: "bg-yellow-400",
+            REGISTRADO: "bg-green-500",
+            CANCELADO: "bg-red-500",
+            EN_PROCESO: "bg-blue-500",
+            };
+
+            const color = colores[estatus] ?? "bg-gray-400";
+
+            return (
+            <TooltipProvider>
+                <Tooltip>
+                <TooltipTrigger asChild>
+                    <div
+                    className={`w-4 h-4 rounded-full mx-auto cursor-default ${color}`}
+                    ></div>
+                </TooltipTrigger>
+                <TooltipContent>{estatus}</TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+            );
+        },
+        },
       {
         id: "options",
         header: "",
@@ -556,72 +589,118 @@ await Promise.all(
         )}
       </div>
 
-      {viewMode === "cards" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-          {data.map((item: Calendario) => (
-            <div
-              key={item.id}
-              className="border rounded-lg shadow-sm p-4 bg-white hover:shadow-md transition cursor-pointer"
-            >
-              <h2 className="text-lg font-bold mb-1">Calendario #{item.id}</h2>
-              <p className="text-sm text-gray-700 font-semibold">{item.ente}</p>
-              <p className="text-sm text-gray-600">Presidente: {item.presidente}</p>
-              <p className="text-sm text-gray-600">Evento: {item.tipo_evento}</p>
-              <div className="border-t my-3" />
-              <details className="group mt-3">
-  <summary className="cursor-pointer font-medium flex items-center gap-2">
-    <ChevronRight className="group-open:rotate-90 transition-transform" size={16} />
-    Actos
-  </summary>
-
-  <div className="mt-2 ml-6 text-sm text-gray-700">
-    {item.actos?.length ? (
-      <ul className="list-disc">
-        {item.actos.map((a, i) => {
-          const fecha = a.fecha
-            ? new Date(a.fecha).toLocaleDateString("es-MX")
-            : "—";
-
-          const hora = a.hora
-            ? a.hora.substring(11, 16)
-            : "—";
-
-          return (
-            <li key={i} className="mb-2">
-              <span className="font-medium">{a.descripcion}</span>
-              <br />
-              <span className="text-gray-600">Fecha: {fecha}</span> —{" "}
-              <span className="text-gray-600">Hora: {hora}</span>
-            </li>
-          );
-        })}
-      </ul>
-    ) : (
-      <p className="text-gray-500">No hay actos registrados.</p>
-    )}
+{viewMode === "cards" && (
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+    {data.map((item: Calendario) => (
+      <div
+        key={item.id}
+        className="relative border rounded-lg shadow-sm p-4 bg-white hover:shadow-md transition cursor-pointer space-y-2"
+      >
+          {/* INDICADOR DE ESTATUS */}
+  <div className="absolute top-3 right-3">
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={`w-4 h-4 rounded-full cursor-default ${
+              item.estatus === "PREREGISTRADO"
+                ? "bg-yellow-400"
+                : item.estatus === "REGISTRADO"
+                ? "bg-green-500"
+                : item.estatus === "CANCELADO"
+                ? "bg-red-500"
+                : item.estatus === "EN_PROCESO"
+                ? "bg-blue-500"
+                : "bg-gray-400"
+            }`}
+          ></div>
+        </TooltipTrigger>
+        <TooltipContent>{item.estatus}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   </div>
-</details>
-              <details className="group mt-3">
-                <summary className="cursor-pointer font-medium flex items-center gap-2">
-                  <ChevronRight className="group-open:rotate-90 transition-transform" size={16} />
-                  Fuente de financiamiento
-                </summary>
-                <div className="mt-2 ml-6 text-sm text-gray-700">
-                  {item.fuentes?.length ? (
-                    <ul className="list-disc">
-                      {item.fuentes.map((f, i) => (
-                        <li key={i}>{f.id_fuente_financiamiento} — {f.fuente_descripcion}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-gray-500">No hay fuentes registradas.</p>
-                  )}
-                </div>
-              </details>
-            </div>
-          ))}
-        </div>
-      )}
+        {/* TÍTULO */}
+        <h2 className="text-lg font-bold">
+          Licitación Pública #{item.id}
+        </h2>
+
+        {/* NO. LICITACIÓN EN GRANDE */}
+        <p className="text-xl font-semibold text-gray-800">
+          No. Licitación: {item.acuerdo}
+        </p>
+
+        {/* INFO PRINCIPAL */}
+        <p className="text-sm text-gray-700 font-semibold">{item.ente}</p>
+        <p className="text-sm text-gray-600">Presidente: {item.presidente}</p>
+        <p className="text-sm text-gray-600">Cargo: {item.cargo_presidente}</p>
+        <p className="text-sm text-gray-600">Tipo de evento: {item.tipo_evento}</p>
+        <p className="text-sm text-gray-600">Tipo de licitación: {item.tipo_licitacion}</p>
+        <p className="text-sm text-gray-600">
+          No. Sesión: {numeroSesionToTexto(item.numero_sesion)}
+        </p>
+
+        <div className="border-t my-3" />
+
+        {/* ACTOS */}
+        <details className="group mt-3">
+          <summary className="cursor-pointer font-medium flex items-center gap-2">
+            <ChevronRight className="group-open:rotate-90 transition-transform" size={16} />
+            Actos
+          </summary>
+
+          <div className="mt-2 ml-6 text-sm text-gray-700">
+            {item.actos?.length ? (
+              <ul className="list-disc">
+                {item.actos.map((a, i) => {
+                  const fecha = a.fecha
+                    ? new Date(a.fecha).toLocaleDateString("es-MX")
+                    : "—";
+
+                  const hora = a.hora
+                    ? a.hora.substring(11, 16)
+                    : "—";
+
+                  return (
+                    <li key={i} className="mb-2">
+                      <span className="font-medium">{a.descripcion}</span>
+                      <br />
+                      <span className="text-gray-600">Fecha: {fecha}</span> —{" "}
+                      <span className="text-gray-600">Hora: {hora}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-gray-500">No hay actos registrados.</p>
+            )}
+          </div>
+        </details>
+
+        {/* FUENTES */}
+        <details className="group mt-3">
+          <summary className="cursor-pointer font-medium flex items-center gap-2">
+            <ChevronRight className="group-open:rotate-90 transition-transform" size={16} />
+            Fuente de financiamiento
+          </summary>
+
+          <div className="mt-2 ml-6 text-sm text-gray-700">
+            {item.fuentes?.length ? (
+              <ul className="list-disc">
+                {item.fuentes.map((f, i) => (
+                  <li key={i}>
+                    {f.id_fuente_financiamiento} — {f.fuente_descripcion}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-500">No hay fuentes registradas.</p>
+            )}
+          </div>
+        </details>
+      </div>
+    ))}
+  </div>
+)}
 
       {/* ================================================================
          TABLA PRINCIPAL (idéntica a Procesos Page)
