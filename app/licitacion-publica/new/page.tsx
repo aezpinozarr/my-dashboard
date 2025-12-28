@@ -152,11 +152,18 @@ function NuevoCalendarioPage() {
   const idFromURL = searchParams.get("idCalendario");
 
   // Cuando viene idCalendario en URL → asignarlo al estado
-  useEffect(() => {
-    if (idFromURL) {
-      setIdCalendario(Number(idFromURL));
-    }
-  }, [idFromURL]);
+useEffect(() => {
+  // Si viene null, undefined, vacío o "0" → NO usarlo
+  if (!idFromURL || idFromURL === "0" || idFromURL === "null" || idFromURL === "undefined") {
+    return;
+  }
+
+  const idNum = Number(idFromURL);
+
+  if (!isNaN(idNum) && idNum > 0) {
+    setIdCalendario(idNum);
+  }
+}, [idFromURL]);
 
   /* =========================================================
      PASO 1: ESTADOS / VARIABLES
@@ -175,18 +182,21 @@ function NuevoCalendarioPage() {
   const [acuerdo, setAcuerdo] = useState("");
   const [tipoEvento, setTipoEvento] = useState("");
   const [tiposEvento, setTiposEvento] = useState<any[]>([]);
-const [busquedaSesion, setBusquedaSesion] = useState("");
-const [mostrarSesiones, setMostrarSesiones] = useState(false);
-const [numerosSesion, setNumerosSesion] = useState<any[]>([]);
-const [tiposLicitacion, setTiposLicitacion] = useState<any[]>([]);
-const [tipoLicitacion, setTipoLicitacion] = useState("");
-const [errorTipoLicitacion, setErrorTipoLicitacion] = useState("");
-const [sesionSeleccionada, setSesionSeleccionada] = useState<any>(null);
-const [errores, setErrores] = useState({ tipo_licitacion_notas: "" });
-const [idCalendario, setIdCalendario] = useState<number | null>(null);
-const [openSalirDialog, setOpenSalirDialog] = useState(false);
-const router = useRouter();
-const params = useSearchParams();
+  const [busquedaSesion, setBusquedaSesion] = useState("");
+  const [mostrarSesiones, setMostrarSesiones] = useState(false);
+  const [numerosSesion, setNumerosSesion] = useState<any[]>([]);
+  const [tiposLicitacion, setTiposLicitacion] = useState<any[]>([]);
+  const [tipoLicitacion, setTipoLicitacion] = useState("");
+  const [errorTipoLicitacion, setErrorTipoLicitacion] = useState("");
+  const [sesionSeleccionada, setSesionSeleccionada] = useState<any>(null);
+  const [errores, setErrores] = useState({ tipo_licitacion_notas: "" });
+  const [idCalendario, setIdCalendario] = useState<number | null>(null);
+    console.log("idFromURL (URL):", idFromURL);
+  console.log("idCalendario (STATE):", idCalendario);
+  const [openSalirDialog, setOpenSalirDialog] = useState(false);
+  const router = useRouter();
+  const params = useSearchParams();
+  const [initialValues, setInitialValues] = useState<any>(null);
 
 
 /* Errores específicos del PASO 1 */
@@ -288,10 +298,21 @@ useEffect(() => {
         setBusquedaSesion(sesion.descripcion);
       }
 
+
+      setInitialValues({
+        acuerdo: cal.acuerdo_o_numero_licitacion,
+        servidor: cal.id_servidor_publico,
+        cargo: cal.servidor_publico_cargo,
+        tipoEvento: cal.tipo_evento,
+        tipoLicitacion: cal.tipo_licitacion,
+        sesion: cal.tipo_licitacion_no_veces,
+      });
+      
+
       // Ir al paso correcto si viene por URL
-      if (stepFromURL) {
-        setStep(Number(stepFromURL));
-      }
+    if (stepFromURL && idCalendario && idCalendario > 0) {
+      setStep(Number(stepFromURL));
+    }
     } catch (err) {
       console.error("❌ Error cargando calendario:", err);
     }
@@ -308,9 +329,16 @@ useEffect(() => {
   const stepNumber = Number(stepFromURL);
 
   // Validar que el calendario ya se cargó
-  if (idFromURL && idCalendario) {
-    setStep(stepNumber);
-  }
+if (
+  idFromURL &&
+  idCalendario &&
+  idFromURL !== "0" &&
+  idFromURL !== "null" &&
+  idFromURL !== "undefined" &&
+  idCalendario > 0
+) {
+  setStep(stepNumber);
+}
 }, [stepFromURL, idCalendario]);
 
     /* =========================================================
@@ -364,13 +392,11 @@ async function cargarAuxiliares(tipoEventoSeleccionado: string) {
   /* =========================================================
     HANDLER PRINCIPAL DEL PASO 1: CREAR CALENDARIO
   ========================================================= */
-  async function crearCalendario() {
-  // Si ya existe un calendario → NO volverlo a crear
-if (idCalendario) {
-  editarCalendario();   // 👈 nuevo
-} else {
-  crearCalendario();
-}
+async function crearCalendario() {
+  if (idCalendario) {
+    // Si ya existe → NO crear de nuevo
+    return editarCalendario();
+  }
 
   // VALIDACIÓN DE CAMPOS (PEGAR AQUÍ)
   const newErrors: any = {};
@@ -511,12 +537,26 @@ if (idCalendario) {
   }
 
   if (data?.resultado) {
-    toast.success("Calendario actualizado correctamente");
+    toast.success("Licitación actualizada correctamente");
     setStep(2);
   } else {
-    toast.error("No se pudo actualizar el calendario");
+    toast.error("No se pudo actualizar la licitación");
   }
 }
+
+function hayCambiosEnPaso1() {
+  if (!initialValues) return true;
+
+  return (
+    initialValues.acuerdo !== acuerdo ||
+    initialValues.servidor !== servidorSeleccionado?.id ||
+    initialValues.cargo !== cargoServidor ||
+    initialValues.tipoEvento !== tipoEvento ||
+    initialValues.tipoLicitacion !== tipoLicitacion ||
+    initialValues.sesion !== sesionSeleccionada?.id
+  );
+}
+
     /* =========================================================
      UI DEL PASO 1 (REGISTRO)
      COMPLETAMENTE MARCADA
@@ -605,11 +645,15 @@ return (
                   <TooltipTrigger asChild>
                 <Button
                   onClick={() => {
-                  if (idCalendario) {
+                if (idCalendario) {
+                  if (hayCambiosEnPaso1()) {
                     editarCalendario();
                   } else {
-                    crearCalendario();
+                    setStep(2); // NO hubo cambios → avanzar
                   }
+                } else {
+                  crearCalendario();
+                }
                   }}
                       className="bg-[#235391] hover:bg-[#1e3a8a] transition-transform hover:scale-105 rounded-full px-4 py-2"
                     >
@@ -1024,11 +1068,15 @@ return (
                     <TooltipTrigger asChild>
                   <Button
                     onClick={() => {
-                    if (idCalendario) {
+                  if (idCalendario) {
+                    if (hayCambiosEnPaso1()) {
                       editarCalendario();
                     } else {
-                      crearCalendario();
+                      setStep(2); // NO hubo cambios → avanzar
                     }
+                  } else {
+                    crearCalendario();
+                  }
                     }}
                         className="bg-[#235391] hover:bg-[#1e3a8a] transition-transform hover:scale-105 rounded-full px-4 py-2"
                       >
@@ -1609,19 +1657,19 @@ async function handleEliminarFuente() {
           </DialogHeader>
 
           <DialogFooter className="flex justify-end gap-3 mt-6">
-            <Button
-              className="bg-[#db200b] text-white px-5"
-              onClick={() => setOpenEliminarDialog(false)}
-            >
-              Cancelar
-            </Button>
+          <Button
+            onClick={() => setOpenEliminarDialog(false)}
+            className="bg-[#db200b] text-white px-5 hover:bg-[#db200b]"
+          >
+            Cancelar
+          </Button>
 
-            <Button
-              className="bg-[#34e004] text-white px-5"
-              onClick={handleEliminarFuente}
-            >
-              Sí
-            </Button>
+          <Button
+            onClick={handleEliminarFuente}
+            className="bg-[#34e004] text-white px-5 hover:bg-[#34e004]"
+          >
+            Sí
+          </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

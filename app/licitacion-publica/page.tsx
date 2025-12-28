@@ -94,6 +94,7 @@ interface Calendario {
   numero_sesion: string;
   usuario_registra: string;
 
+  fechas?: CalendarioFecha[];
   actos?: any[]; 
   fuentes?: CalendarioFuente[];
 }
@@ -223,36 +224,58 @@ export default function CalendarioPage() {
         numero_sesion: c.tipo_licitacion_no_veces ?? "—",
         usuario_registra: c.id_usuario_registra ?? "—",
         fechas: [],
+        actos: [], 
         fuentes: [],
       }));
 
-      // Fetch subtablas en paralelo (optimizado)
-      await Promise.all(
-        normalized.map(async (cal) => {
-        const [f1, f2, f3] = await Promise.all([
-        fetch(`${API_BASE}/procesos/calendario/fechas?p_id_calendario=${cal.id}`),
-        fetch(`${API_BASE}/procesos/calendario/fuentes-financiamiento?p_id_calendario=${cal.id}`),
-        fetch(`${API_BASE}/procesos/calendario/acto-popular?p_id_calendario=${cal.id}&p_id_listado_entregables=-99`)
-        ]);
+async function safeJSON(response: Response, label: string) {
+  try {
+    if (!response.ok) {
+      console.warn(`⚠️ Error HTTP en ${label}:`, response.status);
+      return null;
+    }
+    return await response.json();
+  } catch (err) {
+    console.warn(`⚠️ Error al parsear JSON en ${label}:`, err);
+    return null;
+  }
+}
 
-        const fechasJson = await f1.json();
-        const fuentesJson = await f2.json();
-        const actosJson = await f3.json();
+await Promise.all(
+  normalized.map(async (cal) => {
 
-        // Normalización
-        cal.fuentes = fuentesJson.fuentes ?? [];
-        cal.actos = Array.isArray(actosJson.items) ? actosJson.items : [];
-        })
-      );
+    const urlFechas = `${API_BASE}/procesos/calendario/fechas?p_id_calendario=${cal.id}`;
+    const urlFuentes = `${API_BASE}/procesos/calendario/fuentes-financiamiento?p_id_calendario=${cal.id}`;
+    const urlActos = `${API_BASE}/procesos/calendario/acto-popular?p_id_calendario=${cal.id}&p_id_listado_entregables=-99`;
 
-    // Filtrar SOLO calendarios con actos seleccionados
-    const conActos = normalized.filter(cal => cal.actos && cal.actos.length > 0);
+    const [r1, r2, r3] = await Promise.all([
+      fetch(urlFechas).catch(() => null),
+      fetch(urlFuentes).catch(() => null),
+      fetch(urlActos).catch(() => null),
+    ]);
+
+    const fechasJson = r1 ? await safeJSON(r1, "fechas") : null;
+    const fuentesJson = r2 ? await safeJSON(r2, "fuentes") : null;
+    const actosJson = r3 ? await safeJSON(r3, "actos") : null;
+
+    console.log("🔍 RESPUESTAS PARA CALENDARIO:", cal.id, {
+    fechasJson,
+    fuentesJson,
+    actosJson,
+    });
+
+    cal.fechas = Array.isArray(fechasJson?.fechas) ? fechasJson.fechas : [];
+    cal.fuentes = Array.isArray(fuentesJson?.fuentes) ? fuentesJson.fuentes : [];
+    cal.actos = Array.isArray(actosJson?.items) ? actosJson.items : [];
+  })
+);
 
     // Ordenar por ID DESC
-    conActos.sort((a, b) => Number(b.id) - Number(a.id));
+    normalized.sort((a, b) => Number(b.id) - Number(a.id));
 
-    setData(conActos);
-    setOriginalData(conActos);
+    // GUARDAR DESPUÉS de llenar actos/fuentes/fechas
+    setData(normalized);
+    setOriginalData(normalized);
     } catch (err) {
       console.error("❌ Error:", err);
     }
@@ -700,7 +723,7 @@ export default function CalendarioPage() {
                                 </button>
                             </div>
 
-                            {expandedSections[row.original.id]?.actos && (
+                            {(expandedSections[row.original.id]?.actos ?? false) && (
                                 <div className="p-3">
                                 {row.original.actos?.length ? (
                                     <ul className="list-disc pl-6 text-sm text-gray-700">
@@ -759,7 +782,7 @@ export default function CalendarioPage() {
                                 </button>
                               </div>
 
-                              {expandedSections[row.original.id]?.fuentes && (
+                              {(expandedSections[row.original.id]?.fuentes ?? false) && (
                                 <div className="p-3">
                                   {row.original.fuentes?.length ? (
                                     <ul className="list-disc pl-6 text-sm text-gray-700">
