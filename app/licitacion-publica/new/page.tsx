@@ -1864,7 +1864,7 @@ for (const acto of catalogoActos) {
   });
 }
 
-  toast.success("Actos guardados correctamente");
+  toast.success("Proceso finalizado correctamente");
   router.push("/licitacion-publica");
 }
 
